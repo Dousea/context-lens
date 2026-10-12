@@ -2761,9 +2761,9 @@ describe('dashboard', () => {
   })
 
   test("its lines: the effort, cache and context; the judge's reason", () => {
-    const base = { auto: true, paused: false, judging: false, effort: 'medium' as const, cacheNow: 42, contextPercent: 18, reason: 'Haiku: a small fix' }
+    const base = { auto: true, paused: false, judging: false, effort: 'medium' as const, cacheNow: 42, contextPercent: 18, reason: 'Why: a small fix' }
     expect(dashboardLines(base).head).toBe(`✦ Medium · cache ${cacheLabel(42)} · 18% context`)
-    expect(dashboardLines(base).detail).toBe('Haiku: a small fix')
+    expect(dashboardLines(base).detail).toBe('Why: a small fix')
     expect(dashboardLines({ ...base, model: 'Opus 5.5' }).head).toBe(`✦ Medium · Opus 5.5 · cache ${cacheLabel(42)} · 18% context`)
     expect(dashboardLines({ ...base, model: 'Opus 5.5' }).rest).toBe(` · Opus 5.5 · cache ${cacheLabel(42)} · 18% context`)
     expect(dashboardLines({ ...base, auto: false }).head).toBe(`✦ Off · cache ${cacheLabel(42)} · 18% context`)
