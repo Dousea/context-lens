@@ -1050,6 +1050,21 @@ async function toggleSave($: EngineInterface): Promise<string> {
 /** Below this a cold cache costs too little to warn about: the next message rereads the chat at full price once. */
 const COLD_MIN_TOKENS = 150_000
 
+/** A chat this small costs next to nothing to write again on another model, so a cheaper one can pay at once. */
+const SMALL_CHAT_TOKENS = 20_000
+
+/**
+ * Whether the judge's model is worth suggesting: cheaper than the one in use (never Fable), and the chat's cache is cold or
+ * the chat is new or small, so the other model's cache costs little or nothing extra. In a big warm chat it never pays:
+ * the other model has to write the whole chat first. A size or cache state not known yet counts as new.
+ */
+export function suggestWorth(verdict: ModelKey, inUse: ModelKey, chat: { cold: boolean; tokens?: number }): boolean {
+  if (verdict === 'fable') return false
+  const rank = (k: ModelKey) => MODELS.findIndex(m => m.key === k)
+  if (rank(verdict) >= rank(inUse)) return false
+  return chat.cold || (chat.tokens ?? 0) < SMALL_CHAT_TOKENS
+}
+
 /** The context's tokens when the cold band is worth showing: the cache is cold, the band not closed, and the chat big
  * enough that rereading it matters. Null otherwise, and while the size is not known yet. */
 async function coldWorth($: EngineInterface): Promise<number | null> {
@@ -3722,10 +3737,12 @@ Saved to ${out}.md and .json` }
             await choose($, applied)
           }
         }
-        if (wantsModel && verdict.model !== inUse && verdict.model !== declined) {
+        // Only a cheaper model, and only where the switch pays: a cold or small chat (see suggestWorth).
+        const cold = (await read($, cacheLeft)) === 0 || coldForced
+        if (wantsModel && verdict.model !== declined && suggestWorth(verdict.model, inUse, { cold, tokens: lastContext?.tokens })) {
           await update($, suggestion, () => verdict.model)
           $.ui.toast(`Suggestion: switch to ${verdict.model}? /context-lens switch or /context-lens keep`)
-        } else if (verdict.model === inUse) {
+        } else {
           await update($, suggestion, () => null)
         }
       }

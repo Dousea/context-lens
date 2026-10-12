@@ -1,7 +1,7 @@
 import { describe, expect, mock, test as baseTest } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
-import { helperFloor, namedEffort, hotVisible, tipped, bounded, handoffEvidence, parseHandoffAnswer, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, bandFit, turnLineFor, flashColor, handoffGlowStep, weighted, handoffLook, claudeCandidates, noClaudeHint, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
+import { helperFloor, suggestWorth, namedEffort, hotVisible, tipped, bounded, handoffEvidence, parseHandoffAnswer, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, bandFit, turnLineFor, flashColor, handoffGlowStep, weighted, handoffLook, claudeCandidates, noClaudeHint, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
 import { ART_COLUMNS, artFrame, artPixel, MOVING } from '../hooks/art'
 import { isLight, lightHex, lightProps, setLight, setTheme, themedEls, themedSvg, tint, tintHex } from '../hooks/theme'
 import { afterPrompt, currentStep, phaseAtTurnEnd, progressShare, progressShows, progressTitle, soundArgv, stepNumber, stepsFromTodos, withTaskCreated, withTaskUpdated } from '../hooks/progress'
@@ -348,6 +348,32 @@ describe('two autos', () => {
     await $.turn.complete({ turnId: 't1', answer: '', durationMs: 1, isAborted: false, reason: 'completed' } as never)
     await mocked.advance(10)
     expect(ran).toEqual([])
+    await ui.unmount()
+  })
+})
+
+describe('model suggestion', () => {
+  test('suggestWorth: only a cheaper model, and only in a new, small or cold chat', () => {
+    // Cheaper than the one in use, chat new (size unknown) or small or cold.
+    expect(suggestWorth('haiku', 'opus', { cold: false })).toBe(true)
+    expect(suggestWorth('sonnet', 'opus', { cold: false, tokens: 5_000 })).toBe(true)
+    expect(suggestWorth('sonnet', 'opus', { cold: true, tokens: 400_000 })).toBe(true)
+    // A big warm chat: the other model would write all of it first.
+    expect(suggestWorth('haiku', 'opus', { cold: false, tokens: 120_000 })).toBe(false)
+    // Same model, a dearer one, and Fable are never suggested.
+    expect(suggestWorth('opus', 'opus', { cold: true })).toBe(false)
+    expect(suggestWorth('opus', 'sonnet', { cold: true })).toBe(false)
+    expect(suggestWorth('fable', 'opus', { cold: true })).toBe(false)
+  })
+
+  test('a dearer model than the chat\'s is not suggested, even in a new chat', async ($, on) => {
+    engine(on, {}, 'claude-sonnet-5-5')
+    judgeSays(on, '{"model":"opus","effort":"high","why":"hard problem"}')
+    const ui = await $.ui.mount({ plugin: 'context-lens', surface: 'terminal', ...BAND })
+    await ui.press({ key: 'auto-model' })
+    await $.prompt.submit({ text: 'design the whole trainer architecture', wait: false, origin: { kind: 'composer' } })
+    await ui.redraw()
+    expect(await ui.find({ key: 'accept' })).toBeUndefined()
     await ui.unmount()
   })
 })
