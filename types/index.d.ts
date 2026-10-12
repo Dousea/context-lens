@@ -132,7 +132,7 @@ export type FileTouch = {
 
 declare module 'claude-code' {
   interface PluginState {
-    effortless: {
+    'context-lens': {
       /** Auto on effort: every prompt is judged and its effort applied. */
       isAuto: boolean
       /** The last change Auto made to the effort, shown for a moment as "Low → High". */

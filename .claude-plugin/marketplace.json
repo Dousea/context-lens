@@ -1,20 +1,15 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
-  "name": "effortless",
-  "description": "Automatic reasoning effort and a prompt-cache countdown for Claude Code.",
+  "name": "context-lens",
+  "description": "Automatic reasoning effort, a prompt-cache countdown, the context window and rate-limit usage in one band for Claude Code.",
   "owner": {
-    "name": "HeyCubit",
-    "url": "https://github.com/HeyCubit"
+    "name": "Orlando Hutapea"
   },
   "plugins": [
     {
-      "name": "effortless",
-      "description": "Sets the reasoning effort for every prompt automatically and shows a prompt-cache countdown with one-click Compact.",
-      "source": {
-        "source": "url",
-        "url": "https://github.com/HeyCubit/effortless.git",
-        "ref": "stable"
-      },
+      "name": "context-lens",
+      "description": "Sets the reasoning effort for every prompt automatically, and shows the prompt-cache timers, context window and rate-limit usage above the prompt.",
+      "source": "./",
       "category": "productivity"
     }
   ]
