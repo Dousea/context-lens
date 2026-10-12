@@ -537,8 +537,6 @@ export type JudgeConfig = {
   handoffButton: 'advised' | 'always'
   /** on: every subagent the chat sends off gets an effort picked by the judge before it starts. */
   helpers: 'on' | 'off'
-  /** on: in a new, small or cold chat, a prompt waits while a cheaper model is offered (see suggestWorth). */
-  holdOffer: 'on' | 'off'
   /** on (with helpers on): the judge also picks the model of each subagent, never above the one it was given. */
   helperModel: 'on' | 'off'
   /** The accent colour of everything context-lens draws: the brand violet, Claude orange or cherry-blossom rose. */
@@ -569,7 +567,6 @@ let config: JudgeConfig = {
   compactWith: 'haiku',
   handoffButton: 'advised',
   helpers: 'off',
-  holdOffer: 'off',
   helperModel: 'off',
   theme: 'violet',
   appearance: 'auto',
@@ -590,7 +587,6 @@ export function readConfig(options: unknown): JudgeConfig {
     compactWith: str(o.compactWith) === 'session' ? 'session' : 'haiku',
     handoffButton: str(o.handoffButton) === 'always' ? 'always' : 'advised',
     helpers: str(o.helpers) === 'on' ? 'on' : 'off',
-    holdOffer: str(o.holdOffer) === 'on' ? 'on' : 'off',
     helperModel: str(o.helperModel) === 'on' ? 'on' : 'off',
     theme: THEMES.find(t => t === str(o.theme)) ?? 'violet',
     appearance: (['dark', 'light'] as const).find(a => a === str(o.appearance)) ?? 'auto',
@@ -916,7 +912,7 @@ async function typeCommand($: EngineInterface, text: string): Promise<boolean> {
   }
 }
 
-// A prompt waiting for the answer to a cheaper-model offer (the holdOffer setting): who to tell, and the model offered.
+// A prompt waiting for the answer to a model offer: who to tell, and the model offered.
 let offer: { model: ModelKey; done: (accepted: boolean) => void } | null = null
 const OFFER_HOLD_MS = 20_000
 
@@ -941,6 +937,14 @@ async function holdForOffer($: EngineInterface, model: ModelKey): Promise<boolea
       },
     }
   })
+}
+
+/** The dropped prompt, sent again on the new model. The host may have put its text back in the input box: that copy is cleared
+ * first (only when it is still the same text, so something typed meanwhile is left alone), or it would sit there twice. */
+async function sendAgain($: EngineInterface, again: { text: string; attachments?: unknown }) {
+  const boxed = (await $.prompt.read().catch(() => null))?.text ?? ''
+  if (boxed.trim() === again.text.trim()) await $.prompt.fill({ text: '', mode: 'replace' }).catch(() => undefined)
+  await $.prompt.submit(again as never)
 }
 
 /** A model change reloads the context, so it only happens when the person says yes. */
@@ -1090,14 +1094,12 @@ const COLD_MIN_TOKENS = 150_000
 const SMALL_CHAT_TOKENS = 20_000
 
 /**
- * Whether the judge's model is worth suggesting: cheaper than the one in use (never Fable), and the chat's cache is cold or
- * the chat is new or small, so the other model's cache costs little or nothing extra. In a big warm chat it never pays:
- * the other model has to write the whole chat first. A size or cache state not known yet counts as new.
+ * Whether the judge's model is worth suggesting: another model than the one in use, cheaper or stronger (never Fable), and
+ * the chat's cache is cold or the chat is new or small, so the other model's cache costs little or nothing extra. In a big
+ * warm chat it never pays: the other model has to write the whole chat first. A size or cache state not known yet counts as new.
  */
 export function suggestWorth(verdict: ModelKey, inUse: ModelKey, chat: { cold: boolean; tokens?: number }): boolean {
-  if (verdict === 'fable') return false
-  const rank = (k: ModelKey) => MODELS.findIndex(m => m.key === k)
-  if (rank(verdict) >= rank(inUse)) return false
+  if (verdict === 'fable' || verdict === inUse) return false
   return chat.cold || (chat.tokens ?? 0) < SMALL_CHAT_TOKENS
 }
 
@@ -1672,7 +1674,6 @@ const SETTING_FIELDS = {
   compactWith: 'compactWith',
   handoffButton: 'handoffButton',
   helpers: 'helpers',
-  holdOffer: 'holdOffer',
   helperModel: 'helperModel',
   theme: 'theme',
   appearance: 'appearance',
@@ -1703,7 +1704,6 @@ async function saveSetting($: EngineInterface, field: keyof typeof SETTING_FIELD
     compactWith: config.compactWith,
     handoffButton: config.handoffButton,
     helpers: config.helpers,
-    holdOffer: config.holdOffer,
     helperModel: config.helperModel,
     theme: config.theme,
     appearance: config.appearance,
@@ -3718,14 +3718,13 @@ Saved to ${out}.md and .json` }
     if (byPerson && !e.text.trim().startsWith('/') && !isFollowUp(e.text)) void checkHandoff($, e.text).catch(() => undefined)
     const wantsEffort = await read($, isAuto)
     const wantsModel = await read($, isAutoModel)
-    const wantsOffer = config.holdOffer === 'on'
     settleOffer(false)
     // A typed slash command is judged only when it is a skill or a custom command (what the person added); the app's own
     // (/compact, /clear, /model) and context-lens's never are. The judge is told what the command is, since its name alone says little.
     const slash = e.text.trim().startsWith('/')
     const skill = slash && byPerson ? await typedSkill($, e.text) : undefined
     if (byAgent && !wantsEffort) return next(e)
-    if ((!byPerson && !byAgent) || (slash && !skill) || (!wantsEffort && !wantsModel && !wantsOffer)) return next(e)
+    if ((!byPerson && !byAgent) || (slash && !skill) || (!wantsEffort && !wantsModel)) return next(e)
     // On a model where an effort change rewrites the cache, Auto waits instead of judging.
     const modelId = await $.session.model()
     await modelIs($, modelId)
@@ -3768,7 +3767,7 @@ Saved to ${out}.md and .json` }
     // The band is drawn again as the judge starts, so the rise is placed by the clock from the first frame.
     $.ui.invalidate('ui.render')
     await update($, isJudging, () => true)
-    // The cheaper model offered to a prompt that waits for the answer (holdOffer), once the judge is done.
+    // The model offered to a prompt that waits for the answer, once the judge is done.
     let held: ModelKey | null = null
     try {
       const inUse = await sessionModel($)
@@ -3809,12 +3808,12 @@ Saved to ${out}.md and .json` }
             await choose($, applied)
           }
         }
-        // Only a cheaper model, and only where the switch pays: a cold or small chat (see suggestWorth).
+        // Only another model than the chat's, and only where the switch pays: a cold or small chat (see suggestWorth).
         const cold = (await read($, cacheLeft)) === 0 || coldForced
-        if ((wantsModel || wantsOffer) && verdict.model !== declined && suggestWorth(verdict.model, inUse, { cold, tokens: lastContext?.tokens })) {
+        if (verdict.model !== declined && suggestWorth(verdict.model, inUse, { cold, tokens: lastContext?.tokens }) && (wantsModel || (byPerson && !midTurn && !slash))) {
           await update($, suggestion, () => verdict.model)
           // A prompt typed here waits for the answer; a note, an agent's report or a message typed mid-turn only gets the toast.
-          if (wantsOffer && byPerson && !midTurn && !slash) held = verdict.model
+          if (byPerson && !midTurn && !slash) held = verdict.model
           else if (wantsModel) $.ui.toast(`Suggestion: switch to ${verdict.model}? /context-lens switch or /context-lens keep`)
         } else {
           await update($, suggestion, () => null)
@@ -3836,7 +3835,7 @@ Saved to ${out}.md and .json` }
         // dropped here, the model switched from a later event, and the same prompt sent again on the new model.
         const again = { text: e.text, attachments: e.attachments }
         await setTurnBusy($, false)
-        $.clock.after(0, () => void switchModel($, held!).then(() => $.prompt.submit(again)).catch(() => undefined))
+        $.clock.after(0, () => void switchModel($, held!).then(() => sendAgain($, again)).catch(() => undefined))
         return { drop: `switching to ${held} first` }
       }
     }
@@ -4150,7 +4149,6 @@ Saved to ${out}.md and .json` }
         compactWith: draft.compactWith ?? config.compactWith,
         handoffButton: draft.handoffButton ?? config.handoffButton,
         helpers: draft.helpers ?? config.helpers,
-        holdOffer: draft.holdOffer ?? config.holdOffer,
         helperModel: draft.helperModel ?? config.helperModel,
         theme: draft.theme ?? config.theme,
         appearance: draft.appearance ?? config.appearance,
@@ -4168,7 +4166,7 @@ Saved to ${out}.md and .json` }
       const hidden = (draft.hide ?? config.hide.join(',')).split(',').filter(Boolean)
       const summaries: Record<SettingsCard, string> = {
         effort: `${BIAS_WORDS[shown.bias + 2]} · ${shown.floor} to ${shown.ceiling}${shown.helpers === 'on' ? ' · helpers' : ''}`,
-        model: `${shown.compactWith === 'session' ? "Chat's model" : 'Haiku 5.5'}${shown.holdOffer === 'on' ? ' · offers cheaper' : ''}${shown.helperModel === 'on' ? ' · cheaper helpers' : ''}`,
+        model: `${shown.compactWith === 'session' ? "Chat's model" : 'Haiku 5.5'}${shown.helperModel === 'on' ? ' · cheaper helpers' : ''}`,
         handoff: `${shown.handoffSkill ? `/${shown.handoffSkill}` : 'Built in'} · compact alert at ${shown.swampAt}%`,
         show: `${shown.layout === 'minimal' ? 'Minimal' : 'Dashboard'} · ${2 - ['timer', 'reason'].filter(h => hidden.includes(h)).length} of 2 on`,
       }
@@ -4381,10 +4379,6 @@ Saved to ${out}.md and .json` }
 ] : card === 'model' ? (bare ? [] : [
             // Which model writes a compaction's summary.
             pick({ key: "settings-compact-with", label: "Compact with", value: shown.compactWith, options: [{ value: 'haiku', label: 'Haiku 5.5' }, { value: 'session', label: "Chat's model" }], onSelect: set('compactWith') }),
-            <Box key="settings-hold" flexDirection="column">
-              <Button key="settings-hold-switch" plain label={`${shown.holdOffer === 'on' ? '◉' : '○'} Offer a cheaper model first`} onPress={() => set('holdOffer')(shown.holdOffer === 'on' ? 'off' : 'on')} />
-              <Text dimColor wrap="wrap">{shown.holdOffer === 'on' ? "In a new, small or cold chat the prompt waits (up to 20 s) while a cheaper model is offered" : "A prompt is never held; a suggestion is only a note"}</Text>
-            </Box>,
             <Box key="settings-helper-model" flexDirection="column">
               <Button key="settings-helper-model-switch" plain label={`${shown.helperModel === 'on' ? '◉' : '○'} Cheaper model for helpers`} onPress={() => set('helperModel')(shown.helperModel === 'on' ? 'off' : 'on')} />
               <Text dimColor wrap="wrap">{shown.helperModel === 'on' ? (shown.helpers === 'on' ? "A subagent the judge calls simple runs on a cheaper model than it was given, never a dearer one" : "Needs Helpers on (Effort card)") : "A subagent keeps the model it was given"}</Text>

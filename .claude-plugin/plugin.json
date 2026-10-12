@@ -79,16 +79,6 @@
         "off"
       ]
     },
-    "holdOffer": {
-      "type": "string",
-      "title": "Offer a cheaper model first",
-      "description": "on: in a new, small or cold chat, a prompt waits (up to 20 s) while the judge's cheaper model is offered; Switch runs it there, Keep sends it as it is. Needs the chat's cache to be cold or the chat small, since a switch in a big warm chat costs more than it saves. off (default): a prompt is never held.",
-      "default": "off",
-      "options": [
-        "on",
-        "off"
-      ]
-    },
     "helperModel": {
       "type": "string",
       "title": "Cheaper model for helpers",

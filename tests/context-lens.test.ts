@@ -131,7 +131,7 @@ async function clickable(ui: { drawn: () => Promise<unknown> }, layer: string) {
 describe('auto', () => {
   test('effort follows the judge and the model stays the one in use', async ($, on) => {
     engine(on)
-    judgeSays(on, '{"model":"haiku","effort":"low","why":"simple question"}')
+    judgeSays(on, '{"model":"opus","effort":"low","why":"simple question"}')
     const sent = recordSteps(on)
 
     await $.prompt.submit({ text: 'vad heter mappen?', wait: false, origin: { kind: 'composer' } })
@@ -294,7 +294,7 @@ describe('manual effort', () => {
 describe('model in use', () => {
   test('a switch in the app moves the band, and effort applies to the new model at once', async ($, on) => {
     engine(on)
-    judgeSays(on, '{"model":"haiku","effort":"low","why":"kort"}')
+    judgeSays(on, '{"model":"opus","effort":"low","why":"kort"}')
     const sent = recordSteps(on)
     mock.clock(on)
     on('classic.PostModelSwitch', () => ({}) as never)
@@ -319,9 +319,9 @@ describe('model in use', () => {
 })
 
 describe('two autos', () => {
-  test('Auto for model starts off: effort follows the judge and no model is suggested', async ($, on) => {
+  test('Auto for model starts off: effort follows the judge and the judge naming the chat model offers nothing', async ($, on) => {
     engine(on)
-    judgeSays(on, '{"model":"sonnet","effort":"low","why":"simple"}')
+    judgeSays(on, '{"model":"opus","effort":"low","why":"simple"}')
     const ran = recordCommands(on)
     const sent = recordSteps(on)
     const ui = await $.ui.mount({ plugin: 'context-lens', surface: 'terminal', ...BAND })
@@ -348,9 +348,10 @@ describe('two autos', () => {
     await ui.press({ key: 'auto' })
     await ui.press({ key: 'auto-model' })
 
-    await $.prompt.submit({ text: 'hej', wait: false, origin: { kind: 'composer' } })
-    await ui.redraw()
+    void $.prompt.submit({ text: 'hej', wait: false, origin: { kind: 'composer' } })
+    for (let i = 0; i < 5; i++) await ui.redraw()
     expect(await ui.find({ key: 'accept' })).toBeDefined()
+    await ui.press({ key: 'decline' })
 
     await $.turn.complete({ turnId: 't1', answer: '', durationMs: 1, isAborted: false, reason: 'completed' } as never)
     await mocked.advance(10)
@@ -360,33 +361,35 @@ describe('two autos', () => {
 })
 
 describe('model suggestion', () => {
-  test('suggestWorth: only a cheaper model, and only in a new, small or cold chat', () => {
+  test('suggestWorth: another model, cheaper or stronger, only in a new, small or cold chat', () => {
     // Cheaper than the one in use, chat new (size unknown) or small or cold.
     expect(suggestWorth('haiku', 'opus', { cold: false })).toBe(true)
     expect(suggestWorth('sonnet', 'opus', { cold: false, tokens: 5_000 })).toBe(true)
     expect(suggestWorth('sonnet', 'opus', { cold: true, tokens: 400_000 })).toBe(true)
     // A big warm chat: the other model would write all of it first.
     expect(suggestWorth('haiku', 'opus', { cold: false, tokens: 120_000 })).toBe(false)
-    // Same model, a dearer one, and Fable are never suggested.
+    // A stronger model counts too, under the same cache rule; the same model and Fable never do.
+    expect(suggestWorth('opus', 'sonnet', { cold: true })).toBe(true)
+    expect(suggestWorth('opus', 'sonnet', { cold: false, tokens: 120_000 })).toBe(false)
     expect(suggestWorth('opus', 'opus', { cold: true })).toBe(false)
-    expect(suggestWorth('opus', 'sonnet', { cold: true })).toBe(false)
     expect(suggestWorth('fable', 'opus', { cold: true })).toBe(false)
   })
 
-  test('a dearer model than the chat\'s is not suggested, even in a new chat', async ($, on) => {
+  test('a stronger model than the chat\'s is suggested in a new chat', async ($, on) => {
     engine(on, {}, 'claude-sonnet-5-5')
     judgeSays(on, '{"model":"opus","effort":"high","why":"hard problem"}')
+    mock.clock(on)
     const ui = await $.ui.mount({ plugin: 'context-lens', surface: 'terminal', ...BAND })
     await ui.press({ key: 'auto-model' })
-    await $.prompt.submit({ text: 'design the whole trainer architecture', wait: false, origin: { kind: 'composer' } })
-    await ui.redraw()
-    expect(await ui.find({ key: 'accept' })).toBeUndefined()
+    void $.prompt.submit({ text: 'design the whole trainer architecture', wait: false, origin: { kind: 'composer' } })
+    for (let i = 0; i < 5; i++) await ui.redraw()
+    expect(await ui.find({ key: 'accept' })).toBeDefined()
+    await ui.press({ key: 'decline' })
     await ui.unmount()
   })
 })
 
-describe('offer a cheaper model first', () => {
-  const OFFER = { options: { holdOffer: 'on' } } as never
+describe('offer a model first', () => {
   // The prompt as the engine sees it: when it is let through (its text reaches the app), and what ran meanwhile.
   const sendHeld = async ($: Engine, _on: On, text = 'vad heter mappen?') => {
     const sending = $.prompt.submit({ text, wait: false, origin: { kind: 'composer' } })
@@ -396,10 +399,17 @@ describe('offer a cheaper model first', () => {
     for (let i = 0; i < 5; i++) await ui.redraw()
   }
 
-  test('offer first: a new chat holds the prompt until Switch: the model is switched, then the prompt goes', OFFER, async ($, on) => {
+  test('offer first: a new chat holds the prompt until Switch: the model is switched, then the prompt goes', async ($, on) => {
     engine(on)
     judgeSays(on, '{"model":"haiku","effort":"low","why":"simple question"}')
     const ran = recordCommands(on)
+    // The host put the dropped prompt back in the input box: it is cleared before the prompt is sent again.
+    const filled: string[] = []
+    on('prompt.read', () => ({ value: { text: 'vad heter mappen?', cursor: 17 } }) as never)
+    on('prompt.fill', (_$, e) => {
+      filled.push(e.text)
+      return { isFilled: true } as never
+    })
     const clock = mock.clock(on)
     const ui = await $.ui.mount({ plugin: 'context-lens', surface: 'terminal', ...BAND })
     const { through, sending } = await sendHeld($, on)
@@ -413,10 +423,11 @@ describe('offer a cheaper model first', () => {
     await clock.advance(50)
     expect(ran).toEqual(['/model haiku'])
     expect(through).toEqual(['vad heter mappen?'])
+    expect(filled).toEqual([''])
     await ui.unmount()
   })
 
-  test('offer first: Keep sends the prompt as it is, on the chat model', OFFER, async ($, on) => {
+  test('offer first: Keep sends the prompt as it is, on the chat model', async ($, on) => {
     engine(on)
     judgeSays(on, '{"model":"haiku","effort":"low","why":"simple question"}')
     const ran = recordCommands(on)
@@ -432,7 +443,7 @@ describe('offer a cheaper model first', () => {
     await ui.unmount()
   })
 
-  test('offer first: nobody answers, the prompt goes after 20 seconds, the model unchanged', OFFER, async ($, on) => {
+  test('offer first: nobody answers, the prompt goes after 20 seconds, the model unchanged', async ($, on) => {
     engine(on)
     judgeSays(on, '{"model":"haiku","effort":"low","why":"simple question"}')
     const ran = recordCommands(on)
@@ -448,22 +459,31 @@ describe('offer a cheaper model first', () => {
     await ui.unmount()
   })
 
-  test('offer first: with the setting off the prompt is never held', async ($, on) => {
-    engine(on)
-    judgeSays(on, '{"model":"haiku","effort":"low","why":"simple question"}')
-    mock.clock(on)
-    const { through, sending } = await sendHeld($, on)
-    await sending
-    expect(through).toEqual(['vad heter mappen?'])
-  })
-
-  test('offer first: a dearer model is not offered, so the prompt is not held', OFFER, async ($, on) => {
+  test('offer first: a stronger model is offered too, and the prompt waits', async ($, on) => {
     engine(on, {}, 'claude-sonnet-5-5')
     judgeSays(on, '{"model":"opus","effort":"high","why":"hard problem"}')
-    mock.clock(on)
+    const ran = recordCommands(on)
+    const clock = mock.clock(on)
+    const ui = await $.ui.mount({ plugin: 'context-lens', surface: 'terminal', ...BAND })
     const { through, sending } = await sendHeld($, on, 'design the whole trainer architecture')
+    await settle(ui)
+    expect(await ui.find({ key: 'accept' })).toBeDefined()
+    expect(through).toEqual([])
+    await ui.press({ key: 'accept' })
     await sending
+    await clock.advance(50)
+    expect(ran).toEqual(['/model opus'])
     expect(through).toEqual(['design the whole trainer architecture'])
+    await ui.unmount()
+  })
+
+  test('offer first: Fable is never offered, so the prompt is not held', async ($, on) => {
+    engine(on, {}, 'claude-sonnet-5-5')
+    judgeSays(on, '{"model":"fable","effort":"max","why":"research"}')
+    mock.clock(on)
+    const { through, sending } = await sendHeld($, on, 'prove the conjecture')
+    await sending
+    expect(through).toEqual(['prove the conjecture'])
   })
 })
 
@@ -559,7 +579,7 @@ describe('footer text', () => {
 
   test('with Auto on it is the effort in use, in purple', async ($, on) => {
     engine(on)
-    judgeSays(on, '{"model":"sonnet","effort":"high","why":"hard"}')
+    judgeSays(on, '{"model":"opus","effort":"high","why":"hard"}')
     const footer = await $.ui.mount(FOOTER)
     await $.prompt.submit({ text: 'hard task', wait: false, origin: { kind: 'composer' } })
     const text = await drawn(footer)
@@ -570,7 +590,7 @@ describe('footer text', () => {
 
   test('the small button switches Auto off ("Off", dim, not purple) and on again', async ($, on) => {
     engine(on)
-    const asked = judgeSays(on, '{"model":"sonnet","effort":"high","why":"hard"}')
+    const asked = judgeSays(on, '{"model":"opus","effort":"high","why":"hard"}')
     const footer = await $.ui.mount(FOOTER)
     await $.prompt.submit({ text: 'hard task', wait: false, origin: { kind: 'composer' } })
     expect(await drawn(footer)).toContain('"children":[" High "]')
@@ -593,7 +613,7 @@ describe('footer text', () => {
 
   test("the app's own Effort control turns Auto off and the footer says Off", async ($, on) => {
     engine(on)
-    judgeSays(on, '{"model":"sonnet","effort":"high","why":"hard"}')
+    judgeSays(on, '{"model":"opus","effort":"high","why":"hard"}')
     recordSteps(on)
     const footer = await $.ui.mount(FOOTER)
     await $.prompt.submit({ text: 'hard task', wait: false, origin: { kind: 'composer' } })
@@ -643,7 +663,7 @@ describe('footer text', () => {
     // The judge takes half a second to answer.
     on('model.complete', async () => {
       await mocked.sleep(500)
-      return { value: { isAnswered: true as const, text: '{"model":"sonnet","effort":"high","why":"x"}', usage: USAGE } } as never
+      return { value: { isAnswered: true as const, text: '{"model":"opus","effort":"high","why":"x"}', usage: USAGE } } as never
     })
     const footer = await $.ui.mount(FOOTER)
     expect(await drawn(footer)).not.toContain('Deciding')
@@ -662,7 +682,7 @@ describe('footer text', () => {
   test('a switch is shown as Low → High for a moment, then only the level', async ($, on) => {
     engine(on)
     const mocked = mock.clock(on)
-    let verdict = '{"model":"sonnet","effort":"low","why":"simple"}'
+    let verdict = '{"model":"opus","effort":"low","why":"simple"}'
     on('model.complete', () => ({ value: { isAnswered: true as const, text: verdict, usage: USAGE } }) as never)
     const footer = await $.ui.mount(FOOTER)
 
@@ -670,7 +690,7 @@ describe('footer text', () => {
     await $.prompt.submit({ text: 'hej', wait: false, origin: { kind: 'composer' } })
     expect(await drawn(footer)).not.toContain('→')
 
-    verdict = '{"model":"sonnet","effort":"high","why":"hard"}'
+    verdict = '{"model":"opus","effort":"high","why":"hard"}'
     await $.prompt.submit({ text: 'hard task across several files', wait: false, origin: { kind: 'composer' } })
     expect(await drawn(footer)).toContain('"children":[" Low → High "]')
 
@@ -684,7 +704,7 @@ describe('footer text', () => {
   test('/context-lens stats reports the measured cost of every token kind, per effort, and the judge', async ($, on) => {
     engine(on)
     mock.clock(on)
-    judgeSays(on, '{"model":"sonnet","effort":"low","why":"simple"}')
+    judgeSays(on, '{"model":"opus","effort":"low","why":"simple"}')
     on('turn.step', async function* (_$, e) {
       return {
         turnId: e.turnId,
@@ -729,11 +749,12 @@ describe('footer text', () => {
     judgeSays(on, '{"model":"haiku","effort":"low","why":"simple"}')
     mock.clock(on)
     const rows = await $.ui.mount({ plugin: 'context-lens', surface: 'terminal', ...BAND })
-    await rows.press({ key: 'auto-model' })
 
-    await $.prompt.submit({ text: 'hej', wait: false, origin: { kind: 'composer' } })
+    void $.prompt.submit({ text: 'hej', wait: false, origin: { kind: 'composer' } })
+    for (let i = 0; i < 5; i++) await rows.redraw()
     const ask = await $.ui.mount(DESK_BAND)
     expect(await ask.find({ key: 'accept' })).toBeDefined()
+    await rows.press({ key: 'decline' })
     await ask.unmount()
     await rows.unmount()
   })
@@ -1044,7 +1065,7 @@ describe('cache guard', () => {
 describe('footer', () => {
   test('auto sets the effort of the request, never runs /effort or /model', async ($, on) => {
     engine(on)
-    judgeSays(on, '{"model":"sonnet","effort":"low","why":"simple"}')
+    judgeSays(on, '{"model":"opus","effort":"low","why":"simple"}')
     const ran = recordCommands(on)
     const sent = recordSteps(on)
 
@@ -1055,21 +1076,21 @@ describe('footer', () => {
     expect(ran).toEqual([])
   })
 
-  test('a different model is only suggested, and /context-lens switch switches it', async ($, on) => {
+  test('a different model is offered with the prompt held, and Switch switches it', async ($, on) => {
     engine(on)
     judgeSays(on, '{"model":"haiku","effort":"low","why":"simple"}')
     const ran = recordCommands(on)
     const mocked = mock.clock(on)
     const ui = await $.ui.mount({ plugin: 'context-lens', surface: 'terminal', ...BAND })
-    await ui.press({ key: 'auto-model' })
 
-    await $.prompt.submit({ text: 'hej', wait: false, origin: { kind: 'composer' } })
-    await mocked.advance(10)
+    const sending = $.prompt.submit({ text: 'hej', wait: false, origin: { kind: 'composer' } })
+    for (let i = 0; i < 5; i++) await ui.redraw()
     expect(ran.some(c => c.startsWith('/model'))).toBe(false)
-    await ui.redraw()
     expect(await ui.find({ key: 'accept' })).toBeDefined()
 
     await ui.press({ key: 'accept' })
+    await sending
+    await mocked.advance(50)
     expect(ran).toContain('/model haiku')
     await ui.unmount()
   })
@@ -1080,12 +1101,12 @@ describe('footer', () => {
     recordCommands(on)
     const mocked = mock.clock(on)
     const ui = await $.ui.mount({ plugin: 'context-lens', surface: 'terminal', ...BAND })
-    await ui.press({ key: 'auto-model' })
 
-    await $.prompt.submit({ text: 'hej', wait: false, origin: { kind: 'composer' } })
-    await mocked.advance(10)
-    await ui.redraw()
+    const first = $.prompt.submit({ text: 'hej', wait: false, origin: { kind: 'composer' } })
+    for (let i = 0; i < 5; i++) await ui.redraw()
     await ui.press({ key: 'decline' })
+    await first
+    // The same model is not offered again: this prompt is not held.
     await $.prompt.submit({ text: 'hej igen', wait: false, origin: { kind: 'composer' } })
     await mocked.advance(10)
     await ui.redraw()
@@ -1099,7 +1120,7 @@ describe('band', () => {
   for (const surface of ['terminal'] as const) {
     test(`clicking an effort turns auto off and is what the turn runs with (${surface})`, async ($, on) => {
       engine(on)
-      const asked = judgeSays(on, '{"model":"haiku","effort":"low","why":"x"}')
+      const asked = judgeSays(on, '{"model":"opus","effort":"low","why":"x"}')
       const sent = recordSteps(on)
       const ran = recordCommands(on)
 
@@ -1126,7 +1147,7 @@ describe('band', () => {
 describe('review fixes', () => {
   test('a model switch that changes the engine effort is not read as you choosing, Auto stays on', async ($, on) => {
     engine(on)
-    judgeSays(on, '{"model":"sonnet","effort":"low","why":"simple"}')
+    judgeSays(on, '{"model":"opus","effort":"low","why":"simple"}')
     mock.clock(on)
     on('classic.PostModelSwitch', () => ({}) as never)
     const sent = recordSteps(on)
@@ -1149,22 +1170,25 @@ describe('review fixes', () => {
     expect(sent[1].effort).toBe('low')
   })
 
-  test('/context-lens switch switches to the suggested model and /context-lens keep turns it down', async ($, on) => {
+  test('/context-lens switch switches to the offered model and /context-lens keep turns it down', async ($, on) => {
     engine(on)
     judgeSays(on, '{"model":"haiku","effort":"low","why":"simple"}')
     const ran = recordCommands(on)
     const mocked = mock.clock(on)
     const ui = await $.ui.mount({ plugin: 'context-lens', surface: 'terminal', ...BAND })
-    await ui.press({ key: 'auto-model' })
 
-    await $.prompt.submit({ text: 'hej', wait: false, origin: { kind: 'composer' } })
+    const first = $.prompt.submit({ text: 'hej', wait: false, origin: { kind: 'composer' } })
+    for (let i = 0; i < 5; i++) await ui.redraw()
     const result = await $.command.run({ command: 'context-lens', args: 'switch' })
-    await mocked.advance(10)
+    await first
+    await mocked.advance(50)
     expect(String(result.text)).toContain('haiku')
     expect(ran).toContain('/model haiku')
 
-    await $.prompt.submit({ text: 'a new question about something else', wait: false, origin: { kind: 'composer' } })
+    const second = $.prompt.submit({ text: 'a new question about something else', wait: false, origin: { kind: 'composer' } })
+    for (let i = 0; i < 5; i++) await ui.redraw()
     const kept = await $.command.run({ command: 'context-lens', args: 'keep' })
+    await second
     expect(String(kept.text)).toContain('Keeping')
     await ui.unmount()
   })
@@ -2232,7 +2256,7 @@ describe('running hot and judge down', () => {
     mock.clock(on)
     let answered = false
     on('model.complete', () => ({ value: answered
-      ? { isAnswered: true as const, text: '{"model":"sonnet","effort":"high","why":"x"}', usage: USAGE }
+      ? { isAnswered: true as const, text: '{"model":"opus","effort":"high","why":"x"}', usage: USAGE }
       : { isAnswered: false as const, reason: 'api-error', status: 402, error: 'billing_error', usage: USAGE } }) as never)
     on('ui.toast', () => ({ value: undefined }) as never)
     await start($, on)
@@ -2331,9 +2355,8 @@ describe('settings panel', () => {
     await panel.press({ key: 'settings-card-model' })
     // Compact with is a model choice: it lives here, not in the Handoff card.
     expect(await panel.find({ key: 'settings-compact-with' })).toBeDefined()
-    // Offering a cheaper model first is its own switch, off until pressed.
-    expect((await panel.find({ key: 'settings-hold-switch' }))?.text).toContain('○')
-    await panel.press({ key: 'settings-hold-switch' })
+    // The prompt hold has no setting (it is always on while Auto is): only the helpers' model switch is here.
+    expect(await panel.find({ key: 'settings-hold-switch' })).toBeUndefined()
     await panel.press({ key: 'settings-helper-model-switch' })
     await panel.press({ key: 'settings-back' })
     // The cards say what is set, unsaved changes included.
@@ -2352,7 +2375,6 @@ describe('settings panel', () => {
     expect(set).toContainEqual({ key: 'context-lens.effortBias', value: '1' })
     expect(set).toContainEqual({ key: 'context-lens.effortFloor', value: 'medium' })
     expect(set).toContainEqual({ key: 'context-lens.helpers', value: 'on' })
-    expect(set).toContainEqual({ key: 'context-lens.holdOffer', value: 'on' })
     expect(set).toContainEqual({ key: 'context-lens.helperModel', value: 'on' })
     await panel.unmount()
     // A plain card says it was saved, then goes.

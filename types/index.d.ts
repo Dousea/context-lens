@@ -56,8 +56,6 @@ export type SettingsDraft = {
   handoffButton?: string
   /** on: each subagent gets an effort picked by the judge before it starts; off: it runs at the chat's effort. */
   helpers?: string
-  /** on: in a new, small or cold chat a prompt waits while a cheaper model is offered; off: it is never held. */
-  holdOffer?: string
   /** on (with helpers on): a subagent the judge calls simple runs on a cheaper model than it was given; off: it keeps its own. */
   helperModel?: string
   /** violet (the brand), orange (Claude's) or rose (cherry blossom). */

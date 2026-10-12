@@ -2,7 +2,7 @@
 
 A band above the prompt for Claude Code that does two things:
 
-- **Picks the reasoning effort for you.** Haiku reads each prompt and sets the effort the model runs it at, so a rename runs at `low` and a refactor at `high`. It can also hand off or compact a long chat, and pick an effort for each subagent. Two switches (off by default) bring a cheaper model in only where it pays: in a new, small or cold chat a prompt can wait while one is offered, and a subagent the judge is sure is simple can run on one. In a big warm chat it never pays, so nothing moves there.
+- **Picks the reasoning effort for you.** Haiku reads each prompt and sets the effort the model runs it at, so a rename runs at `low` and a refactor at `high`. It can also hand off or compact a long chat, and pick an effort for each subagent. In a new, small or cold chat a prompt waits up to 20 s while the judge's other model, cheaper or stronger, is offered (Switch or Keep). A switch (off by default) lets a subagent the judge is sure is simple run on a cheaper model. In a big warm chat a switch never pays, so nothing moves there.
 - **Shows what the chat costs to keep.** A row under the effort line carries the prompt-cache countdown (for the main chat, and for a subagent when you look at one), the context window by category, and the rate-limit windows with their reset times. A request that rewrites a still-warm cache is marked `re-cached`.
 
 ```
