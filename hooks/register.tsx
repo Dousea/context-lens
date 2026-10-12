@@ -2,7 +2,6 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, ModelForkResult, Register, RenderInput } from 'claude-code'
 
 import type { AgentRec, Effort, HandoffAfter, HandoffChoice, ModelKey, Pick, SettingsDraft, Spent } from '../types'
-import { agentsPane, demoAgents, demoFiles, demoSteps, importsOf, relPath, toolLine, touchOf, withTouch, withWaits } from './agents'
 import { ART_COLUMNS, ART_FRAME_MS, ART_MIN_WIDTH, ART_ROWS, type ArtKind, artFrame, MOVING } from './art'
 import { MARK_SVG } from './brand-mark'
 import { accent, setLight, setTheme, themedEls, type ThemeName, THEMES, tintHex } from './theme'
@@ -207,12 +206,7 @@ const hot = atom({ plugin: 'context-lens', key: 'hot' } as const, null)
 // The running-hot band closed with its cross: in which window and how full. Kept in the store too, so a new chat keeps it closed.
 const hotHidden = atom({ plugin: 'context-lens', key: 'hotHidden' } as const, null as HotClosed | null)
 // The agent panel: this chat's subagents, and the card opened in it (hooks/agents.tsx).
-const agentsState = atom({ plugin: 'context-lens', key: 'agents' } as const, [])
-const agentsOpen = atom({ plugin: 'context-lens', key: 'agentsOpen' } as const, null)
 // The panel's map: the files touched, the main chat's own steps, the module opened in its list.
-const agentFiles = atom({ plugin: 'context-lens', key: 'agentFiles' } as const, [])
-const agentSteps = atom({ plugin: 'context-lens', key: 'agentSteps' } as const, null)
-const agentsModule = atom({ plugin: 'context-lens', key: 'agentsModule' } as const, null)
 // Save mode: Auto picks at most medium until this time (ms), when the limit resets.
 const saveUntil = atom({ plugin: 'context-lens', key: 'saveUntil' } as const, null)
 const isColdHidden = atom({ plugin: 'context-lens', key: 'isColdHidden' } as const, false)
@@ -2631,7 +2625,6 @@ function startTimers($: EngineInterface, from: 'start' | 'draw') {
   // A written handoff is cleared and resent from here: a hook the turn waits on may not run commands.
   handoffTimer?.cancel()
   handoffTimer = $.clock.every(HANDOFF_POLL_MS, () => {
-    void agentWaits($).catch(() => undefined)
     if (redrawsOwed > 0) {
       // Drawn since the ask: the band is up to date, so a redraw would only restart its animations.
       if (lastRenderAt > redrawAskedAt + REDRAW_SETTLE_MS) redrawsOwed = 0
@@ -3302,24 +3295,6 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>, opt
   return { question, rows }
 }
 
-// --- The agent panel (hooks/agents.tsx): the $ side, kept short ------------------------------------------------------
-
-/** Changes one agent's record, if the panel knows it. */
-async function agentSet($: EngineInterface, id: string, fn: (a: AgentRec) => AgentRec) {
-  await update($, agentsState, list => (list.some(a => a.id === id) ? list.map(a => (a.id === id ? fn(a) : a)) : list))
-}
-
-/** An agent's loop ended: done when it answered, failed otherwise. */
-async function agentEnded($: EngineInterface, id: string, reason: string) {
-  const now = await $.clock.now()
-  await agentSet($, id, a => ({ ...a, state: reason === 'answer' ? 'done' : 'failed', endedAt: now, toolSince: undefined, now: undefined }))
-}
-
-/** Adds a request's weighted tokens to its agent. */
-async function agentCost($: EngineInterface, id: string, cost: number) {
-  await agentSet($, id, a => ({ ...a, cost: (a.cost ?? 0) + cost }))
-}
-
 // Effort for helpers: the effort the judge picked for each subagent, by its id. A subagent's first request can come
 // before its spawn resolves with the id (seen 2026-10-10), so a pick waits under the spawn's description and type
 // until a request from an unknown subagent claims it through $.agent.list().
@@ -3369,25 +3344,6 @@ async function helperTally($: EngineInterface, usage: Parameters<typeof weighted
     const t = asSpent(old)
     return { ...t, helpers: { ...t.helpers, requests: t.helpers.requests + 1, cost: t.helpers.cost + weighted(usage) } }
   })
-}
-
-/** A file read or changed by the main chat or an agent: added to the map, its imports read the first time. */
-async function fileTouched($: EngineInterface, path: string, edited: boolean, by: string) {
-  const rel = relPath(path, await $.session.root())
-  if (!rel) return
-  const now = await $.clock.now()
-  const known = (await read($, agentFiles)).find(f => f.path === rel)
-  let imports: string[] | undefined
-  if (!known || edited) imports = importsOf(rel, await $.fs.read(path).then(t => t.slice(0, 512_000), () => ''))
-  await update($, agentFiles, list => withTouch(list, rel, edited, by, now, imports))
-}
-
-/** From the 1 s timer: an agent long in one tool call turns to waiting. Writes only when one changes. */
-async function agentWaits($: EngineInterface) {
-  const list = await read($, agentsState)
-  if (!list.length) return
-  const next = withWaits(list, await $.clock.now())
-  if (next) await update($, agentsState, () => next)
 }
 
 // A compaction written by Haiku 5.5: Anthropic names compaction among the jobs it is built for, at a fraction of the
@@ -3571,7 +3527,6 @@ export const register: Register = (on, options) => {
   // The handoff turn ended: keep its text; the session's timer clears the chat and sends it.
   on('turn.complete', async ($, e, next) => {
     const result = await next(e)
-    if (e.agentId) await agentEnded($, e.agentId, e.reason)
     if (!e.agentId) await setTurnBusy($, false)
     // A lower verdict for a message typed during the turn takes over now, if Auto is still on.
     if (!e.agentId && heldPick) {
@@ -3867,7 +3822,6 @@ Saved to ${out}.md and .json` }
       // A prompt run on a cheaper model leaves the chat's own cache as it was: only the chat's model restarts the countdown.
       if (e.agentId === undefined && answer?.usage && request.model === e.model) await cacheTouched($, answer.usage).catch(() => undefined)
       if (e.agentId === undefined && answer?.usage) turnCost += weighted(answer.usage)
-      if (e.agentId !== undefined && answer?.usage) await agentCost($, e.agentId, weighted(answer.usage)).catch(() => undefined)
       return answer
     }
     if (e.agentId === undefined) await setTurnBusy($, true)
@@ -4040,8 +3994,6 @@ Saved to ${out}.md and .json` }
 
   // The terminal's line under each reply ("Baked 3s") in the brand's colours, with the effort and the cache. The
   // desktop draws no such line; the bands above the prompt warn there (a card under the reply repeated them, removed).
-  // The agent panel. Each subagent the chat sends off gets a record: spawned, what it does now, its own steps, how it
-  // ended. Teammates and workflow agents are left out for now.
   on('agent.spawn', async ($, e, next) => {
     // Effort for helpers: the judge reads the subagent's task before it starts (a fork shares the chat's context and
     // keeps its effort). Without a verdict it runs at the chat's effort, as with the setting off.
@@ -4062,70 +4014,7 @@ Saved to ${out}.md and .json` }
         void proof($, `helper ${e.subagentType} "${e.description}": ${waiting.effort} (${helper?.why})`)
       }
     }
-    if (e.isTeammate || e.workflow || !('agentId' in result) || !result.agentId) return result
-    const id = result.agentId
-    const now = await $.clock.now()
-    const rec: AgentRec = { id, type: e.fork ? 'fork' : e.subagentType, task: e.description, state: 'running', startedAt: now, model: result.model }
-    if (helper) {
-      rec.effort = EFFORT_LABELS[helper.effort]
-      rec.why = helper.why
-    }
-    if (e.parentAgentId) rec.parentId = e.parentAgentId
-    await update($, agentsState, list => [...list.filter(a => a.id !== id), rec].slice(-40))
     return result
-  })
-
-  on('tool.call', async ($, e, next) => {
-    const id = e.agentId
-    const input = e as unknown as Record<string, unknown>
-    const touch = touchOf(e.tool, input)
-    const isList = e.tool === 'TodoWrite' || e.tool === 'TaskCreate' || e.tool === 'TaskUpdate'
-    const known = id !== undefined && (await read($, agentsState)).some(a => a.id === id)
-    if (!touch && !known && !(id === undefined && isList)) return next(e)
-    if (known && id !== undefined) {
-      const now = await $.clock.now()
-      const file = touch ? (relPath(touch.path, await $.session.root()) ?? undefined) : undefined
-      await agentSet($, id, a => ({ ...a, now: toolLine(e.tool, input), toolSince: now, file }))
-    }
-    const result = await next(e)
-    const ok = !('deny' in result && result.deny) && !result.isError
-    if (ok && touch) await fileTouched($, touch.path, touch.edited, id ?? 'main').catch(() => undefined)
-    if (ok && id === undefined && isList) {
-      if (e.tool === 'TodoWrite') await update($, agentSteps, () => stepsFromTodos(e.todos))
-      else if (e.tool === 'TaskCreate') {
-        const taskId = (result.result as { task?: { id?: string } } | undefined)?.task?.id
-        if (taskId) await update($, agentSteps, steps => withTaskCreated(steps ?? [], taskId, e))
-      } else await update($, agentSteps, steps => (steps ? withTaskUpdated(steps, e) : steps))
-    }
-    if (known && id !== undefined) {
-      const steps = ok && e.tool === 'TodoWrite' ? stepsFromTodos(e.todos) : undefined
-      await agentSet($, id, a => ({ ...a, toolSince: undefined, file: undefined, state: a.state === 'waiting' ? 'running' : a.state, ...(steps ? { steps } : {}) }))
-    }
-    return result
-  })
-
-  on('ui.render', { component: 'Pane', requestId: 'effortless-agents' }, async ($, e) => {
-    const els = themedEls($.ui.resolve(e))
-    const agents = await read($, agentsState)
-    const open = await read($, agentsOpen)
-    const rows = Math.max(12, e.props.scroll.bodyRows)
-    return agentsPane(
-      {
-        ...els,
-        rows,
-        nowMs: await $.clock.now(),
-        title: 'This chat',
-        open,
-        ringSvg,
-        cardArt: { source: DASH_SVG, width: FROST_WIDTH * 2, height: FROST_HEIGHT * 2 },
-        onOpen: (id: string) => update($, agentsOpen, cur => (cur === id ? null : id)),
-        files: await read($, agentFiles),
-        steps: await read($, agentSteps),
-        module: await read($, agentsModule),
-        onModule: (key: string) => update($, agentsModule, cur => (cur === key ? null : key)),
-      },
-      agents,
-    )
   })
 
   on('ui.render', { component: 'TurnDuration' }, async ($, e, next) => {
