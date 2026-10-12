@@ -89,6 +89,16 @@
         "off"
       ]
     },
+    "helperModel": {
+      "type": "string",
+      "title": "Cheaper model for helpers",
+      "description": "on (needs Effort for helpers on): a subagent the judge is sure is simple runs on a cheaper model than the one it was given (never a dearer one, never Fable). A subagent starts with a small context and a cache of its own, so the switch costs next to nothing there. off (default): a helper keeps the model it was given.",
+      "default": "off",
+      "options": [
+        "on",
+        "off"
+      ]
+    },
     "handoffButton": {
       "type": "string",
       "title": "Handoff button",

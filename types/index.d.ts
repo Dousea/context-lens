@@ -58,6 +58,8 @@ export type SettingsDraft = {
   helpers?: string
   /** on: in a new, small or cold chat a prompt waits while a cheaper model is offered; off: it is never held. */
   holdOffer?: string
+  /** on (with helpers on): a subagent the judge calls simple runs on a cheaper model than it was given; off: it keeps its own. */
+  helperModel?: string
   /** violet (the brand), orange (Claude's) or rose (cherry blossom). */
   theme?: string
   appearance?: string

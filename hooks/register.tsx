@@ -539,6 +539,8 @@ export type JudgeConfig = {
   helpers: 'on' | 'off'
   /** on: in a new, small or cold chat, a prompt waits while a cheaper model is offered (see suggestWorth). */
   holdOffer: 'on' | 'off'
+  /** on (with helpers on): the judge also picks the model of each subagent, never above the one it was given. */
+  helperModel: 'on' | 'off'
   /** The accent colour of everything context-lens draws: the brand violet, Claude orange or cherry-blossom rose. */
   theme: ThemeName
   /** auto: light when Claude Code's own theme is light. dark and light fix it. */
@@ -568,6 +570,7 @@ let config: JudgeConfig = {
   handoffButton: 'advised',
   helpers: 'off',
   holdOffer: 'off',
+  helperModel: 'off',
   theme: 'violet',
   appearance: 'auto',
 }
@@ -588,6 +591,7 @@ export function readConfig(options: unknown): JudgeConfig {
     handoffButton: str(o.handoffButton) === 'always' ? 'always' : 'advised',
     helpers: str(o.helpers) === 'on' ? 'on' : 'off',
     holdOffer: str(o.holdOffer) === 'on' ? 'on' : 'off',
+    helperModel: str(o.helperModel) === 'on' ? 'on' : 'off',
     theme: THEMES.find(t => t === str(o.theme)) ?? 'violet',
     appearance: (['dark', 'light'] as const).find(a => a === str(o.appearance)) ?? 'auto',
     // Everything shows unless switched off; the judge's line too.
@@ -1669,6 +1673,7 @@ const SETTING_FIELDS = {
   handoffButton: 'handoffButton',
   helpers: 'helpers',
   holdOffer: 'holdOffer',
+  helperModel: 'helperModel',
   theme: 'theme',
   appearance: 'appearance',
 } as const
@@ -1699,6 +1704,7 @@ async function saveSetting($: EngineInterface, field: keyof typeof SETTING_FIELD
     handoffButton: config.handoffButton,
     helpers: config.helpers,
     holdOffer: config.holdOffer,
+    helperModel: config.helperModel,
     theme: config.theme,
     appearance: config.appearance,
     [SETTING_FIELDS[field]]: value,
@@ -3102,8 +3108,25 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>, opt
 // Effort for helpers: the effort the judge picked for each subagent, by its id. A subagent's first request can come
 // before its spawn resolves with the id (seen 2026-10-10), so a pick waits under the spawn's description and type
 // until a request from an unknown subagent claims it through $.agent.list().
-const helperPicks = new Map<string, Effort>()
-let helperWaiting: { description: string; type: string; parentId?: string; effort: Effort }[] = []
+// With Model for helpers on it also holds the model the judge named, when it was sure; the step clamps it to the model the
+// subagent was given (see helperModelFor).
+type HelperPick = { effort: Effort; model?: ModelKey }
+const helperPicks = new Map<string, HelperPick>()
+let helperWaiting: ({ description: string; type: string; parentId?: string } & HelperPick)[] = []
+
+/** How sure the judge must be of a task to give its subagent another model: the Smarter lean's own line for a close call. */
+const HELPER_MODEL_SURE = 0.65
+
+/**
+ * The model a subagent runs on when the judge named one: only a cheaper model than the one it was given (never Fable,
+ * never a dearer one), else null and it keeps its own. A subagent starts with a small context and a cache of its own,
+ * so the switch costs next to nothing there, unlike in the chat.
+ */
+export function helperModelFor(wanted: ModelKey | undefined, given: ModelKey | undefined): ModelKey | null {
+  if (!wanted || !given || wanted === 'fable') return null
+  const rank = (k: ModelKey) => MODELS.findIndex(m => m.key === k)
+  return rank(wanted) < rank(given) ? wanted : null
+}
 
 /** What the judge reads for a subagent: its task, said to be one, so it judges the subagent's work. */
 export function helperQuestion(prompt: string, type: string): string {
@@ -3129,8 +3152,8 @@ async function helperEffort($: EngineInterface, prompt: string, type: string): P
   return { ...verdict, effort, why: effort !== leaned && EFFORTS.indexOf(leaned) < EFFORTS.indexOf(effort) ? `${verdict.why} (helpers start at medium)` : verdict.why }
 }
 
-/** The effort picked for this subagent, claiming a waiting pick the first time its id is seen. */
-async function helperEffortOf($: EngineInterface, id: string): Promise<Effort | undefined> {
+/** The effort (and model) picked for this subagent, claiming a waiting pick the first time its id is seen. */
+async function helperPickOf($: EngineInterface, id: string): Promise<HelperPick | undefined> {
   const known = helperPicks.get(id)
   if (known || helperWaiting.length === 0) return known
   const info = (await $.agent.list().catch(() => [])).find(a => a.id === id)
@@ -3138,9 +3161,13 @@ async function helperEffortOf($: EngineInterface, id: string): Promise<Effort | 
   const match = helperWaiting.find(w => w.description === info.description && w.type === info.type && w.parentId === info.parentId)
   if (!match) return undefined
   helperWaiting = helperWaiting.filter(w => w !== match)
-  helperPicks.set(id, match.effort)
-  return match.effort
+  const pick: HelperPick = { effort: match.effort, ...(match.model ? { model: match.model } : {}) }
+  helperPicks.set(id, pick)
+  return pick
 }
+
+/** The effort picked for this subagent. */
+const helperEffortOf = async ($: EngineInterface, id: string): Promise<Effort | undefined> => (await helperPickOf($, id))?.effort
 
 /** Counts one request of a helper the judge steered, for /context-lens stats. */
 async function helperTally($: EngineInterface, usage: Parameters<typeof weighted>[0]) {
@@ -3858,11 +3885,15 @@ Saved to ${out}.md and .json` }
       }
     }
     // A helper the judge picked an effort for at its spawn runs every request at it. Haiku takes no effort.
-    if (e.agentId !== undefined && config.helpers === 'on' && typeof e.effort === 'string' && keyOf(e.model) !== 'haiku') {
-      const effort = await helperEffortOf($, e.agentId)
-      if (effort) {
-        if (e.index === 0) void proof($, `helper ${e.agentId} request 0 (${e.model}): effort ${e.effort} -> ${effort}`)
-        const result = yield* send({ ...e, effort })
+    if (e.agentId !== undefined && config.helpers === 'on' && keyOf(e.model) !== 'haiku') {
+      const picked = await helperPickOf($, e.agentId)
+      // With Model for helpers on, a cheaper model than the one it was given, when the judge named one.
+      const cheaper = config.helperModel === 'on' ? helperModelFor(picked?.model, keyOf(e.model)) : null
+      const effort = picked?.effort
+      if (effort && (typeof e.effort === 'string' || cheaper)) {
+        const model = cheaper ? MODELS.find(m => m.key === cheaper)!.id : e.model
+        if (e.index === 0) void proof($, `helper ${e.agentId} request 0 (${e.model}): ${cheaper ? `model -> ${model}, ` : ''}effort ${e.effort} -> ${effort}`)
+        const result = yield* send({ ...e, model, effort })
         if (result.usage) await helperTally($, result.usage).catch(() => undefined)
         return result
       }
@@ -4001,18 +4032,20 @@ Saved to ${out}.md and .json` }
     const helper = config.helpers === 'on' && !e.fork && !e.isTeammate && !e.workflow
       ? await helperEffort($, e.prompt, e.subagentType).catch(() => null)
       : null
-    const waiting = helper ? { description: e.description, type: e.subagentType, parentId: e.parentAgentId, effort: helper.effort } : null
+    // The model the judge named counts when Model for helpers is on and it was sure of the task.
+    const named = helper && config.helperModel === 'on' && (helper.sure === undefined || helper.sure >= HELPER_MODEL_SURE) ? helper.model : undefined
+    const waiting = helper ? { description: e.description, type: e.subagentType, parentId: e.parentAgentId, effort: helper.effort, ...(named ? { model: named } : {}) } : null
     if (waiting) helperWaiting = [...helperWaiting, waiting].slice(-20)
     const result = await next(e)
     if (waiting) {
       helperWaiting = helperWaiting.filter(w => w !== waiting)
-      if ('agentId' in result && result.agentId && !helperPicks.has(result.agentId)) helperPicks.set(result.agentId, waiting.effort)
+      if ('agentId' in result && result.agentId && !helperPicks.has(result.agentId)) helperPicks.set(result.agentId, { effort: waiting.effort, ...(waiting.model ? { model: waiting.model } : {}) })
       if ('agentId' in result && result.agentId) {
         await update($, saved, old => {
           const t = asSpent(old)
           return { ...t, helpers: { ...t.helpers, runs: { ...t.helpers.runs, [waiting.effort]: (t.helpers.runs[waiting.effort] ?? 0) + 1 } } }
         }).catch(() => undefined)
-        void proof($, `helper ${e.subagentType} "${e.description}": ${waiting.effort} (${helper?.why})`)
+        void proof($, `helper ${e.subagentType} "${e.description}": ${waiting.effort}${waiting.model ? ` on ${waiting.model} if cheaper` : ''} (${helper?.why})`)
       }
     }
     return result
@@ -4118,6 +4151,7 @@ Saved to ${out}.md and .json` }
         handoffButton: draft.handoffButton ?? config.handoffButton,
         helpers: draft.helpers ?? config.helpers,
         holdOffer: draft.holdOffer ?? config.holdOffer,
+        helperModel: draft.helperModel ?? config.helperModel,
         theme: draft.theme ?? config.theme,
         appearance: draft.appearance ?? config.appearance,
       }
@@ -4134,7 +4168,7 @@ Saved to ${out}.md and .json` }
       const hidden = (draft.hide ?? config.hide.join(',')).split(',').filter(Boolean)
       const summaries: Record<SettingsCard, string> = {
         effort: `${BIAS_WORDS[shown.bias + 2]} · ${shown.floor} to ${shown.ceiling}${shown.helpers === 'on' ? ' · helpers' : ''}`,
-        model: `${shown.compactWith === 'session' ? "Chat's model" : 'Haiku 5.5'}${shown.holdOffer === 'on' ? ' · offers cheaper' : ''}`,
+        model: `${shown.compactWith === 'session' ? "Chat's model" : 'Haiku 5.5'}${shown.holdOffer === 'on' ? ' · offers cheaper' : ''}${shown.helperModel === 'on' ? ' · cheaper helpers' : ''}`,
         handoff: `${shown.handoffSkill ? `/${shown.handoffSkill}` : 'Built in'} · compact alert at ${shown.swampAt}%`,
         show: `${shown.layout === 'minimal' ? 'Minimal' : 'Dashboard'} · ${2 - ['timer', 'reason'].filter(h => hidden.includes(h)).length} of 2 on`,
       }
@@ -4350,6 +4384,10 @@ Saved to ${out}.md and .json` }
             <Box key="settings-hold" flexDirection="column">
               <Button key="settings-hold-switch" plain label={`${shown.holdOffer === 'on' ? '◉' : '○'} Offer a cheaper model first`} onPress={() => set('holdOffer')(shown.holdOffer === 'on' ? 'off' : 'on')} />
               <Text dimColor wrap="wrap">{shown.holdOffer === 'on' ? "In a new, small or cold chat the prompt waits (up to 20 s) while a cheaper model is offered" : "A prompt is never held; a suggestion is only a note"}</Text>
+            </Box>,
+            <Box key="settings-helper-model" flexDirection="column">
+              <Button key="settings-helper-model-switch" plain label={`${shown.helperModel === 'on' ? '◉' : '○'} Cheaper model for helpers`} onPress={() => set('helperModel')(shown.helperModel === 'on' ? 'off' : 'on')} />
+              <Text dimColor wrap="wrap">{shown.helperModel === 'on' ? (shown.helpers === 'on' ? "A subagent the judge calls simple runs on a cheaper model than it was given, never a dearer one" : "Needs Helpers on (Effort card)") : "A subagent keeps the model it was given"}</Text>
             </Box>,
           ]) : card === 'handoff' ? (bare ? [] : [
             pick({ key: "settings-skill", label: "Handoff skill", value: shown.handoffSkill || '-', options: [

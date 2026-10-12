@@ -1,7 +1,7 @@
 import { describe, expect, mock, test as baseTest } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
-import { helperFloor, suggestWorth, namedEffort, hotVisible, tipped, bounded, handoffEvidence, parseHandoffAnswer, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, bandFit, turnLineFor, flashColor, handoffGlowStep, weighted, handoffLook, claudeCandidates, noClaudeHint, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
+import { helperFloor, helperModelFor, suggestWorth, namedEffort, hotVisible, tipped, bounded, handoffEvidence, parseHandoffAnswer, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, bandFit, turnLineFor, flashColor, handoffGlowStep, weighted, handoffLook, claudeCandidates, noClaudeHint, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
 import { ART_COLUMNS, artFrame, artPixel, MOVING } from '../hooks/art'
 import { isLight, lightHex, lightProps, setLight, setTheme, themedEls, themedSvg, tint, tintHex } from '../hooks/theme'
 import { afterPrompt, currentStep, phaseAtTurnEnd, progressShare, progressShows, progressTitle, soundArgv, stepNumber, stepsFromTodos, withTaskCreated, withTaskUpdated } from '../hooks/progress'
@@ -2334,6 +2334,7 @@ describe('settings panel', () => {
     // Offering a cheaper model first is its own switch, off until pressed.
     expect((await panel.find({ key: 'settings-hold-switch' }))?.text).toContain('○')
     await panel.press({ key: 'settings-hold-switch' })
+    await panel.press({ key: 'settings-helper-model-switch' })
     await panel.press({ key: 'settings-back' })
     // The cards say what is set, unsaved changes included.
     expect(await drawn(panel)).toContain('Smarter · medium to max · helpers')
@@ -2352,6 +2353,7 @@ describe('settings panel', () => {
     expect(set).toContainEqual({ key: 'context-lens.effortFloor', value: 'medium' })
     expect(set).toContainEqual({ key: 'context-lens.helpers', value: 'on' })
     expect(set).toContainEqual({ key: 'context-lens.holdOffer', value: 'on' })
+    expect(set).toContainEqual({ key: 'context-lens.helperModel', value: 'on' })
     await panel.unmount()
     // A plain card says it was saved, then goes.
     const saved = await $.ui.mount(DESK_BAND)
@@ -3241,6 +3243,50 @@ describe('subagent effort', () => {
     }
     // Helpers start at medium: a low verdict comes up to it.
     expect(sent.map(s => s.effort)).toEqual(['medium', 'medium'])
+  })
+
+  const helperRun = async ($: Engine, on: On, verdict: string, given: string, opts?: { agentId?: string }) => {
+    judgeSays(on, verdict)
+    on('agent.spawn', () => ({ agentId: 'h1', model: given }) as never)
+    on('turn.complete', () => ({ text: '' }))
+    const sent = recordSteps(on)
+    await start($, on)
+    await $.agent.spawn({ prompt: 'list the files under hooks', description: 'find files', subagentType: 'Explore' } as never)
+    for await (const _ of $.turn.step({ turnId: 't1', index: 0, model: given, effort: 'high', messageCount: 1, agentId: opts?.agentId ?? 'h1' } as never)) {
+      // drain
+    }
+    return sent
+  }
+
+  test('helper model: a subagent the judge is sure is simple runs on a cheaper model than it was given', { options: { helpers: 'on', helperModel: 'on' } } as never, async ($, on) => {
+    const sent = await helperRun($, on, '{"model":"haiku","effort":"low","sure":0.9,"why":"quick search"}', 'claude-opus-5-5')
+    expect(sent[0].model).toBe('claude-haiku-5-5')
+  })
+
+  test('helper model: never above the model it was given, and an unsure verdict leaves it alone', { options: { helpers: 'on', helperModel: 'on' } } as never, async ($, on) => {
+    // The judge names Opus for a Sonnet subagent: it keeps Sonnet.
+    const up = await helperRun($, on, '{"model":"opus","effort":"high","sure":0.95,"why":"hard"}', 'claude-sonnet-5-5')
+    expect(up[0].model).toBe('claude-sonnet-5-5')
+  })
+
+  test('helper model: unsure, it keeps the model it was given', { options: { helpers: 'on', helperModel: 'on' } } as never, async ($, on) => {
+    const sent = await helperRun($, on, '{"model":"haiku","effort":"low","sure":0.4,"why":"maybe small"}', 'claude-opus-5-5')
+    expect(sent[0].model).toBe('claude-opus-5-5')
+  })
+
+  test('helper model: with its switch off the effort is picked and the model stays', { options: { helpers: 'on' } } as never, async ($, on) => {
+    const sent = await helperRun($, on, '{"model":"haiku","effort":"low","sure":0.9,"why":"quick search"}', 'claude-opus-5-5')
+    expect(sent[0].model).toBe('claude-opus-5-5')
+    expect(sent[0].effort).toBe('medium')
+  })
+
+  test('helperModelFor: only cheaper than the given model, never Fable', () => {
+    expect(helperModelFor('haiku', 'opus')).toBe('haiku')
+    expect(helperModelFor('sonnet', 'opus')).toBe('sonnet')
+    expect(helperModelFor('opus', 'opus')).toBeNull()
+    expect(helperModelFor('opus', 'sonnet')).toBeNull()
+    expect(helperModelFor('fable', 'fable')).toBeNull()
+    expect(helperModelFor(undefined, 'opus')).toBeNull()
   })
 
   test('a subagent\'s first request before its spawn resolves still gets the picked effort', { options: { helpers: 'on' } } as never, async ($, on) => {
