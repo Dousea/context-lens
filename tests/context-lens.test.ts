@@ -149,6 +149,29 @@ describe('auto', () => {
     expect(sent[2].effort).toBe('xhigh')
   })
 
+  test('an agent report is judged for its own effort when Auto is on, and runs on the last pick when Auto is off', async ($, on) => {
+    engine(on)
+    const said = ['{"model":"opus","effort":"high","why":"design"}', '{"model":"haiku","effort":"low","why":"a short status"}']
+    let asked = 0
+    on('model.complete', () => ({ value: { isAnswered: true as const, text: said[Math.min(asked++, said.length - 1)], usage: USAGE } }))
+    const sent = recordSteps(on)
+    await $.prompt.submit({ text: 'design the whole trainer architecture', wait: false, origin: { kind: 'composer' } })
+    await step($, 'xhigh')
+    expect(sent[0].effort).toBe('high')
+    await $.prompt.submit({ text: 'The background task finished.', wait: false, origin: { kind: 'task-notification' } })
+    await step($, 'xhigh')
+    // Judged on its own: the last typed prompt's high is not kept, and the cheaper model is only the person's to move.
+    expect(asked).toBe(2)
+    expect(sent[1]).toEqual({ model: 'claude-opus-5-5', effort: 'low' })
+    // A scheduled firing is judged the same way.
+    await $.prompt.submit({ text: 'Check the deploy.', wait: false, origin: { kind: 'scheduled-trigger' } })
+    expect(asked).toBe(3)
+    await $.command.run({ command: 'context-lens', args: 'auto' })
+    await $.prompt.submit({ text: 'The background task finished again.', wait: false, origin: { kind: 'task-notification' } })
+    await $.prompt.submit({ text: 'Check the deploy again.', wait: false, origin: { kind: 'scheduled-trigger' } })
+    expect(asked).toBe(3)
+  })
+
   test('routeWorth: a switch to a cold model pays only when it still comes out cheaper', () => {
     const big = 100_000
     // Opus chat, cache warm: a cold Sonnet writes the whole chat and costs more; a warm Sonnet is far cheaper.

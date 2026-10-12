@@ -3656,6 +3656,11 @@ Saved to ${out}.md and .json` }
     const card = await read($, handoffCard)
     if (card && (card.kind === 'done' || card.kind === 'copied')) await update($, handoffCard, () => null)
     const byPerson = e.origin.kind === 'composer' || e.origin.kind === 'bridge' || e.origin.kind === 'sdk'
+    // An agent's report (a subagent or background task finishing, another session's message) or a scheduled firing (/loop, a
+    // routine) starts a reply nobody typed: with Auto on for effort it is judged like a prompt, so it does not run on the
+    // effort picked for the last typed one.
+    const byAgent =
+      e.origin.kind === 'task-notification' || e.origin.kind === 'peer' || e.origin.kind === 'peer-send-message' || e.origin.kind === 'scheduled-trigger'
     // The handoff check runs for every message the person types, whatever the effort judge is doing (or whether Auto is on).
     if (byPerson && !e.text.trim().startsWith('/') && !isFollowUp(e.text)) void checkHandoff($, e.text).catch(() => undefined)
     const wantsEffort = await read($, isAuto)
@@ -3664,7 +3669,8 @@ Saved to ${out}.md and .json` }
     // (/compact, /clear, /model) and context-lens's never are. The judge is told what the command is, since its name alone says little.
     const slash = e.text.trim().startsWith('/')
     const skill = slash && byPerson ? await typedSkill($, e.text) : undefined
-    if (!byPerson || (slash && !skill) || (!wantsEffort && !wantsModel)) return next(e)
+    if (byAgent && !wantsEffort) return next(e)
+    if ((!byPerson && !byAgent) || (slash && !skill) || (!wantsEffort && !wantsModel)) return next(e)
     // On a model where an effort change rewrites the cache, Auto waits instead of judging.
     const modelId = await $.session.model()
     await modelIs($, modelId)
@@ -3674,7 +3680,7 @@ Saved to ${out}.md and .json` }
     // A message with an image is never a bare follow-up: "fix this" plus a screenshot is new work.
     // Typed while a turn ran (e.turnId), it often steers that task: the judge is told, so it can keep the effort.
     const midTurn = e.turnId !== undefined && before !== null
-    const said = skill ? `${e.text}
+    const said = byAgent ? e.text.slice(0, 1500) : skill ? `${e.text}
 
 [This is a slash command that runs a skill: ${skill.description || skill.name}. Judge the work the skill will do.]` : e.text
     const shown = midTurn ? withMidTurn(withAttachments(said, e.attachments), before.effort) : withAttachments(said, e.attachments)
@@ -3684,7 +3690,7 @@ Saved to ${out}.md and .json` }
       return next(e)
     }
     // "max effort", "effort: low": the person said the level, so it runs, past Min, Max and save mode, and no judge is asked.
-    const named = wantsEffort && !slash ? namedEffort(e.text) : undefined
+    const named = wantsEffort && !slash && !byAgent ? namedEffort(e.text) : undefined
     if (named) {
       const inUse = await sessionModel($)
       const applied: Pick = { model: inUse, effort: named, why: 'you asked for it', by: 'named' }
@@ -3748,7 +3754,7 @@ Saved to ${out}.md and .json` }
           }
         }
         // A prompt the judge calls simple runs on a cheaper model; a message typed mid-turn leaves the running choice.
-        if (!midTurn) {
+        if (!midTurn && !byAgent) {
           let to = wantsEffort && config.modelAuto === 'on' ? routeTo(verdict.model, inUse) : null
           // The last prompt ran on a cheaper model and this one says it was wrong: that is a miss. The retry runs on the
           // chat's own model, and so do the next few prompts.
@@ -3775,7 +3781,9 @@ Saved to ${out}.md and .json` }
             $.ui.invalidate('ui.render')
           }
         }
-        if (wantsModel && verdict.model !== inUse && verdict.model !== declined) {
+        if (byAgent) {
+          // Only the effort follows an agent's report; the model is the person's to move.
+        } else if (wantsModel && verdict.model !== inUse && verdict.model !== declined) {
           await update($, suggestion, () => verdict.model)
           $.ui.toast(`Suggestion: switch to ${verdict.model}? /context-lens switch or /context-lens keep`)
         } else if (verdict.model === inUse) {
