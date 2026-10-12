@@ -66,7 +66,7 @@ function engine(on: On) {
   const toasts: string[] = []
   // What the dashboard around the lens needs beneath it: a store, the environment, the prompt and the session's model.
   mock.store(on)
-  mock.env(on, { EFFORTLESS_MODEL_UI: '1' })
+  mock.env(on, { CONTEXT_LENS_MODEL_UI: '1' })
   on('prompt.submit', (_$, e) => ({ text: e.text }))
   on('ui.status', () => ({ value: undefined }))
   on('session.messages', () => ({ value: [] }) as never)
@@ -86,7 +86,7 @@ function engine(on: On) {
   return { toasts }
 }
 
-/** Starts the session and closes the setup guide effortless opens the first time. */
+/** Starts the session and closes the setup guide the dashboard opens the first time. */
 async function begin($: Engine) {
   await $.session.start(START)
   const guide = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', component: 'AbovePrompt', props: band(140) })

@@ -11,7 +11,7 @@ export type Spent = {
   out: number
   byEffort: Partial<Record<Effort, { prompts: number; cost: number }>>
   /** How often each judge decided, the time it took in all (ms), and its tokens. */
-  judge: { jev: number; haiku: number; ms: number; tokens: number }
+  judge: { haiku: number; ms: number; tokens: number }
   /** Prompts that ran on a cheaper model than the chat's, and how many of those the person then redid. */
   moved: number
   redone: number
@@ -26,7 +26,7 @@ export type Pick = {
   /** A few words on why, shown dim in the band. */
   why: string
   /** named: the person said the level in the prompt ("max effort"). */
-  by: 'jev' | 'haiku' | 'manual' | 'named'
+  by: 'haiku' | 'manual' | 'named'
   /** How sure the judge was of the effort, 0-1, when it said. */
   sure?: number
   /** Haiku only: why a handoff would suit now (a few words), when it said it would. */
@@ -44,14 +44,10 @@ export type SettingsDraft = {
   bias?: string
   floor?: string
   ceiling?: string
-  judge?: string
   handoffAfter?: string
   handoffSkill?: string
-  customUrl?: string
-  customModel?: string
   /** Comma-separated parts switched off: handoff, cold, swamp, hot, down. */
   hide?: string
-  key?: string
   swampAt?: string
   /** default (dashboard band) or minimal (footer buttons). */
   layout?: string
@@ -181,7 +177,7 @@ declare module 'claude-code' {
       /** The handoff card under the newest reply, from the start of a handoff until the reply after it lands. */
       handoffCard: { kind: 'writing' | 'done' | 'copied'; full: boolean; at: number; seen: boolean } | null
       /** The setup guide's step, or null when it is closed. */
-      setupStep: 'pick' | 'jev' | 'lean' | 'handoff' | 'done' | null
+      setupStep: 'lean' | 'handoff' | 'look' | 'done' | null
       /** Choices made in the setup guide, saved together at Done or the cross. */
       setupDraft: SettingsDraft
       /** Auto on model: the judge may suggest another model (never switched without a yes). Off by default. */

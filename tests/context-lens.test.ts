@@ -1,7 +1,7 @@
 import { describe, expect, mock, test as baseTest } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
-import { helperFloor, namedEffort, hotVisible, looksLikeRedo, REDO_STAY_PROMPTS, routeWorth, tipped, bounded, handoffEvidence, parseHandoffAnswer, withJevKey, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, parseJevAnswer, parseJevKey, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook, claudeCandidates, noClaudeHint, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
+import { helperFloor, namedEffort, hotVisible, looksLikeRedo, REDO_STAY_PROMPTS, routeWorth, tipped, bounded, handoffEvidence, parseHandoffAnswer, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook, claudeCandidates, noClaudeHint, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
 import { ART_COLUMNS, artFrame, artPixel, MOVING } from '../hooks/art'
 import { isLight, lightHex, lightProps, setLight, setTheme, themedEls, themedSvg, tint, tintHex } from '../hooks/theme'
 import { afterPrompt, currentStep, phaseAtTurnEnd, progressShare, progressShows, progressTitle, soundArgv, stepNumber, stepsFromTodos, withTaskCreated, withTaskUpdated } from '../hooks/progress'
@@ -30,13 +30,6 @@ const BAND = {
 
 const USAGE = { input_tokens: 1, output_tokens: 1, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }
 
-/** A TypeSafe System One reply: Jev's choice for effort and model, sure as given. */
-const jevReply = (effort: string, sure = 0.9, model = 'opus') =>
-  JSON.stringify({
-    answers: { effort: { choice: effort, confidence: sure }, model: { choice: model, confidence: 0.8 } },
-    usage: { input_tokens: 480, output_tokens: 54 },
-  })
-
 /** Haiku as the judge answers this reply, and counts how often it was asked. */
 function judgeSays(on: On, text: string) {
   const asked: string[] = []
@@ -50,7 +43,7 @@ function judgeSays(on: On, text: string) {
 /** What sits beneath the plugins in a session: the prompt goes through, the status line takes text. */
 function engine(on: On, env: Record<string, string> = {}, sessionModel = 'claude-opus-5-5', said: { role: string; text: string }[] = []) {
   mock.store(on)
-  mock.env(on, { EFFORTLESS_MODEL_UI: '1', ...env })
+  mock.env(on, { CONTEXT_LENS_MODEL_UI: '1', ...env })
   on('prompt.submit', (_$, e) => ({ text: e.text }))
   on('ui.status', () => ({ value: undefined }))
   on('session.messages', () => ({ value: said }) as never)
@@ -223,55 +216,6 @@ describe('auto', () => {
     await step($)
 
     expect(sent[0]).toEqual({ model: 'claude-opus-5-5', effort: 'high' })
-  })
-
-  test('Jev on TypeSafe decides when TYPESAFE_API_KEY is set, with typed questions, and Haiku is not asked', async ($, on) => {
-    engine(on, { TYPESAFE_API_KEY: 'k' })
-    mock.clock(on)
-    const asked = judgeSays(on, '{"model":"haiku","effort":"low","why":"x"}')
-    const calls: { url: string; auth?: string; body: Record<string, any> }[] = []
-    on('http.fetch', (_$, e) => {
-      calls.push({
-        url: e.url,
-        auth: (e.init?.headers as Record<string, string> | undefined)?.authorization,
-        body: JSON.parse(String(e.init?.body)),
-      })
-      return { value: { status: 200, ok: true, headers: {}, text: jevReply('max') } }
-    })
-    const sent = recordSteps(on)
-
-    await $.prompt.submit({ text: 'designa om hela relayn', wait: false, origin: { kind: 'composer' } })
-    await step($)
-
-    expect(calls.length).toBe(1)
-    expect(calls[0].url).toBe('https://api.typesafe.ai/v1/systemone')
-    expect(calls[0].auth).toBe('Bearer k')
-    expect(calls[0].body.model).toBe('jev-latest')
-    expect(calls[0].body.state.next_message).toBe('designa om hela relayn')
-    expect(calls[0].body.questions.effort.type).toBe('choice')
-    expect(Object.keys(calls[0].body.questions.effort.criteria)).toEqual(['low', 'medium', 'high', 'xhigh', 'max'])
-    expect(asked.length).toBe(0)
-    expect(sent[0]).toEqual({ model: 'claude-opus-5-5', effort: 'max' })
-  })
-
-  test('with the jev judge picked, the TypeSafe key is read from ~/.config/jev/.env when the environment has none', { options: { judge: 'jev' } } as never, async ($, on) => {
-    engine(on, { USERPROFILE: 'C:/Users/x' })
-    mock.clock(on)
-    const asked = judgeSays(on, '{"model":"haiku","effort":"low","why":"x"}')
-    const read: string[] = []
-    on('fs.read', (_$, e) => {
-      read.push(e.path)
-      return { value: 'OTHER=1\nTYPESAFE_API_KEY="from-file"\n' } as never
-    })
-    const auth: (string | undefined)[] = []
-    on('http.fetch', (_$, e) => {
-      auth.push((e.init?.headers as Record<string, string> | undefined)?.authorization)
-      return { value: { status: 200, ok: true, headers: {}, text: jevReply('high') } }
-    })
-    await $.prompt.submit({ text: 'hard task', wait: false, origin: { kind: 'composer' } })
-    expect(read.map(path => path.replaceAll('\\', '/'))).toEqual(['C:/Users/x/.config/jev/.env'])
-    expect(auth).toEqual(['Bearer from-file'])
-    expect(asked.length).toBe(0)
   })
 
   test('slash commands are not judged', async ($, on) => {
@@ -593,7 +537,7 @@ describe('footer text', () => {
     await footer.unmount()
   })
 
-  test('/effortless stats reports the measured cost of every token kind, per effort, and the judge', async ($, on) => {
+  test('/context-lens stats reports the measured cost of every token kind, per effort, and the judge', async ($, on) => {
     engine(on)
     mock.clock(on)
     judgeSays(on, '{"model":"sonnet","effort":"low","why":"simple"}')
@@ -617,7 +561,7 @@ describe('footer text', () => {
     expect(text).toContain('1 prompts, 1 requests, cost about 5.1k')
     expect(text).toContain('cache reads 20 %, cache writes 20 %, output 59 %')
     expect(text).toContain('Low 1, average 5.1k')
-    expect(text).toContain('Judge: Jev 0, Haiku 1')
+    expect(text).toContain('Judge: Haiku 1')
     expect(text).not.toContain('saved about')
   })
 
@@ -650,8 +594,8 @@ describe('footer text', () => {
     await rows.unmount()
   })
 
-  test('the model row is paused: effort only, unless EFFORTLESS_MODEL_UI=1', async ($, on) => {
-    engine(on, { EFFORTLESS_MODEL_UI: '0' })
+  test('the model row is paused: effort only, unless CONTEXT_LENS_MODEL_UI=1', async ($, on) => {
+    engine(on, { CONTEXT_LENS_MODEL_UI: '0' })
     const ui = await $.ui.mount({ plugin: 'context-lens', surface: 'terminal', ...BAND })
     expect(await ui.find({ key: 'e-high' })).toBeDefined()
     expect(await ui.find({ key: 'm-opus' })).toBeUndefined()
@@ -669,21 +613,6 @@ describe('helpers', () => {
     expect(cacheSafe('claude-opus-5')).toBe(false)
   })
 
-  test('parseJevKey reads the key line, quoted or not, and nothing else', () => {
-    expect(parseJevKey('TYPESAFE_API_KEY=abc')).toBe('abc')
-    expect(parseJevKey('X=1\n  TYPESAFE_API_KEY = "q w" \n')).toBe('q w')
-    expect(parseJevKey('TYPESAFE_API_KEY=')).toBeUndefined()
-    expect(parseJevKey('OTHER=1')).toBeUndefined()
-  })
-
-  test('parseJevAnswer: a sure answer wins, an unsure one keeps the current effort, junk is nothing', () => {
-    const current = { model: 'opus' as const, effort: 'high' as const, why: '', by: 'manual' as const }
-    expect(parseJevAnswer(jevReply('low', 0.9), current)?.effort).toBe('low')
-    expect(parseJevAnswer(jevReply('low', 0.4), current)?.effort).toBe('high')
-    expect(parseJevAnswer(jevReply('low', 0.4), null)?.effort).toBe('low')
-    expect(parseJevAnswer(jevReply('turbo'), current)).toBeUndefined()
-    expect(parseJevAnswer('nope', current)).toBeUndefined()
-  })
 })
 
 describe('follow-ups', () => {
@@ -738,7 +667,7 @@ describe('named level', () => {
 describe('state from an older version', () => {
   test('the pre-0.2.0 tally { requests, actual, baseline } reads as an empty tally, never throws', () => {
     const old = { requests: 3, actual: 900, baseline: 1500 } as never
-    expect(asSpent(old).judge).toEqual({ jev: 0, haiku: 0, ms: 0, tokens: 0 })
+    expect(asSpent(old).judge).toEqual({ haiku: 0, ms: 0, tokens: 0 })
     expect(asSpent(old).byEffort).toEqual({})
     expect(() => savedText(old)).not.toThrow()
     expect(asSpent(undefined).prompts).toBe(0)
@@ -845,10 +774,7 @@ describe('cache countdown', () => {
   /** The band above the prompt, with the first-run setup guide closed so the cold band can show. */
   const coldBand = async ($: Engine) => {
     const band = await $.ui.mount(DESK_BAND)
-    if (await band.find({ key: 'setup-haiku' })) {
-      await band.press({ key: 'setup-haiku' })
-      await band.press({ key: 'setup-close' })
-    }
+    if (await band.find({ key: 'setup-close' })) await band.press({ key: 'setup-close' })
     return band
   }
 
@@ -869,7 +795,6 @@ describe('cache countdown', () => {
     await mocked.advance(59 * 60_000)
     // Still warm: no band (only the first-run guide, closed here), so nothing to compact yet.
     const guide = await $.ui.mount(DESK_BAND)
-    await guide.press({ key: 'setup-haiku' })
     await guide.press({ key: 'setup-close' })
     await guide.unmount()
     await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
@@ -886,7 +811,7 @@ describe('cache countdown', () => {
     await band.unmount()
   })
 
-  test('/effortless cold shows Cold and the Compact button at once, for testing', async ($, on) => {
+  test('/context-lens cold shows Cold and the Compact button at once, for testing', async ($, on) => {
     engine(on)
     mock.clock(on)
     answer(on, { ephemeral_1h_input_tokens: 500 })
@@ -986,7 +911,7 @@ describe('footer', () => {
     expect(ran).toEqual([])
   })
 
-  test('a different model is only suggested, and /effortless switch switches it', async ($, on) => {
+  test('a different model is only suggested, and /context-lens switch switches it', async ($, on) => {
     engine(on)
     judgeSays(on, '{"model":"haiku","effort":"low","why":"simple"}')
     const ran = recordCommands(on)
@@ -1055,32 +980,6 @@ describe('band', () => {
 })
 
 describe('review fixes', () => {
-  test('a Jev endpoint that never answers holds the prompt only for the timeout, then Haiku judges', async ($, on) => {
-    engine(on, { TYPESAFE_API_KEY: 'k' })
-    const mocked = mock.clock(on)
-    const asked = judgeSays(on, '{"model":"sonnet","effort":"low","why":"x"}')
-    on('http.fetch', () => new Promise(() => undefined) as never)
-    const sent = recordSteps(on)
-
-    const submitted = $.prompt.submit({ text: 'hej', wait: false, origin: { kind: 'composer' } })
-    await mocked.advance(3500)
-    await submitted
-    await step($, 'high')
-
-    expect(asked.length).toBe(1)
-    expect(sent[0].effort).toBe('low')
-  })
-
-  test('Jev answering with an error status falls through to Haiku', async ($, on) => {
-    engine(on, { TYPESAFE_API_KEY: 'k' })
-    mock.clock(on)
-    const asked = judgeSays(on, '{"model":"sonnet","effort":"low","why":"x"}')
-    on('http.fetch', () => ({ value: { status: 500, ok: false, headers: {}, text: 'boom' } }))
-
-    await $.prompt.submit({ text: 'hej', wait: false, origin: { kind: 'composer' } })
-    expect(asked.length).toBe(1)
-  })
-
   test('a model switch that changes the engine effort is not read as you choosing, Auto stays on', async ($, on) => {
     engine(on)
     judgeSays(on, '{"model":"sonnet","effort":"low","why":"simple"}')
@@ -1106,7 +1005,7 @@ describe('review fixes', () => {
     expect(sent[1].effort).toBe('low')
   })
 
-  test('/effortless switch switches to the suggested model and /effortless keep turns it down', async ($, on) => {
+  test('/context-lens switch switches to the suggested model and /context-lens keep turns it down', async ($, on) => {
     engine(on)
     judgeSays(on, '{"model":"haiku","effort":"low","why":"simple"}')
     const ran = recordCommands(on)
@@ -1131,63 +1030,6 @@ describe('judge choice (plugin settings)', () => {
   const chat = (content: string) =>
     JSON.stringify({ choices: [{ message: { content } }], usage: { prompt_tokens: 300, completion_tokens: 20 } })
 
-  test('readConfig: an unknown or empty judge is auto, values are trimmed', () => {
-    expect(readConfig(undefined).judge).toBe('auto')
-    expect(readConfig({ judge: 'gpt' }).judge).toBe('auto')
-    // The Custom judge is gone: a saved 'custom' reads as auto.
-    expect(readConfig({ judge: 'custom' }).judge).toBe('auto')
-    expect(readConfig({ judge: ' jev ' }).judge).toBe('jev')
-    expect(readConfig({})).toEqual({
-      judge: 'auto',
-      typesafeKey: '',
-      handoffSkill: '',
-      handoffAfter: 'continue',
-      bias: 0,
-      floor: 'low',
-      ceiling: 'max',
-      hide: ['reason'],
-      swampAt: 70,
-      layout: 'default',
-      compactWith: 'haiku',
-      handoffButton: 'advised',
-      modelAuto: 'off',
-      helpers: 'off',
-      theme: 'violet',
-      appearance: 'auto',
-    })
-    expect(readConfig({ swampAt: '20' })).toMatchObject({ swampAt: 20 })
-    expect(readConfig({ swampAt: '33' }).swampAt).toBe(70)
-    expect(readConfig({ handoffSkill: '/session-handoff', handoffAfter: 'confirm' })).toMatchObject({
-      handoffSkill: 'session-handoff',
-      handoffAfter: 'confirm',
-    })
-  })
-
-  test('haiku: a TypeSafe key in the environment is not used', { options: { judge: 'haiku' } } as never, async ($, on) => {
-    engine(on, { TYPESAFE_API_KEY: 'k' })
-    mock.clock(on)
-    const asked = judgeSays(on, '{"model":"sonnet","effort":"low","why":"x"}')
-    let fetched = 0
-    on('http.fetch', () => {
-      fetched++
-      return { value: { status: 500, ok: false, headers: {}, text: '' } }
-    })
-    await $.prompt.submit({ text: 'hello there', wait: false, origin: { kind: 'composer' } })
-    expect(fetched).toBe(0)
-    expect(asked.length).toBe(1)
-  })
-
-  test('jev: the key from the settings is used before the environment', { options: { judge: 'jev', typesafeKey: 'from-settings' } } as never, async ($, on) => {
-    engine(on, { TYPESAFE_API_KEY: 'from-env' })
-    mock.clock(on)
-    const auth: (string | undefined)[] = []
-    on('http.fetch', (_$, e) => {
-      auth.push((e.init?.headers as Record<string, string> | undefined)?.authorization)
-      return { value: { status: 200, ok: true, headers: {}, text: jevReply('high') } }
-    })
-    await $.prompt.submit({ text: 'hard task here', wait: false, origin: { kind: 'composer' } })
-    expect(auth).toEqual(['Bearer from-settings'])
-  })
 })
 
 describe('context for the judge', () => {
@@ -1243,34 +1085,9 @@ describe('model-aware effort', () => {
     expect(seen[0].system).toContain('Opus at medium does about what Sonnet does at high')
   })
 
-  test('Jev gets the model in use and the same rule', async ($, on) => {
-    engine(on, { TYPESAFE_API_KEY: 'k' }, 'claude-opus-5-5')
-    mock.clock(on)
-    const bodies: Record<string, any>[] = []
-    on('http.fetch', (_$, e) => {
-      bodies.push(JSON.parse(String(e.init?.body)))
-      return { value: { status: 200, ok: true, headers: {}, text: jevReply('medium') } }
-    })
-    await $.prompt.submit({ text: 'refactor the parser', wait: false, origin: { kind: 'composer' } })
-    expect(bodies[0].state.current_model).toBe('opus')
-    expect(bodies[0].state.task).toContain('Opus at medium does about what')
-  })
 })
 
 describe('keys', () => {
-  test('auto never opens ~/.config/jev/.env: it judges with Haiku', async ($, on) => {
-    engine(on, { USERPROFILE: 'C:/Users/x' })
-    mock.clock(on)
-    const asked = judgeSays(on, '{"model":"sonnet","effort":"low","why":"x"}')
-    const read: string[] = []
-    on('fs.read', (_$, e) => {
-      read.push(e.path)
-      return { value: 'TYPESAFE_API_KEY=secret' } as never
-    })
-    await $.prompt.submit({ text: 'hello there', wait: false, origin: { kind: 'composer' } })
-    expect(read.filter(path => path.includes('.env'))).toEqual([])
-    expect(asked.length).toBe(1)
-  })
 })
 
 describe('setup guide', () => {
@@ -1300,11 +1117,10 @@ describe('setup guide', () => {
   test('an app with no /config row for the plugin: the choices are kept in the store and come back next session', async ($, on) => {
     engine(on)
     const mocked = mock.clock(on)
-    on('config.set', () => ({ deny: 'no /config row with key effortless.judge ($.config.list names them)' }) as never)
+    on('config.set', () => ({ deny: 'no /config row with key context-lens.effortBias ($.config.list names them)' }) as never)
     const said = toasts(on)
     await start($, on)
     const band = await $.ui.mount(DESK)
-    await band.press({ key: 'setup-haiku' })
     await band.press({ key: 'setup-next' })
     await band.press({ key: 'setup-next' })
     await band.press({ key: 'setup-next' })
@@ -1317,26 +1133,23 @@ describe('setup guide', () => {
     const panel = await $.ui.mount(DESK)
     expect(await drawn(panel)).toContain('Haiku')
     await panel.press({ key: 'settings-card-judge' })
-    expect(await drawn(panel)).toContain('Haiku only')
-    expect(await drawn(panel)).not.toContain('custom')
+    expect(await panel.find({ key: 'settings-judge-test' })).toBeDefined()
+    expect(await drawn(panel)).not.toMatch(/Jev|TypeSafe/)
     await panel.unmount()
   })
 
-  test('the steps run judge, lean, handoff, done; Back goes one step back', () => {
-    expect(setupNext('pick')).toBe('lean')
-    expect(setupNext('jev')).toBe('lean')
+  test('the steps run lean, handoff, look, done; Back goes one step back', () => {
     expect(setupNext('lean')).toBe('handoff')
     expect(setupNext('handoff')).toBe('look')
     expect(setupNext('look')).toBe('done')
     expect(setupNext('done')).toBeNull()
-    expect(setupBack('pick')).toBeNull()
-    expect(setupBack('jev')).toBe('pick')
-    expect(setupBack('lean')).toBe('pick')
+    expect(setupBack('lean')).toBeNull()
+    expect(setupBack('handoff')).toBe('lean')
     expect(setupBack('look')).toBe('handoff')
     expect(setupBack('done')).toBe('look')
-    expect(setupCounter('jev')).toBe('1/4')
-    expect(setupCounter('handoff')).toBe('3/4')
-    expect(setupCounter('look')).toBe('4/4')
+    expect(setupCounter('lean')).toBe('1/3')
+    expect(setupCounter('handoff')).toBe('2/3')
+    expect(setupCounter('look')).toBe('3/3')
     expect(setupCounter('done')).toBe('')
   })
 
@@ -1347,40 +1160,36 @@ describe('setup guide', () => {
     const said = toasts(on)
     await start($, on)
     const band = await $.ui.mount(DESK)
-    expect(await band.find({ key: 'setup-haiku' })).toBeDefined()
-    expect(await band.find({ key: 'setup-custom' })).toBeUndefined()
+    expect(await band.find({ key: 'setup-bias2' })).toBeDefined()
     expect(await band.find({ key: 'setup-back' })).toBeUndefined()
     await clickable(band, 'setup-actions')
     // Branded: the name in the footer's purple, the step counter beside it.
     expect(await drawn(band)).toContain('"color":"#a79cf7"')
-    expect(await drawn(band)).toContain('✦ effortless setup  1/4')
-    expect(await drawn(band)).toContain('Just Haiku (no key)')
+    expect(await drawn(band)).toContain('✦ context-lens setup  1/3')
     // The right side: a still SVG (every click redraws the band, and a redrawn animation flickers) with the gradient.
     const first = await drawn(band)
     expect(first).toContain('"type":"Svg"')
     expect(first).not.toContain('"isInteractive":true')
     expect(first).toContain('linearGradient')
-    await band.press({ key: 'setup-haiku' })
     // Nothing is saved yet: each saved setting reloads the plugin and puts a notice in the chat.
     expect(set).toEqual([])
-    expect(said.join(' ')).toContain('Haiku 5.5 judges')
+    expect(said.join(' ')).not.toContain('judges')
 
-    // 2/4 the lean: each stop is named and says what it does; the track lights toward the marker.
-    expect(await drawn(band)).toContain('2/4')
+    // 1/3 the lean: each stop is named and says what it does; the track lights toward the marker.
     expect(await drawn(band)).toContain('Balanced: ')
     await band.press({ key: 'setup-bias4' })
     expect(await drawn(band)).toContain('Smartest: ')
     expect(await drawn(band)).toContain('{"color":"#a79cf7"},"children":["──"]')
     await band.press({ key: 'setup-next' })
 
-    // 3/4 the handoff: the installed skills to pick from.
-    expect(await drawn(band)).toContain('3/4')
+    // 2/3 the handoff: the installed skills to pick from.
+    expect(await drawn(band)).toContain('2/3')
     expect(await drawn(band)).toContain('/session-handoff')
     await band.select({ key: 'setup-skill', value: 'session-handoff' })
     await band.press({ key: 'setup-next' })
 
-    // 4/4 the look: match Claude Code, dark or light. Light is picked here.
-    expect(await drawn(band)).toContain('4/4')
+    // 3/3 the look: match Claude Code, dark or light. Light is picked here.
+    expect(await drawn(band)).toContain('3/3')
     expect(await drawn(band)).toContain('Dark or light panels?')
     expect(await drawn(band)).toContain('◉ Match Claude Code')
     await band.press({ key: 'setup-look-light' })
@@ -1391,7 +1200,7 @@ describe('setup guide', () => {
     expect(await drawn(band)).toContain('Auto pauses on Fable')
     expect(await band.find({ key: 'setup-box-timer' })).toBeUndefined()
     await band.press({ key: 'setup-back' })
-    expect(await drawn(band)).toContain('4/4')
+    expect(await drawn(band)).toContain('3/3')
     await band.press({ key: 'setup-next' })
     expect(set).toEqual([])
     await band.press({ key: 'setup-done' })
@@ -1403,94 +1212,25 @@ describe('setup guide', () => {
     await band.unmount()
     await expect($.ui.mount(DESK)).rejects.toThrow()
 
-    // A new session: the guide stays closed; /effortless setup opens it again.
+    // A new session: the guide stays closed; /context-lens setup opens it again.
     await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
     await expect($.ui.mount(DESK)).rejects.toThrow()
     await $.command.run({ command: 'context-lens', args: 'setup' })
     const again = await $.ui.mount(DESK)
-    expect(await again.find({ key: 'setup-jev' })).toBeDefined()
+    expect(await again.find({ key: 'setup-bias2' })).toBeDefined()
     await again.unmount()
   })
 
-  test('Jev without a key asks for it in the band; Skip goes on to the lean, Back returns to the pick', async ($, on) => {
-    engine(on)
-    mock.clock(on)
-    const set = settings(on)
-    await start($, on)
-    const band = await $.ui.mount(DESK)
-    await band.press({ key: 'setup-jev' })
-    expect(set).toEqual([])
-    expect(await drawn(band)).toContain('typesafe.ai')
-    expect(await drawn(band)).toContain('typesafe.ai')
-    expect(await band.find({ key: 'setup-key' })).toBeDefined()
-    expect(await band.find({ key: 'setup-haiku' })).toBeUndefined()
-    await band.press({ key: 'setup-skip' })
-    expect(await band.find({ key: 'setup-bias2' })).toBeDefined()
-    await band.press({ key: 'setup-back' })
-    expect(await band.find({ key: 'setup-jev' })).toBeDefined()
-    // The cross keeps what was picked so far.
-    await band.press({ key: 'setup-close' })
-    expect(set).toEqual([{ key: 'context-lens.judge', value: 'jev' }])
-    await band.unmount()
-  })
-
-  test('Skip on the judge keeps the default judge and moves on; the footer then shows the gear', async ($, on) => {
-    engine(on)
-    mock.clock(on)
-    const set = settings(on)
-    await start($, on)
-    const band = await $.ui.mount(DESK)
-    await band.press({ key: 'setup-skip' })
-    expect(set).toEqual([])
-    expect(await drawn(band)).toContain('2/4')
-    await band.press({ key: 'setup-close' })
-    await band.unmount()
-    const footer = await $.ui.mount(FOOTER)
-    expect(await footer.find({ key: 'setup' })).toBeUndefined()
-    expect(await footer.find({ key: 'settings' })).toBeDefined()
-    await footer.unmount()
-  })
-
-  test('Jev with a key already in the environment needs no second step', async ($, on) => {
-    engine(on, { TYPESAFE_API_KEY: 'k' })
-    mock.clock(on)
-    settings(on)
-    const said = toasts(on)
-    await start($, on)
-    const band = await $.ui.mount(DESK)
-    await band.press({ key: 'setup-jev' })
-    expect(said.join(' ')).toContain('Jev judges')
-    expect(await drawn(band)).toContain('2/4')
-    await band.press({ key: 'setup-close' })
-    await band.unmount()
-    await expect($.ui.mount(DESK)).rejects.toThrow()
-  })
 })
 
 describe('judge failures are said', () => {
   test('judgeFailure names the cause', () => {
-    expect(judgeFailure('Jev', 402)).toContain('out of credits')
-    expect(judgeFailure('Jev', 429)).toContain('rate limited')
-    expect(judgeFailure('Jev', 401)).toContain('rejected the key')
-    expect(judgeFailure('Jev', 'timeout')).toContain('did not answer')
+    expect(judgeFailure('Haiku', 402)).toContain('out of credits')
+    expect(judgeFailure('Haiku', 429)).toContain('rate limited')
+    expect(judgeFailure('Haiku', 401)).toContain('rejected the key')
+    expect(judgeFailure('Haiku', 'timeout')).toContain('did not answer')
   })
 
-  test('Jev out of credits: the person is told once, and Haiku judges', async ($, on) => {
-    engine(on, { TYPESAFE_API_KEY: 'k' })
-    mock.clock(on)
-    const asked = judgeSays(on, '{"model":"sonnet","effort":"low","why":"x"}')
-    on('http.fetch', () => ({ value: { status: 402, ok: false, headers: {}, text: 'payment required' } }))
-    const said: string[] = []
-    on('ui.toast', (_$, e) => {
-      said.push(String((e as { text?: string }).text ?? e))
-      return { value: undefined } as never
-    })
-    await $.prompt.submit({ text: 'first question here', wait: false, origin: { kind: 'composer' } })
-    await $.prompt.submit({ text: 'second question here', wait: false, origin: { kind: 'composer' } })
-    expect(asked.length).toBe(2)
-    expect(said.filter(t => t.includes('out of credits')).length).toBe(1)
-    expect(said[0]).toContain('Haiku judges for now')
-  })
 })
 
 describe('judge benchmark', () => {
@@ -1514,7 +1254,7 @@ describe('judge benchmark', () => {
     expect(report).toContain('haiku b: said medium, wanted high')
   })
 
-  test('/effortless bench runs every case through Haiku, keeps follow-ups, and writes the report', async ($, on) => {
+  test('/context-lens bench runs every case through Haiku, keeps follow-ups, and writes the report', async ($, on) => {
     engine(on)
     mock.clock(on)
     const asked = judgeSays(on, '{"model":"sonnet","effort":"low","why":"x"}')
@@ -1559,14 +1299,6 @@ describe('short answers to a question', () => {
     expect(asked.length).toBe(2)
   })
 
-  test('Jev unsure: Haiku makes the call', async ($, on) => {
-    engine(on, { TYPESAFE_API_KEY: 'k' }, 'claude-sonnet-5-5')
-    mock.clock(on)
-    const asked = judgeSays(on, '{"model":"sonnet","effort":"low","why":"x"}')
-    on('http.fetch', () => ({ value: { status: 200, ok: true, headers: {}, text: jevReply('high', 0.3, 'sonnet') } }))
-    await $.prompt.submit({ text: 'show me the last five commits please', wait: false, origin: { kind: 'composer' } })
-    expect(asked.length).toBe(1)
-  })
 })
 
 describe('images', () => {
@@ -1709,7 +1441,6 @@ describe('cold band', () => {
     await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
     const DESK = { plugin: 'context-lens', surface: 'desktop', ...BAND } as never
     const guide = await $.ui.mount(DESK)
-    await guide.press({ key: 'setup-haiku' })
     await guide.press({ key: 'setup-close' })
     await guide.unmount()
     await $.command.run({ command: 'context-lens', args: 'cold' })
@@ -1755,7 +1486,7 @@ describe('handoff', () => {
 
   function handoffEngine(on: On, said: { role: string; text: string }[] = []) {
     mock.store(on)
-    mock.env(on, { EFFORTLESS_MODEL_UI: '1' })
+    mock.env(on, { CONTEXT_LENS_MODEL_UI: '1' })
     on('ui.status', () => ({ value: undefined }))
     on('session.messages', () => ({ value: said }) as never)
     on('session.model', () => ({ value: 'claude-opus-5-5' }))
@@ -1870,7 +1601,7 @@ describe('handoff', () => {
     await footer.unmount()
   })
 
-  test("without a skill, Full is effortless's own: a turn that checks git and saves HANDOFF.md, no fork", async ($, on) => {
+  test("without a skill, Full is context-lens's own: a turn that checks git and saves HANDOFF.md, no fork", async ($, on) => {
     const { forked, submitted } = handoffEngine(on)
     const mocked = mock.clock(on)
     await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
@@ -1969,7 +1700,7 @@ describe('handoff', () => {
 
   test('the handoff is written by a fork: no turn in the chat, then cleared and sent', async ($, on) => {
     mock.store(on)
-    mock.env(on, { EFFORTLESS_MODEL_UI: '1' })
+    mock.env(on, { CONTEXT_LENS_MODEL_UI: '1' })
     on('ui.status', () => ({ value: undefined }))
     on('session.messages', () => ({ value: [] }) as never)
     on('session.model', () => ({ value: 'claude-opus-5-5' }))
@@ -2007,7 +1738,7 @@ describe('handoff', () => {
   test('without a fork (no reply yet, or it failed) the handoff is written as a turn, then cleared and sent', async ($, on) => {
     // engine() without its prompt.submit, so this test can see what the mod sends.
     mock.store(on)
-    mock.env(on, { EFFORTLESS_MODEL_UI: '1' })
+    mock.env(on, { CONTEXT_LENS_MODEL_UI: '1' })
     on('ui.status', () => ({ value: undefined }))
     on('session.messages', () => ({ value: [] }) as never)
     on('session.model', () => ({ value: 'claude-opus-5-5' }))
@@ -2039,9 +1770,9 @@ describe('handoff', () => {
     await footer.unmount()
   })
 
-  test('a fork that writes nothing says why: in a toast and in /effortless debug, and the turn takes over', async ($, on) => {
+  test('a fork that writes nothing says why: in a toast and in /context-lens debug, and the turn takes over', async ($, on) => {
     mock.store(on)
-    mock.env(on, { EFFORTLESS_MODEL_UI: '1' })
+    mock.env(on, { CONTEXT_LENS_MODEL_UI: '1' })
     on('ui.status', () => ({ value: undefined }))
     on('session.messages', () => ({ value: [] }) as never)
     on('session.model', () => ({ value: 'claude-opus-5-5' }))
@@ -2261,7 +1992,7 @@ describe('swamp band and setup entry', () => {
     await band.unmount()
   })
 
-  test('/effortless save switches save mode on and off', async ($, on) => {
+  test('/context-lens save switches save mode on and off', async ($, on) => {
     engine(on)
     mock.clock(on)
     await start($, on)
@@ -2285,7 +2016,7 @@ describe('swamp band and setup entry', () => {
     await again.unmount()
   })
 
-  test('the setup can be closed with the cross; the footer then offers Setup, which opens it again', async ($, on) => {
+  test('the setup can be closed with the cross; it stays closed, and /context-lens setup opens it again', async ($, on) => {
     engine(on)
     mock.clock(on)
     await start($, on)
@@ -2293,15 +2024,15 @@ describe('swamp band and setup entry', () => {
     await guide.press({ key: 'setup-close' })
     await guide.unmount()
     await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
+    // Closed for good: the footer shows the gear, not Setup.
     const footer = await $.ui.mount(FOOTER)
-    expect(await footer.find({ key: 'setup' })).toBeDefined()
-    await footer.press({ key: 'setup' })
+    expect(await footer.find({ key: 'setup' })).toBeUndefined()
+    expect(await footer.find({ key: 'settings' })).toBeDefined()
+    await $.command.run({ command: 'context-lens', args: 'setup' } as never)
     const reopened = await $.ui.mount(DESK_BAND)
-    expect(await reopened.find({ key: 'setup-jev' })).toBeDefined()
-    await reopened.press({ key: 'setup-haiku' })
+    expect(await reopened.find({ key: 'setup-bias2' })).toBeDefined()
     await reopened.press({ key: 'setup-close' })
     await reopened.unmount()
-    expect(await footer.find({ key: 'setup' })).toBeUndefined()
     // Once set up, the same place is a gear that opens the settings panel.
     await footer.press({ key: 'settings' })
     const panel = await $.ui.mount(DESK_BAND)
@@ -2353,13 +2084,12 @@ describe('running hot and judge down', () => {
   })
 
   test('a failing judge shows the judge-down band until it answers again', async ($, on) => {
-    engine(on, { TYPESAFE_API_KEY: 'k' })
+    engine(on)
     mock.clock(on)
-    judgeSays(on, '{"model":"sonnet","effort":"low","why":"x"}')
-    let status = 402
-    on('http.fetch', () => ({ value: status === 200
-      ? { status: 200, ok: true, headers: {}, text: jevReply('high', 0.9, 'sonnet') }
-      : { status, ok: false, headers: {}, text: 'payment required' } }))
+    let answered = false
+    on('model.complete', () => ({ value: answered
+      ? { isAnswered: true as const, text: '{"model":"sonnet","effort":"high","why":"x"}', usage: USAGE }
+      : { isAnswered: false as const, reason: 'api-error', status: 402 } }) as never)
     on('ui.toast', () => ({ value: undefined }) as never)
     await start($, on)
     const guide = await $.ui.mount(DESK_BAND)
@@ -2368,25 +2098,27 @@ describe('running hot and judge down', () => {
     await $.prompt.submit({ text: 'refactor the sync engine end to end', wait: false, origin: { kind: 'composer' } })
     const band = await $.ui.mount(DESK_BAND)
     expect(await drawn(band)).toContain('Judge down')
-    expect(await drawn(band)).toContain('out of credits')
+    expect(await drawn(band)).toContain('Haiku did not answer')
     await band.unmount()
-    status = 200
+    answered = true
     await $.prompt.submit({ text: 'now write tests for the queue module', wait: false, origin: { kind: 'composer' } })
     await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
   })
 })
 
 describe('settings panel', () => {
-  test('Test asks the picked judge one sample and says if it answered, or why not', { options: { layout: 'default' } } as never, async ($, on) => {
-    engine(on, { TYPESAFE_API_KEY: 'k' })
+  test('Test asks the judge one sample and says if it answered, or why not', { options: { layout: 'default' } } as never, async ($, on) => {
+    engine(on)
     mock.clock(on)
-    let status = 200
+    let answered = true
     const toasts: string[] = []
     on('ui.toast', (_$, e) => {
       toasts.push(String(e))
       return { value: undefined } as never
     })
-    on('http.fetch', () => ({ value: { status, ok: status === 200, headers: {}, text: status === 200 ? jevReply('low') : 'no' } }))
+    on('model.complete', () => ({ value: answered
+      ? { isAnswered: true as const, text: '{"model":"sonnet","effort":"low","why":"x"}', usage: USAGE }
+      : { isAnswered: false as const, reason: 'api-error', status: 401 } }) as never)
     await start($, on)
     const guide = await $.ui.mount(DESK_BAND)
     await guide.press({ key: 'setup-close' })
@@ -2394,13 +2126,12 @@ describe('settings panel', () => {
     const band = await $.ui.mount(DESK_BAND)
     await band.press({ key: 'dash-settings' })
     await band.press({ key: 'settings-card-judge' })
-    await band.select({ key: 'settings-judge-pick', value: 'jev' })
     await band.press({ key: 'settings-judge-test' })
     const result = async () => (await band.findAll({ type: 'Text' })).map(t => t.text).find(t => /^[✓✗]/.test(t))
-    expect(await result()).toContain('✓ Jev answered: low in')
-    status = 401
+    expect(await result()).toContain('✓ Haiku answered: low in')
+    answered = false
     await band.press({ key: 'settings-judge-test' })
-    expect(await result()).toBe('✗ Jev rejected the key (401)')
+    expect(await result()).toBe('✗ Haiku did not answer (api-error)')
     // A test warns nobody: no toast, no judge-down band.
     expect(toasts).toEqual([])
     await band.unmount()
@@ -2412,7 +2143,7 @@ describe('settings panel', () => {
     await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
   }
 
-  test('the slider tips only close calls; floor and ceiling clamp; the key line is set in place', () => {
+  test('the slider tips only close calls; floor and ceiling clamp', () => {
     expect(tipped('medium', 0.6, 1)).toBe('high')
     expect(tipped('medium', 0.9, 1)).toBe('medium')
     expect(tipped('medium', 0.8, 1)).toBe('medium')
@@ -2422,25 +2153,16 @@ describe('settings panel', () => {
     expect(tipped('medium', undefined, 2)).toBe('medium')
     expect(bounded('low', 'medium', 'max')).toBe('medium')
     expect(bounded('max', 'low', 'high')).toBe('high')
-    expect(withJevKey('A=1\nTYPESAFE_API_KEY=old\n', 'new')).toBe('A=1\nTYPESAFE_API_KEY=new\n')
-    expect(withJevKey('A=1', 'new')).toBe('A=1\nTYPESAFE_API_KEY=new\n')
     expect(parseVerdict('{"model":"opus","effort":"high","sure":0.7,"why":"x"}')?.sure).toBe(0.7)
   })
 
-  test('Open settings opens the panel; the slider, range and key are saved from it', async ($, on) => {
+  test('Open settings opens the panel; the slider and range are saved from it', async ($, on) => {
     engine(on, { USERPROFILE: 'C:/Users/x' })
     const mocked = mock.clock(on)
     const set: { key: string; value: unknown }[] = []
     on('config.set', (_$, e) => {
       set.push({ key: e.key, value: e.value })
       return { value: e.value } as never
-    })
-    const files: Record<string, string> = { 'C:/Users/x/.config/jev/.env': 'OTHER=1\n' }
-    const at = (path: string) => path.split('\\').join('/')
-    on('fs.read', (_$, e) => ({ value: files[at(e.path)] ?? '' }) as never)
-    on('fs.write', (_$, e) => {
-      files[at(e.path)] = e.text
-      return { value: undefined } as never
     })
     const said: string[] = []
     on('ui.toast', (_$, e) => {
@@ -2451,10 +2173,7 @@ describe('settings panel', () => {
     const guide = await $.ui.mount(DESK_BAND)
     await guide.press({ key: 'setup-close' })
     await guide.unmount()
-    await $.command.run({ command: 'context-lens', args: 'down' } as never)
-    const down = await $.ui.mount(DESK_BAND)
-    await down.press({ key: 'down-settings' })
-    await down.unmount()
+    await $.command.run({ command: 'context-lens', args: 'settings' } as never)
     const panel = await $.ui.mount(DESK_BAND)
     expect(await drawn(panel)).toContain('"key":"settings-title"')
     // The panel opens on the four cards; each opens its own controls, Back returns.
@@ -2467,9 +2186,6 @@ describe('settings panel', () => {
     expect(await drawn(panel)).toContain('Helpers off')
     await panel.press({ key: 'settings-helpers-switch' })
     expect(await drawn(panel)).toContain('Helpers on')
-    await panel.press({ key: 'settings-back' })
-    await panel.press({ key: 'settings-card-judge' })
-    await panel.input({ key: 'settings-key', text: ' tk-new ' })
     await panel.press({ key: 'settings-back' })
     await panel.press({ key: 'settings-card-handoff' })
     await panel.select({ key: 'settings-skill', value: 'session-handoff' })
@@ -2500,11 +2216,8 @@ describe('settings panel', () => {
     expect(set).toContainEqual({ key: 'context-lens.handoffSkill', value: 'session-handoff' })
     expect(set).toContainEqual({ key: 'context-lens.effortBias', value: '1' })
     expect(set).toContainEqual({ key: 'context-lens.effortFloor', value: 'medium' })
-    expect(set).toContainEqual({ key: 'context-lens.judge', value: 'jev' })
     expect(set).toContainEqual({ key: 'context-lens.modelAuto', value: 'on' })
     expect(set).toContainEqual({ key: 'context-lens.helpers', value: 'on' })
-    expect(said.join(' | ')).toContain('key saved')
-    expect(files['C:/Users/x/.config/jev/.env']).toBe('OTHER=1\nTYPESAFE_API_KEY=tk-new\n')
     await panel.unmount()
     // A plain card says it was saved, then goes.
     const saved = await $.ui.mount(DESK_BAND)
@@ -2585,7 +2298,7 @@ describe('progress bar rules', () => {
     expect(afterPrompt({ phase: 'asking', steps }, said)?.phase).toBe('working')
     expect(afterPrompt({ phase: 'paused', steps }, said)?.phase).toBe('working')
     expect(afterPrompt({ phase: 'done', steps }, said)).toBeNull()
-    expect(afterPrompt({ phase: 'done', steps }, { text: '/effortless debug', origin: { kind: 'composer' } })?.phase).toBe('done')
+    expect(afterPrompt({ phase: 'done', steps }, { text: '/context-lens debug', origin: { kind: 'composer' } })?.phase).toBe('done')
   })
 
   test('where it shows, what it says, and when the judge calls a turn big', () => {
@@ -2604,7 +2317,7 @@ describe('progress bar rules', () => {
     const argv = soundArgv('C:\\Users\\x\\plugins\\effortless', 'sounds/done.wav')
     expect(argv?.[0]).toBe('powershell.exe')
     expect(argv?.join(' ')).toContain("SoundPlayer 'C:\\Users\\x\\plugins\\effortless\\sounds\\done.wav'")
-    expect(soundArgv('/Users/x/.claude/plugins/effortless', 'sounds/done.wav')).toBeNull()
+    expect(soundArgv('/Users/x/.claude/plugins/context-lens', 'sounds/done.wav')).toBeNull()
   })
 
 })
@@ -2907,7 +2620,7 @@ describe('dashboard', () => {
     const sent = recordSteps(on)
     await start($, on)
     await closeSetup($, DESK_BAND)
-    // The other chat: Low picked by hand in effortless, so Auto went off and the pick is kept for the next chat.
+    // The other chat: Low picked by hand in context-lens, so Auto went off and the pick is kept for the next chat.
     const rows = await $.ui.mount({ plugin: 'context-lens', surface: 'terminal', ...BAND } as never)
     await rows.press({ key: 'e-low' })
     await rows.unmount()
@@ -2933,7 +2646,7 @@ describe('dashboard', () => {
     expect(String((await $.command.run({ command: 'context-lens', args: 'auto' })).text)).toContain('Auto on')
   })
 
-  test('/effortless debug says what the app asked for and what was sent', async ($, on) => {
+  test('/context-lens debug says what the app asked for and what was sent', async ($, on) => {
     engine(on)
     const sent = recordSteps(on)
     const debug = async () => String((await $.command.run({ command: 'context-lens', args: 'debug' })).text)
@@ -2991,10 +2704,10 @@ describe('dashboard', () => {
   })
 
   test("its lines: the effort, cache and context; the judge's reason and the last reply", () => {
-    const base = { auto: true, paused: false, judging: false, effort: 'medium' as const, cacheNow: 42, contextPercent: 18, reason: 'Jev: a small fix', last: null }
+    const base = { auto: true, paused: false, judging: false, effort: 'medium' as const, cacheNow: 42, contextPercent: 18, reason: 'Haiku: a small fix', last: null }
     expect(dashboardLines(base).head).toBe(`✦ Medium · cache ${cacheLabel(42)} · 18% context`)
-    expect(dashboardLines(base).detail).toBe('Jev: a small fix')
-    expect(dashboardLines({ ...base, last: { cost: 42_000, ms: 38_200 } }).detail).toBe('Jev: a small fix · last reply ≈42.0k tokens · 38s')
+    expect(dashboardLines(base).detail).toBe('Haiku: a small fix')
+    expect(dashboardLines({ ...base, last: { cost: 42_000, ms: 38_200 } }).detail).toBe('Haiku: a small fix · last reply ≈42.0k tokens · 38s')
     expect(dashboardLines({ ...base, auto: false }).head).toBe(`✦ Off · cache ${cacheLabel(42)} · 18% context`)
     expect(dashboardLines({ ...base, cacheNow: null, contextPercent: null }).head).toBe('✦ Medium')
     expect(weighted({ input_tokens: 10, output_tokens: 2, cache_read_input_tokens: 1000, cache_creation_input_tokens: 4 })).toBe(10 + 10 + 100 + 5)
@@ -3355,7 +3068,7 @@ describe('updates', () => {
     on('fs.read', (_$, e) => {
       if (String(e.path).replaceAll('\\', '/').endsWith('.claude-plugin/plugin.json')) return { value: JSON.stringify({ version: v.installed }) } as never
       if (v.installPath && String(e.path).replaceAll('\\', '/').endsWith('installed_plugins.json')) return { value: JSON.stringify({ plugins: { 'context-lens@context-lens': [{ installPath: v.installPath }] } }) } as never
-      if (String(e.path).replaceAll('\\', '/').endsWith('marketplaces/effortless/public.json')) return { value: JSON.stringify([{ version: v.latest, note: 'Quick and Full as one switch.' }]) } as never
+      if (String(e.path).replaceAll('\\', '/').endsWith('marketplaces/context-lens/public.json')) return { value: JSON.stringify([{ version: v.latest, note: 'Quick and Full as one switch.' }]) } as never
       return { value: '' } as never
     })
     on('http.fetch', (_$, e) => {
@@ -3392,7 +3105,7 @@ describe('updates', () => {
   /** Through the setup guide a first session opens, which takes the band before any card. */
   async function pastSetup(ui: { find: (q: { key: string }) => Promise<unknown>; press: (q: { key: string }) => Promise<unknown> }) {
     for (let i = 0; i < 6 && (await ui.find({ key: 'setup-close' })); i++)
-      await ui.press({ key: (await ui.find({ key: 'setup-haiku' })) ? 'setup-haiku' : 'setup-close' })
+      await ui.press({ key: 'setup-close' })
   }
   const start = ($: Engine) => $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
 

@@ -94,9 +94,7 @@ const EFFORT_LABELS: Record<Effort, string> = { low: 'Low', medium: 'Medium', hi
 // Auto is two switches. `isAuto` is effort (the name stays: it is what the store and state hold);
 // `isAutoModel` lets the judge suggest another model and starts off.
 const isAuto = atom({ plugin: 'context-lens', key: 'isAuto' } as const, true)
-const JEV_TIMEOUT_MS = 3000
-const JEV_URL = 'https://api.typesafe.ai/v1/systemone'
-const EMPTY_SPENT: Spent = { prompts: 0, requests: 0, input: 0, write: 0, read: 0, out: 0, byEffort: {}, judge: { jev: 0, haiku: 0, ms: 0, tokens: 0 }, moved: 0, redone: 0 }
+const EMPTY_SPENT: Spent = { prompts: 0, requests: 0, input: 0, write: 0, read: 0, out: 0, byEffort: {}, judge: { haiku: 0, ms: 0, tokens: 0 }, moved: 0, redone: 0 }
 const SWITCHED_MS = 2500
 // The prompt cache lives this long after the last request read or wrote it. A response may say which lifetime its
 // cache writes got (usage.cache_creation: ephemeral_1h / ephemeral_5m); until one does, 1 hour is assumed: 99% of
@@ -150,7 +148,7 @@ function compactFadeSvg(elapsedMs: number): string {
   return inPhase(`<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="240" viewBox="0 0 1600 240" preserveAspectRatio="none"><style>.f{animation:f ${COMPACT_FADE_MS / 1000}s ease-out forwards}@keyframes f{from{opacity:1}to{opacity:0}}</style><rect class="f" width="1600" height="240" fill="${BOG_BG}"/></svg>`, elapsedMs)
 }
 // The person closed the cold band; it comes back the next time the cache goes cold.
-// The test pane of /effortless try pane.
+// The test pane of /context-lens try pane.
 // Where a handoff is: null idle, writing (the handoff turn runs), clearing (clear and resend).
 const handoffStage = atom({ plugin: 'context-lens', key: 'handoffStage' } as const, null)
 // The handoff bar above the prompt, open with the choice shown in it, or null.
@@ -192,8 +190,8 @@ let turnCost = 0
 const swampHiddenAt = atom({ plugin: 'context-lens', key: 'swampHiddenAt' } as const, null)
 // The first-run setup is not done: the footer offers "Setup".
 const setupPending = atom({ plugin: 'context-lens', key: 'setupPending' } as const, false)
-// Why the judge the person picked is failing (Haiku stands in), or null when it works.
-// The effortless settings panel is open above the prompt.
+// Why the judge is failing, or null when it works.
+// The context-lens settings panel is open above the prompt.
 const settingsOpen = atom({ plugin: 'context-lens', key: 'settingsOpen' } as const, false)
 // What was changed in the panel and not saved yet, by field; Save applies it all, the cross drops it.
 // The user and plugin skills, read when the settings panel opens.
@@ -208,8 +206,8 @@ const CARDS: readonly { id: SettingsCard; title: string; about: string }[] = [
   { id: 'effort', title: 'Effort', about: 'How hard Claude thinks. The slider tips close calls; Min and Max are hard limits.' },
   { id: 'model', title: 'Model', about: "Whether a simple prompt may run on a cheaper model, and which model writes a compaction." },
   { id: 'handoff', title: 'Handoff & alerts', about: 'The full handoff skill, when to suggest compacting, and which alerts show.' },
-  { id: 'show', title: 'Customize', about: 'How effortless looks and which parts it shows. Uninstall removes it.' },
-  { id: 'judge', title: 'Judge', about: 'Haiku judges prompts and handoffs. Add Jev for quicker effort calls. Test checks it answers.' },
+  { id: 'show', title: 'Customize', about: 'How context-lens looks and which parts it shows. Uninstall removes it.' },
+  { id: 'judge', title: 'Judge', about: 'Haiku judges prompts and handoffs, through your own Claude login. Test checks it answers.' },
 ]
 // The Model card: the two ways to run. Effort follows the judge in both.
 const MODEL_CHOICES = [
@@ -242,8 +240,6 @@ const FROST_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="440" height="6
 // The frost is drawn larger than the band and cut by it: wide enough for the right side, tall enough for any band.
 const FROST_WIDTH = 440
 const FROST_HEIGHT = 64
-// TypeSafe's mark (from typesafe.ai), drawn beside the Jev button: a Button holds text only.
-const TYPESAFE_MARK = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="18" viewBox="0 0 16.487 24"><style>svg{background:transparent;display:block}</style><path d="M 12.756 2.928 L 12.756 7.067 L 16.486 9.487 L 16.487 18.652 L 8.244 24 L 3.732 21.073 L 3.732 16.82 L 0 14.399 L 0 5.35 L 0.355 5.118 L 8.244 0 Z M 5.94 20.65 L 8.242 22.144 L 14.275 18.227 L 11.975 16.735 Z M 9.022 10.332 L 9.022 14.4 L 5.29 16.822 L 5.29 19.216 L 11.197 15.383 L 11.197 8.921 Z M 12.756 15.384 L 14.928 16.794 L 14.928 10.332 L 12.756 8.922 Z M 2.21 13.976 L 4.511 15.47 L 6.812 13.976 L 4.512 12.485 Z M 1.559 6.193 L 1.559 12.544 L 3.731 11.134 L 3.731 7.066 L 7.464 4.643 L 7.464 2.36 L 1.56 6.193 Z M 5.291 11.132 L 7.463 12.542 L 7.463 10.332 L 5.292 8.921 L 5.292 11.132 Z M 5.94 7.487 L 8.244 8.981 L 10.544 7.488 L 8.244 5.994 Z M 9.024 4.643 L 11.196 6.054 L 11.196 3.774 L 9.024 2.359 Z" fill="#ffffff"/></svg>`
 // Claude's mark (from claude.ai) in white, drawn beside the Haiku button.
 const CLAUDE_MARK = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 248 248"><style>svg{background:transparent;display:block}</style><path d="M52.4285 162.873L98.7844 136.879L99.5485 134.602L98.7844 133.334H96.4921L88.7237 132.862L62.2346 132.153L39.3113 131.207L17.0249 130.026L11.4214 128.844L6.2 121.873L6.7094 118.447L11.4214 115.257L18.171 115.847L33.0711 116.911L55.485 118.447L71.6586 119.392L95.728 121.873H99.5485L100.058 120.337L98.7844 119.392L97.7656 118.447L74.5877 102.732L49.4995 86.1905L36.3823 76.62L29.3779 71.7757L25.8121 67.2858L24.2839 57.3608L30.6515 50.2716L39.3113 50.8623L41.4763 51.4531L50.2636 58.1879L68.9842 72.7209L93.4357 90.6804L97.0015 93.6343L98.4374 92.6652L98.6571 91.9801L97.0015 89.2625L83.757 65.2772L69.621 40.8192L63.2534 30.6579L61.5978 24.632C60.9565 22.1032 60.579 20.0111 60.579 17.4246L67.8381 7.49965L71.9133 6.19995L81.7193 7.49965L85.7946 11.0443L91.9074 24.9865L101.714 46.8451L116.996 76.62L121.453 85.4816L123.873 93.6343L124.764 96.1155H126.292V94.6976L127.566 77.9197L129.858 57.3608L132.15 30.8942L132.915 23.4505L136.608 14.4708L143.994 9.62643L149.725 12.344L154.437 19.0788L153.8 23.4505L150.998 41.6463L145.522 70.1215L141.957 89.2625H143.994L146.414 86.7813L156.093 74.0206L172.266 53.698L179.398 45.6635L187.803 36.802L193.152 32.5484H203.34L210.726 43.6549L207.415 55.1159L196.972 68.3492L188.312 79.5739L175.896 96.2095L168.191 109.585L168.882 110.689L170.738 110.53L198.755 104.504L213.91 101.787L231.994 98.7149L240.144 102.496L241.036 106.395L237.852 114.311L218.495 119.037L195.826 123.645L162.07 131.592L161.696 131.893L162.137 132.547L177.36 133.925L183.855 134.279H199.774L229.447 136.524L237.215 141.605L241.8 147.867L241.036 152.711L229.065 158.737L213.019 154.956L175.45 145.977L162.587 142.787H160.805V143.85L171.502 154.366L191.242 172.089L215.82 195.011L217.094 200.682L213.91 205.172L210.599 204.699L188.949 188.394L180.544 181.069L161.696 165.118H160.422V166.772L164.752 173.152L187.803 207.771L188.949 218.405L187.294 221.832L181.308 223.959L174.813 222.777L161.187 203.754L147.305 182.486L136.098 163.345L134.745 164.2L128.075 235.42L125.019 239.082L117.887 241.8L111.902 237.31L108.718 229.984L111.902 215.452L115.722 196.547L118.779 181.541L121.58 162.873L123.291 156.636L123.14 156.219L121.773 156.449L107.699 175.752L86.304 204.699L69.3663 222.777L65.291 224.431L58.2867 220.768L58.9235 214.27L62.8713 208.48L86.304 178.705L100.44 160.155L109.551 149.507L109.462 147.967L108.959 147.924L46.6977 188.512L35.6182 189.93L30.7788 185.44L31.4156 178.115L33.7079 175.752L52.4285 162.873Z" fill="#ffffff"/></svg>`
 // The band when the context is swamped: murky green, bubbles rising, slow ripples.
@@ -267,7 +263,7 @@ let DASH_EDGE = '#2a2a2f'
 /** The settings title's word in the website hero's style: crisp, going soft and grainy at its bottom right (a radial
  * mask fades the crisp copy out there and a copy through the site's #grainy filter takes over). The app gives the image
  * the band's font. */
-const SETTINGS_TITLE = `<svg xmlns="http://www.w3.org/2000/svg" width="92" height="28" viewBox="0 0 92 28"><defs><radialGradient id="c" cx="1" cy="1" r=".75" gradientTransform="matrix(.7 0 0 2.3 .3 -1.3)"><stop offset=".35" stop-color="#000"/><stop offset="1" stop-color="#fff"/></radialGradient><radialGradient id="s" cx=".9" cy=".85" r=".55" gradientTransform="matrix(.7 0 0 2.3 .27 -1.1)"><stop offset=".4" stop-color="#fff"/><stop offset="1" stop-color="#000"/></radialGradient><mask id="mc"><rect width="92" height="28" fill="url(#c)"/></mask><mask id="ms"><rect width="92" height="28" fill="url(#s)"/></mask><filter id="g" x="-20%" y="-40%" width="140%" height="180%"><feTurbulence type="fractalNoise" baseFrequency="1.4" numOctaves="1" seed="7" result="noise"/><feDisplacementMap in="SourceGraphic" in2="noise" scale="2.5" xChannelSelector="R" yChannelSelector="G" result="moved"/><feGaussianBlur in="moved" stdDeviation="0.35" result="soft"/><feComponentTransfer in="noise" result="dots"><feFuncA type="discrete" tableValues="0 1 1 1 1"/></feComponentTransfer><feComposite in="soft" in2="dots" operator="in"/></filter></defs><g font-size="21" font-weight="600" letter-spacing="-.5"><text x="1" y="20" fill="#ffffff" mask="url(#mc)">effortless</text><g mask="url(#ms)"><text x="1" y="20" fill="#ffffff" filter="url(#g)">effortless</text></g></g></svg>`
+const SETTINGS_TITLE = `<svg xmlns="http://www.w3.org/2000/svg" width="112" height="28" viewBox="0 0 112 28"><defs><radialGradient id="c" cx="1" cy="1" r=".75" gradientTransform="matrix(.7 0 0 2.3 .3 -1.3)"><stop offset=".35" stop-color="#000"/><stop offset="1" stop-color="#fff"/></radialGradient><radialGradient id="s" cx=".9" cy=".85" r=".55" gradientTransform="matrix(.7 0 0 2.3 .27 -1.1)"><stop offset=".4" stop-color="#fff"/><stop offset="1" stop-color="#000"/></radialGradient><mask id="mc"><rect width="112" height="28" fill="url(#c)"/></mask><mask id="ms"><rect width="112" height="28" fill="url(#s)"/></mask><filter id="g" x="-20%" y="-40%" width="140%" height="180%"><feTurbulence type="fractalNoise" baseFrequency="1.4" numOctaves="1" seed="7" result="noise"/><feDisplacementMap in="SourceGraphic" in2="noise" scale="2.5" xChannelSelector="R" yChannelSelector="G" result="moved"/><feGaussianBlur in="moved" stdDeviation="0.35" result="soft"/><feComponentTransfer in="noise" result="dots"><feFuncA type="discrete" tableValues="0 1 1 1 1"/></feComponentTransfer><feComposite in="soft" in2="dots" operator="in"/></filter></defs><g font-size="21" font-weight="600" letter-spacing="-.5"><text x="1" y="20" fill="#ffffff" mask="url(#mc)">context-lens</text><g mask="url(#ms)"><text x="1" y="20" fill="#ffffff" filter="url(#g)">context-lens</text></g></g></svg>`
 /** The mark as the settings bar shows it: big, tilted and faint, cut off by the bar. */
 const SETTINGS_MARK = MARK_SVG.replace('<g mask=', '<g opacity=".2" transform="rotate(9 50 50)" mask=')
 // The dashboard's mark (see dash-mark): its size, and its look with Auto off.
@@ -304,14 +300,14 @@ async function introShows($: EngineInterface, kind: string): Promise<boolean> {
 // The mark beside a card's title, sized to one line of text.
 const TITLE_MARK_SIZE = 16
 
-/** A card's title with the effortless mark where the ✦ stood; the ✦ stays where the surface draws no images. */
+/** A card's title with the context-lens mark where the ✦ stood; the ✦ stays where the surface draws no images. */
 function markTitle(els: { Box: unknown; Text: unknown; Svg?: unknown }, key: string, color: string, title: string, mark = MARK_SVG) {
   const { Box: B, Text: T, Svg: S } = els as unknown as { Box: (p: Record<string, unknown>) => unknown; Text: (p: Record<string, unknown>) => unknown; Svg?: (p: Record<string, unknown>) => unknown }
   if (!S) return <T key={key} color={color} bold wrap="truncate">{title}</T>
   return (
     <B key={key} flexDirection="row" alignItems="center" flexShrink={1} minWidth={0}>
       <B flexShrink={0} marginRight={1} alignItems="center">
-        <S source={mark} alt="effortless" width={TITLE_MARK_SIZE} height={TITLE_MARK_SIZE} />
+        <S source={mark} alt="context-lens" width={TITLE_MARK_SIZE} height={TITLE_MARK_SIZE} />
       </B>
       <T color={color} bold wrap="truncate">{title.replace(/^✦ /, '')}</T>
     </B>
@@ -430,34 +426,7 @@ function lastAssistantText(messages: readonly { role: string; text: string }[]):
 }
 
 
-// Jev answers typed questions with probabilities; these are the options it picks between.
-const JEV_EFFORTS: Record<Effort, string> = {
-  low: 'quick answer, no tools, no planning',
-  medium: 'normal work: a few tool calls or edits',
-  high: 'hard or large multi-step job: many tool calls, costly mistakes',
-  xhigh: 'very hard: a long investigation',
-  max: 'the hardest research-level work',
-}
-const JEV_MODELS: Record<ModelKey, string> = {
-  haiku: 'trivial questions, lookups, renames, chit-chat',
-  sonnet: 'normal coding, edits across a few files, explanations, writing',
-  opus: 'hard debugging, architecture, large refactors, careful reviews',
-  fable: 'the hardest long-horizon or research-level work',
-}
-const JEV_TASK =
-  'Choose the reasoning effort (and model) an agentic assistant should use for the next user message. It reads files, ' +
-  'runs tools and edits things, not only code. Pick the cheapest that still does the job well. Judge the scope and the ' +
-  'amount of work, not whether it is code: "go through my whole drive and clean it up" is a big tool-heavy job. ' +
-  'Effort is relative to current_model: a stronger model needs less for the same job. Opus at medium does about what ' +
-  'Sonnet does at high, so for one task pick one step lower on Opus than on Sonnet. ' +
-  'A short follow-up ("yes", "go", "ok", in any language) keeps the current effort. When the message answers a ' +
-  "question in the assistant's last reply (picks an option), judge only the work that answer starts, not its length and " +
-  'not the work before the question: yes/no to one small action, or picking a value for one setting (a log level, a colour), is low; picking which way to build something starts that build, so judge the build; ' +
-  'approving a whole plan takes the effort of that plan; a plain yes to "Then I will build X" means judge X. Pushing back on or adding to a plan under discussion continues that work: keep its effort, never low. Thanks or a closing remark with no new request is low. A ' +
-  'question about how to do something that needs no tools is low. "think hard", "ultrathink" or "be thorough" means ' +
-  'at least high; "quick question" means low.'
-
-/** The skill or custom command a typed "/name args" runs, or nothing for the app's own commands and effortless's. */
+/** The skill or custom command a typed "/name args" runs, or nothing for the app's own commands and context-lens's. */
 async function typedSkill($: EngineInterface, text: string): Promise<{ name: string; description: string } | undefined> {
   const name = text.trim().slice(1).split(/\s+/)[0]
   if (!name) return undefined
@@ -525,59 +494,6 @@ export function keepsEffort(message: string, context: string): boolean {
   return isFollowUp(message) && !endsOnQuestion(context)
 }
 
-/** The TypeSafe key in a ~/.config/jev/.env file's text, the same file the jev-* skills read. */
-export function parseJevKey(text: string): string | undefined {
-  const value = text.match(/^\s*TYPESAFE_API_KEY\s*=\s*(.*?)\s*$/m)?.[1].replace(/^['"]|['"]$/g, '')
-  return value || undefined
-}
-
-/**
- * Jev's answer as a verdict. Below even odds on the effort it is unsure, and an unsure call keeps the
- * current effort: that is what a "go" between two steps of work should do.
- */
-const UNSURE = 'unsure, keeping'
-export function parseJevAnswer(text: string, current: Pick | null): { model: ModelKey; effort: Effort; why: string; sure?: number } | undefined {
-  let json: Record<string, unknown>
-  try {
-    json = JSON.parse(text)
-  } catch {
-    return undefined
-  }
-  const answers = (json.answers ?? (json.result as Record<string, unknown> | undefined)?.answers) as
-    | Record<string, { choice?: string; confidence?: number; probabilities?: Record<string, number> }>
-    | undefined
-  const effort = answers?.effort?.choice as Effort | undefined
-  if (!effort || !EFFORTS.includes(effort)) return undefined
-  const model = MODELS.find(m => m.key === answers?.model?.choice)?.key ?? current?.model ?? 'sonnet'
-  const sure = answers?.effort?.confidence ?? answers?.effort?.probabilities?.[effort]
-  if (current && typeof sure === 'number' && sure < 0.5) return { model, effort: current.effort, why: UNSURE, sure }
-  if (typeof sure !== 'number') return { model, effort, why: '' }
-  return { model, effort, why: `${Math.round(sure * 100)}% sure`, sure }
-}
-
-let askJevFile: EnvAsk | undefined
-// A key was saved from the settings panel into ~/.config/jev/.env: that file wins over an older key in the settings.
-let keyFromFile = false
-/**
- * The TypeSafe key: from the settings, else TYPESAFE_API_KEY. Only when the person picked the jev judge outright is
- * ~/.config/jev/.env read as well: a mod should not open a file holding a secret it was not asked to use.
- */
-async function jevKey($: EngineInterface): Promise<string | undefined> {
-  if (config.typesafeKey && !keyFromFile) return config.typesafeKey
-  const fromEnv = await envJevKey($)
-  if (fromEnv) return fromEnv
-  if (config.judge !== 'jev' && !keyFromFile) return undefined
-  askJevFile =
-    askJevFile ??
-    (async () => {
-      const home = (await envUserProfile($)) ?? (await envHome($))
-      if (!home) return undefined
-      const text = await $.fs.read(`${home}/.config/jev/.env`).catch(() => '')
-      return parseJevKey(typeof text === 'string' ? text : '')
-    })()
-  return askJevFile
-}
-
 type Judged = { verdict?: Pick; tokens: number }
 
 /** Why a judge the person picked could not answer, in words: what a status code means for them. */
@@ -589,7 +505,7 @@ export function judgeFailure(name: string, status: number | 'timeout'): string {
   return `${name} failed (${status})`
 }
 const warned = new Set<string>()
-/** Tells the person once per session and reason that their judge failed and Haiku stands in. */
+/** Tells the person once per session and reason that the judge failed; the effort stays as it is. */
 function warnJudge($: EngineInterface, reason: string) {
   // A test from the settings panel takes the reason for its own line, with no toast and no judge-down band.
   if (judgeTesting) {
@@ -600,13 +516,11 @@ function warnJudge($: EngineInterface, reason: string) {
   void update($, judgeDown, () => reason).then(() => $.ui.invalidate('ui.render'))
   if (warned.has(reason)) return
   warned.add(reason)
-  $.ui.toast(`context-lens: ${reason}. Haiku judges for now.`)
+  $.ui.toast(`context-lens: ${reason}. The effort stays as it is.`)
 }
 
-/** Which judge the person picked in the plugin's settings, and what it needs. */
+/** The plugin's settings, as read from its options. */
 export type JudgeConfig = {
-  judge: 'auto' | 'haiku' | 'jev'
-  typesafeKey: string
   /** A skill or slash command that writes the handoff instead of the built-in prompt, e.g. "session-handoff". */
   handoffSkill: string
   /** What follows the handoff: clear and carry on, clear and wait, or keep the chat and copy the handoff. The handoff
@@ -632,7 +546,7 @@ export type JudgeConfig = {
   modelAuto: 'on' | 'off'
   /** on: every subagent the chat sends off gets an effort picked by the judge before it starts. */
   helpers: 'on' | 'off'
-  /** The accent colour of everything effortless draws: the brand violet, Claude orange or cherry-blossom rose. */
+  /** The accent colour of everything context-lens draws: the brand violet, Claude orange or cherry-blossom rose. */
   theme: ThemeName
   /** auto: light when Claude Code's own theme is light. dark and light fix it. */
   appearance: 'auto' | 'dark' | 'light'
@@ -641,7 +555,7 @@ export type JudgeConfig = {
 /** The swamp thresholds the settings offer, in percent of the context window. */
 export const SWAMP_STEPS = [10, 20, 30, 40, 50, 60, 70, 80] as const
 
-/** The parts of effortless a person can switch off: the footer's (setup) and the progress bar's (setup, settings).
+/** The parts of context-lens a person can switch off: the footer's (setup) and the progress bar's (setup, settings).
  * The context (swamp), running-low (hot) and cold-cache alerts can be switched off for good in Customize; the judge-down
  * alert always shows. Each alert also has its own ✕. */
 export const HIDEABLE = ['handoff', 'timer', 'reason', 'progress', 'sounds', 'swamp', 'hot', 'cold'] as const
@@ -649,8 +563,6 @@ export type Hideable = (typeof HIDEABLE)[number]
 // What the app passed to register, so settings kept in the store can be laid over it at session start.
 let pluginOptions: Record<string, unknown> = {}
 let config: JudgeConfig = {
-  judge: 'auto',
-  typesafeKey: '',
   handoffSkill: '',
   handoffAfter: 'continue',
   bias: 0,
@@ -671,10 +583,7 @@ let config: JudgeConfig = {
 export function readConfig(options: unknown): JudgeConfig {
   const o = (options ?? {}) as Record<string, unknown>
   const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '')
-  const picked = str(o.judge)
   return {
-    judge: picked === 'haiku' || picked === 'jev' ? picked : 'auto',
-    typesafeKey: str(o.typesafeKey),
     handoffSkill: str(o.handoffSkill).replace(/^\//, ''),
     handoffAfter: (['confirm', 'copy'] as const).find(a => a === str(o.handoffAfter)) ?? 'continue',
     bias: Math.max(-2, Math.min(2, Math.round(Number(str(o.effortBias)) || 0))),
@@ -709,72 +618,10 @@ function judgeQuestion(prompt: string, current: Pick | null, context: string): s
     .join('\n\n')
 }
 
-/**
- * Haiku always judges; Jev is the optional quick one. Jev is asked first when a TypeSafe key is found (unless the
- * setting is haiku), and Haiku makes the call whenever Jev is unsure, down or slow. Any judge that fails or takes longer than JEV_TIMEOUT_MS falls back to
- * Haiku, which needs nothing but the session's own login. Never throws.
- */
+/** Haiku judges, through the session's own login: no key, nothing else to set up. Never throws. */
 async function judge($: EngineInterface, prompt: string, current: Pick | null): Promise<Judged> {
   const context = await recentContext($).catch(() => '')
-  const key = config.judge !== 'haiku' ? await jevKey($).catch(() => undefined) : undefined
-  if (key) {
-    const jev = await askJev($, key, prompt, current, context)
-    if (jev) return jev.verdict?.why === UNSURE ? haikuAfter($, jev, prompt, current, context) : jev
-  }
   return askHaiku($, prompt, current, context)
-}
-
-/** Jev was unsure: Haiku makes the call, and both judges' tokens count. */
-async function haikuAfter($: EngineInterface, jev: Judged, prompt: string, current: Pick | null, context: string): Promise<Judged> {
-  const haiku = await askHaiku($, prompt, current, context)
-  return haiku.verdict ? { verdict: haiku.verdict, tokens: haiku.tokens + jev.tokens } : jev
-}
-
-/** Jev on TypeSafe: an answer, or nothing when it fails, is unsure of its own format or takes too long. */
-async function askJev($: EngineInterface, key: string, prompt: string, current: Pick | null, context: string): Promise<Judged | undefined> {
-  try {
-    // A stalled endpoint must not hold the prompt: after JEV_TIMEOUT_MS the judge falls through to Haiku.
-    const res = await Promise.race([
-      $.http.fetch((await envJevUrl($)) ?? JEV_URL, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
-        body: JSON.stringify({
-          model: 'jev-latest',
-          state: {
-            task: JEV_TASK,
-            current_model: current?.model ?? null,
-            current_effort: current?.effort ?? null,
-            recent_conversation: context,
-            next_message: prompt.slice(0, 4000),
-          },
-          questions: {
-            effort: { type: 'choice', instructions: 'Which effort fits the next message?', criteria: JEV_EFFORTS },
-            model: { type: 'choice', instructions: 'Which model fits the next message?', criteria: JEV_MODELS },
-          },
-        }),
-      }),
-      $.clock.sleep(JEV_TIMEOUT_MS).then(() => {
-        throw new Error('jev timeout')
-      }),
-    ])
-    if (!res.ok) warnJudge($, judgeFailure('Jev', res.status))
-    const verdict = res.ok ? parseJevAnswer(res.text, current) : undefined
-    if (verdict) {
-      let used = 0
-      try {
-        const usage = (JSON.parse(res.text) as { usage?: { input_tokens?: number; output_tokens?: number } }).usage
-        used = (usage?.input_tokens ?? 0) + (usage?.output_tokens ?? 0)
-      } catch {
-        // No usage in the reply: counted as 0.
-      }
-      if (await read($, judgeDown)) await update($, judgeDown, () => null)
-      return { verdict: { ...verdict, by: 'jev' }, tokens: used }
-    }
-  } catch (error) {
-    // Jev down or slow: fall through to Haiku, and say so.
-    warnJudge($, String(error).includes('timeout') ? judgeFailure('Jev', 'timeout') : 'Jev could not be reached')
-  }
-  return undefined
 }
 
 // Set while the settings panel tests a judge: warnJudge leaves its reason here instead of warning.
@@ -782,26 +629,14 @@ let judgeTesting: { reason?: string } | null = null
 /** The prompt a judge test sends: small and plain, so any working judge answers it. */
 const JUDGE_TEST_PROMPT = 'rename one variable in a single file'
 
-/** Asks the judge picked in the panel (its unsaved key, URL and model included) one sample prompt, and says in a line
- * whether it answered, with what and how fast, or why not. Never falls back to Haiku: the point is the judge itself. */
-async function testJudge($: EngineInterface, judgeKind: string, draftKey: string): Promise<{ ok: boolean; text: string }> {
+/** Asks Haiku one sample prompt and says in a line whether it answered, with what and how fast, or why not. */
+async function testJudge($: EngineInterface): Promise<{ ok: boolean; text: string }> {
   const start = await $.clock.now()
   const took = async () => `${(((await $.clock.now()) - start) / 1000).toFixed(1)} s`
-  const said = (name: string, j: Judged | undefined) =>
-    j?.verdict?.why === UNSURE ? `${name} answered, unsure on the sample` : `${name} answered: ${j?.verdict?.effort}`
   judgeTesting = {}
   try {
-    if (judgeKind === 'jev' || judgeKind === 'auto') {
-      const key = parseJevKey(draftKey) ?? (draftKey.trim() || undefined) ?? (await jevKey($).catch(() => undefined)) ?? (await typesafeKeyAnywhere($).catch(() => undefined))
-      if (!key && judgeKind === 'jev') return { ok: false, text: 'No TypeSafe key found' }
-      if (key) {
-        const j = await askJev($, key, JUDGE_TEST_PROMPT, null, '')
-        if (j?.verdict) return { ok: true, text: `${said('Jev', j)} in ${await took()}` }
-        return { ok: false, text: judgeTesting.reason ?? 'Jev gave no usable answer' }
-      }
-    }
     const h = await askHaiku($, JUDGE_TEST_PROMPT, null, '')
-    return h.verdict ? { ok: true, text: `${said('Haiku', h)} in ${await took()}` } : { ok: false, text: 'Haiku gave no answer' }
+    return h.verdict ? { ok: true, text: `Haiku answered: ${h.verdict.effort} in ${await took()}` } : { ok: false, text: judgeTesting.reason ?? 'Haiku gave no answer' }
   } catch (error) {
     return { ok: false, text: String(error).slice(0, 80) }
   } finally {
@@ -809,7 +644,7 @@ async function testJudge($: EngineInterface, judgeKind: string, draftKey: string
   }
 }
 
-/** Haiku through the session's own login: the judge that needs no key, and the fallback for the others. */
+/** Haiku through the session's own login: the judge, and it needs no key. */
 async function askHaiku($: EngineInterface, prompt: string, current: Pick | null, context: string): Promise<Judged> {
   const used = lastContext && lastContext.window ? `Context used: ${Math.round(lastContext.percent)}% of the window` : ''
   const asked = [judgeQuestion(prompt, current, context), used].filter(Boolean).join('\n\n')
@@ -820,6 +655,9 @@ async function askHaiku($: EngineInterface, prompt: string, current: Pick | null
   if (!r.isAnswered) r = await ask('haiku')
   const verdict = r.isAnswered ? parseVerdict(r.text) : undefined
   const tokens = r.isAnswered && r.usage ? r.usage.input_tokens + r.usage.output_tokens : 0
+  // Neither model answered: say so once (the band's judge-down line); an answer again takes the line away.
+  if (!r.isAnswered) warnJudge($, `Haiku did not answer (${r.reason})`)
+  else if (verdict && (await read($, judgeDown))) await update($, judgeDown, () => null)
   return { verdict: verdict && { ...verdict, by: 'haiku' }, tokens }
 }
 
@@ -895,7 +733,7 @@ async function checkHandoff($: EngineInterface, next: string) {
   }
 }
 
-// The judge benchmark (/effortless bench): labelled prompts in bench/judge-cases.json, each run through the same
+// The judge benchmark (/context-lens bench): labelled prompts in bench/judge-cases.json, each run through the same
 // pipeline a real prompt takes (a short follow-up keeps the current effort, anything else goes to a judge).
 export type BenchCase = { id: string; kind: string; holdout?: boolean; current: Pick; context?: string; message: string; ok: Effort[] }
 export type BenchAnswer = { id: string; judge: string; effort?: Effort; by?: string; why?: string; sure?: number; model?: ModelKey; ms: number; tokens: number }
@@ -978,19 +816,9 @@ export function benchReport(cases: BenchCase[], answers: BenchAnswer[]): string 
 
 /** Runs every case through each available judge, a few at a time, and returns the answers. */
 async function runBench($: EngineInterface, cases: BenchCase[]): Promise<BenchAnswer[]> {
-  const key = await typesafeKeyAnywhere($).catch(() => undefined)
   const judges: [string, (c: BenchCase) => Promise<Judged | undefined>][] = [
     ['haiku', c => askHaiku($, c.message, c.current, c.context ?? '')],
   ]
-  if (key)
-    judges.push([
-      'jev',
-      async c => {
-        const jev = await askJev($, key, c.message, c.current, c.context ?? '')
-        if (!jev) return askHaiku($, c.message, c.current, c.context ?? '')
-        return jev.verdict?.why === UNSURE ? haikuAfter($, jev, c.message, c.current, c.context ?? '') : jev
-      },
-    ])
   const answers: BenchAnswer[] = []
   // Baselines: what a fixed effort would score on the same labels.
   for (const fixed of ['medium', 'high'] as Effort[])
@@ -1040,8 +868,8 @@ async function sessionModel($: EngineInterface): Promise<ModelKey> {
 }
 
 
-// Proof log: every verdict, /effort and request effort, written to EFFORTLESS_LOG, or to
-// %TEMP%/effortless-proof.log while the mod is loaded from a dev-mods folder. Off otherwise.
+// Proof log: every verdict, /effort and request effort, written to CONTEXT_LENS_LOG, or to
+// %TEMP%/context-lens-proof.log while the mod is loaded from a dev-mods folder. Off otherwise.
 const proofLines: string[] = []
 // An environment variable does not change while the session runs, so each one is asked for once. The
 // engine wants the name spelled out in every $.env.get call, hence one small getter per variable.
@@ -1050,16 +878,12 @@ let askLog: EnvAsk
 let askTemp: EnvAsk
 let askTmpdir: EnvAsk
 let askModelUi: EnvAsk
-let askJevUrl: EnvAsk
-let askJevKey: EnvAsk
 let askUserProfile: EnvAsk
 let askHome: EnvAsk
-const envLog = ($: EngineInterface) => (askLog = askLog ?? $.env.get('EFFORTLESS_LOG'))
+const envLog = ($: EngineInterface) => (askLog = askLog ?? $.env.get('CONTEXT_LENS_LOG'))
 const envTemp = ($: EngineInterface) => (askTemp = askTemp ?? $.env.get('TEMP'))
 const envTmpdir = ($: EngineInterface) => (askTmpdir = askTmpdir ?? $.env.get('TMPDIR'))
-const envModelUi = ($: EngineInterface) => (askModelUi = askModelUi ?? $.env.get('EFFORTLESS_MODEL_UI'))
-const envJevUrl = ($: EngineInterface) => (askJevUrl = askJevUrl ?? $.env.get('JEV_URL'))
-const envJevKey = ($: EngineInterface) => (askJevKey = askJevKey ?? $.env.get('TYPESAFE_API_KEY'))
+const envModelUi = ($: EngineInterface) => (askModelUi = askModelUi ?? $.env.get('CONTEXT_LENS_MODEL_UI'))
 const envUserProfile = ($: EngineInterface) => (askUserProfile = askUserProfile ?? $.env.get('USERPROFILE'))
 const envHome = ($: EngineInterface) => (askHome = askHome ?? $.env.get('HOME'))
 
@@ -1068,7 +892,7 @@ async function proofPath($: EngineInterface): Promise<string | undefined> {
   if (named) return named
   if (!$.plugin.root.replace(/\\/g, '/').includes('/dev-mods/')) return undefined
   const tmp = (await envTemp($)) ?? (await envTmpdir($)) ?? '/tmp'
-  return `${tmp}/effortless-proof.log`
+  return `${tmp}/context-lens-proof.log`
 }
 async function proof($: EngineInterface, line: string) {
   const path = await proofPath($).catch(() => undefined)
@@ -1083,7 +907,7 @@ async function proof($: EngineInterface, line: string) {
 let engineEffort: string | undefined
 // The pick was carried over from the last chat (the store), not made in this one: the app's effort may overrule it.
 let pickCarried = false
-// The last main-chat request, for /effortless debug: what the app asked for and what the mod sent instead, if anything.
+// The last main-chat request, for /context-lens debug: what the app asked for and what the mod sent instead, if anything.
 let lastRequest: { index: number; appModel: string; appEffort: unknown; model: string; effort: unknown; at: number } | null = null
 // The slash command this mod last typed into the prompt box.
 let lastTyped = ''
@@ -1144,7 +968,7 @@ export function asSpent(t: unknown): Spent {
     read: num(v.read),
     out: num(v.out),
     byEffort: v.byEffort && typeof v.byEffort === 'object' ? v.byEffort : {},
-    judge: { jev: num(judged.jev), haiku: num(judged.haiku), ms: num(judged.ms), tokens: num(judged.tokens) },
+    judge: { haiku: num(judged.haiku), ms: num(judged.ms), tokens: num(judged.tokens) },
     moved: num(v.moved),
     redone: num(v.redone),
     helpers: {
@@ -1194,7 +1018,6 @@ async function countPrompt($: EngineInterface, effort: Effort | undefined, by: P
   await update($, saved, old => {
     const t = asSpent(old)
     const judged = {
-      jev: t.judge.jev + (by === 'jev' ? 1 : 0),
       haiku: t.judge.haiku + (by === 'haiku' ? 1 : 0),
       ms: t.judge.ms + ms,
       tokens: t.judge.tokens + judgeTokens,
@@ -1223,7 +1046,7 @@ export function mostlyCached(usage: unknown): boolean {
 }
 
 /** Save mode on or off: Auto stays at medium or below until the limit resets. The hot band's button and
- *  /effortless save. Says what it did. */
+ *  /context-lens save. Says what it did. */
 async function toggleSave($: EngineInterface): Promise<string> {
   const saving = (await read($, saveUntil)) !== null
   const heat = await read($, hot)
@@ -1305,7 +1128,7 @@ async function restoreCache($: EngineInterface) {
 }
 const rememberCache = ($: EngineInterface) => update($, cacheMemo, () => ({ expires: cacheExpires, ttl: cacheTtl, last: lastResponseAt }))
 /** Writes the minutes left when they changed; the session's one timer (started in session.start) calls it. */
-// What /effortless swamp shows as a test: a swamped chat's context.
+// What /context-lens swamp shows as a test: a swamped chat's context.
 const SWAMP_TOKENS = 150_000
 // Closed, the band stays away until the context has grown this much more.
 const SWAMP_REGROW = 50_000
@@ -1413,12 +1236,12 @@ async function setTurnBusy($: EngineInterface, busy: boolean) {
   if (was !== busy) $.ui.invalidate('ui.render')
 }
 
-/** A context share to draw the bars with instead of the real one, from ~/.claude/effortless-preview.json
+/** A context share to draw the bars with instead of the real one, from ~/.claude/context-lens-preview.json
  * ({"contextPercent": 45}), so how a level looks can be checked on screen without filling a chat. No file, no change. */
 async function previewPercent($: EngineInterface): Promise<number | undefined> {
   const home = (await envUserProfile($)) ?? (await envHome($))
   if (!home) return undefined
-  const text = await $.fs.read(`${home}/.claude/effortless-preview.json`).catch(() => '')
+  const text = await $.fs.read(`${home}/.claude/context-lens-preview.json`).catch(() => '')
   if (!text) return undefined
   try {
     const n = Number((JSON.parse(text) as { contextPercent?: unknown }).contextPercent)
@@ -1490,7 +1313,7 @@ async function cacheMinutes($: EngineInterface): Promise<number> {
 /** A response came back: the cache is warm again for its whole lifetime, and the countdown restarts. */
 let usageLogged = false
 let lastResponseAt: number | undefined
-// Main-conversation replies this copy has seen, for /effortless debug.
+// Main-conversation replies this copy has seen, for /context-lens debug.
 let repliesSeen = 0
 async function cacheTouched($: EngineInterface, usage: unknown) {
   const now = await $.clock.now()
@@ -1680,7 +1503,7 @@ export function handoffWhat(choice: HandoffChoice, skill: string): { by: string;
   return { by, then }
 }
 
-/** What a handoff fork came to, in a few words for /effortless debug: its reason when it wrote nothing. */
+/** What a handoff fork came to, in a few words for /context-lens debug: its reason when it wrote nothing. */
 export function forkOutcome(result: unknown, ms: number): string {
   const took = `${(ms / 1000).toFixed(1)}s`
   if (result instanceof Error) return `threw: ${result.message.slice(0, 120)} (${took})`
@@ -1788,7 +1611,7 @@ async function loadInstalledSkills($: EngineInterface) {
   await update($, installedSkills, () => names)
 }
 
-/** Opens the effortless settings panel above the prompt: the app does not let a plugin open its /plugin dialog. */
+/** Opens the context-lens settings panel above the prompt: the app does not let a plugin open its /plugin dialog. */
 async function openPluginSettings($: EngineInterface) {
   await loadInstalledSkills($)
   await update($, settingsOpen, () => true)
@@ -1806,7 +1629,6 @@ const ICON_JUDGE = '⚖︎'
 const ICON_HANDOFF = '⇥'
 const ICON_SHOW = '◉'
 const SETTING_FIELDS = {
-  judge: 'judge',
   bias: 'effortBias',
   floor: 'effortFloor',
   ceiling: 'effortCeiling',
@@ -1837,7 +1659,6 @@ async function saveSetting($: EngineInterface, field: keyof typeof SETTING_FIELD
     .catch(() => false)
   if (deny && !stored) $.ui.toast(`context-lens: could not save ${field}: ${String(deny).slice(0, 120)}`)
   const raw: Record<string, unknown> = {
-    judge: config.judge,
     effortBias: String(config.bias),
     effortFloor: config.floor,
     effortCeiling: config.ceiling,
@@ -1854,7 +1675,7 @@ async function saveSetting($: EngineInterface, field: keyof typeof SETTING_FIELD
     appearance: config.appearance,
     [SETTING_FIELDS[field]]: value,
   }
-  config = { ...readConfig(raw), typesafeKey: config.typesafeKey }
+  config = readConfig(raw)
   applyTheme()
   $.ui.invalidate('ui.render')
 }
@@ -1875,15 +1696,13 @@ function savedCardTree($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
 /** Saves every change in the panel's draft, then closes the panel. Nothing changed applies before this. */
 async function saveDraft($: EngineInterface) {
   const draft = await read($, settingsDraft)
-  const { key, ...rest } = draft
-  // The key goes to its file first; the settings then go through the store queue, since each one reloads the plugin.
-  if (key?.trim()) await saveJevKey($, key, false)
+  const rest = draft
+  // The settings go through the store queue, since each one reloads the plugin.
   const changes: Record<string, string> = {}
   for (const field of Object.keys(SETTING_FIELDS) as (keyof typeof SETTING_FIELDS)[]) {
     const value = rest[field]
     if (value !== undefined) changes[field] = value
   }
-  if (key?.trim() && (changes.judge ?? config.judge) !== 'jev') changes.judge = 'jev'
   await update($, settingsDraft, () => ({}))
   await update($, settingsOpen, () => false)
   // Said by a card above the prompt, not a toast. Kept in the store: each setting written reloads the plugin.
@@ -1893,59 +1712,7 @@ async function saveDraft($: EngineInterface) {
   await drainSetupSave($)
 }
 
-/** A TYPESAFE_API_KEY line set in an .env file's text: replaced where it is, added where it is not. */
-export function withJevKey(text: string, key: string): string {
-  const line = `TYPESAFE_API_KEY=${key}`
-  if (/^\s*TYPESAFE_API_KEY\s*=.*$/m.test(text)) return text.replace(/^\s*TYPESAFE_API_KEY\s*=.*$/m, line)
-  return `${text}${text && !text.endsWith('\n') ? '\n' : ''}${line}\n`
-}
-
-/**
- * A key pasted in the panel goes to ~/.config/jev/.env, the file the jev skills read: a plugin cannot write the
- * app's secret settings. From then on that file wins over an older key in the settings.
- */
-async function saveJevKey($: EngineInterface, key: string, setJudge = true) {
-  const clean = key.trim()
-  if (!clean) return
-  const home = (await envUserProfile($)) ?? (await envHome($))
-  if (!home) {
-    $.ui.toast('context-lens: no home folder found to save the key in.')
-    return
-  }
-  const path = `${home}/.config/jev/.env`
-  const before = await $.fs.read(path).catch(() => '')
-  try {
-    await $.fs.write(path, withJevKey(typeof before === 'string' ? before : '', clean))
-  } catch (error) {
-    $.ui.toast(`context-lens: could not save the key: ${(error instanceof Error ? error.message : String(error)).slice(0, 120)}`)
-    return
-  }
-  await $.store.set('keyFromFile', true)
-  keyFromFile = true
-  askJevFile = undefined
-  if (setJudge && config.judge !== 'jev') await saveSetting($, 'judge', 'jev')
-  await update($, judgeDown, () => null)
-  warned.clear()
-  $.ui.toast('context-lens: key saved. Jev judges from the next message.')
-  $.ui.invalidate('ui.render')
-}
-
-/** A TypeSafe key the jev judge would use: the settings, TYPESAFE_API_KEY, or ~/.config/jev/.env (Jev was picked). */
-async function findTypesafeKey($: EngineInterface): Promise<boolean> {
-  return Boolean(await typesafeKeyAnywhere($))
-}
-
-/** The TypeSafe key from the settings, TYPESAFE_API_KEY or ~/.config/jev/.env, for a step the person asked for. */
-async function typesafeKeyAnywhere($: EngineInterface): Promise<string | undefined> {
-  const known = config.typesafeKey || (await envJevKey($))
-  if (known) return known
-  const home = (await envUserProfile($)) ?? (await envHome($))
-  if (!home) return undefined
-  const text = await $.fs.read(`${home}/.config/jev/.env`).catch(() => '')
-  return parseJevKey(typeof text === 'string' ? text : '')
-}
-
-export type SetupStep = 'pick' | 'jev' | 'lean' | 'handoff' | 'look' | 'done'
+export type SetupStep = 'lean' | 'handoff' | 'look' | 'done'
 
 /** The lean's five stops, cheaper to smarter: a name, and what it does to the judge's pick (see tipped). */
 export const LEAN_STOPS = [
@@ -1956,18 +1723,16 @@ export const LEAN_STOPS = [
   ['Smartest', 'more picks go higher'],
 ] as const
 
-/** The guide's step after this one: the judge (with its key or URL), the lean, the handoff, then done. */
+/** The guide's step after this one: the lean, the handoff, the look, then done. */
 export function setupNext(step: SetupStep): SetupStep | null {
-  if (step === 'pick' || step === 'jev') return 'lean'
   if (step === 'lean') return 'handoff'
   if (step === 'handoff') return 'look'
   if (step === 'look') return 'done'
   return null
 }
 
-/** The step Back goes to: the judge's key or URL goes back to the pick, as does the lean. */
+/** The step Back goes to; the lean is the first. */
 export function setupBack(step: SetupStep): SetupStep | null {
-  if (step === 'jev' || step === 'lean') return 'pick'
   if (step === 'handoff') return 'lean'
   if (step === 'look') return 'handoff'
   if (step === 'done') return 'look'
@@ -1976,8 +1741,8 @@ export function setupBack(step: SetupStep): SetupStep | null {
 
 /** "2/3" for the step shown; the closing step has no number. */
 export function setupCounter(step: SetupStep): string {
-  const n = { pick: 1, jev: 1, lean: 2, handoff: 3, look: 4, done: 0 }[step]
-  return n ? `${n}/4` : ''
+  const n = { lean: 1, handoff: 2, look: 3, done: 0 }[step]
+  return n ? `${n}/3` : ''
 }
 
 /** Shows a step of the guide; the handoff step needs the installed skills to pick from. */
@@ -1989,7 +1754,6 @@ async function goSetup($: EngineInterface, step: SetupStep | null) {
 /** The guide's choices over the saved settings: what each step shows. */
 export function setupShown(draft: SettingsDraft, saved: JudgeConfig) {
   return {
-    judge: (draft.judge ?? saved.judge) as JudgeConfig['judge'],
     bias: draft.bias !== undefined ? Number(draft.bias) : saved.bias,
     handoffSkill: draft.handoffSkill ?? saved.handoffSkill,
     hide: (draft.hide ?? saved.hide.join(',')).split(',').filter(Boolean) as Hideable[],
@@ -2002,7 +1766,6 @@ async function flushSetup($: EngineInterface) {
   const draft = await read($, setupDraft)
   await update($, setupDraft, () => ({}))
   const saved: Record<string, string> = {
-    judge: config.judge,
     bias: String(config.bias),
     handoffSkill: config.handoffSkill,
     hide: config.hide.join(','),
@@ -2040,7 +1803,7 @@ async function drainSetupSave($: EngineInterface) {
   }
 }
 
-/** The judge is settled (picked or skipped): the guide does not open by itself again, and the footer shows ⚙. */
+/** The guide is settled (finished or closed): it does not open by itself again, and the footer shows ⚙. */
 async function markSetupDone($: EngineInterface) {
   await Promise.all([update($, setupPending, () => false), $.store.set('setupDone', true)])
 }
@@ -2054,24 +1817,9 @@ async function finishSetup($: EngineInterface) {
 
 /** The ✕: closes the guide; what was picked so far is kept. */
 async function closeSetup($: EngineInterface) {
+  await markSetupDone($)
   await goSetup($, null)
   await flushSetup($)
-}
-
-/** The person picked a judge in the guide: then the judge's key or URL, or the next step. Saved at the end. */
-async function pickJudge($: EngineInterface, choice: 'haiku' | 'jev') {
-  // Haiku is saved as Auto: Jev whenever a TypeSafe key is there, Haiku otherwise and whenever Jev does not answer.
-  await update($, setupDraft, d => ({ ...d, judge: choice === 'haiku' ? 'auto' : choice }))
-  await markSetupDone($)
-  if (choice === 'haiku') {
-    $.ui.toast('context-lens: Haiku 5.5 judges, no key needed. Add a Jev key later for faster answers.')
-    return goSetup($, 'lean')
-  }
-  if (choice === 'jev' && (await findTypesafeKey($))) {
-    $.ui.toast('context-lens: Jev judges with the TypeSafe key it found.')
-    return goSetup($, 'lean')
-  }
-  await goSetup($, choice)
 }
 
 /** 1234 -> "1.2k", 87 -> "87". */
@@ -2084,13 +1832,13 @@ function tokens(n: number): string {
 const share = (part: number, whole: number) => `${Math.round((part / whole) * 100)} %`
 
 /**
- * What /effortless stats answers: what the prompts Auto steered cost, measured, split by kind and by effort,
+ * What /context-lens stats answers: what the prompts Auto steered cost, measured, split by kind and by effort,
  * and what the judge took. No "saved" figure: what a prompt would have cost at another effort is not known,
  * since effort mostly changes how many tool calls it makes. Cost is in tokens weighted as priced (WEIGHT).
  */
 export function savedText(raw: Spent): string {
   const t = asSpent(raw)
-  const judged = t.judge.jev + t.judge.haiku
+  const judged = t.judge.haiku
   const helperRuns = EFFORTS.reduce((n, e) => n + (t.helpers.runs[e] ?? 0), 0)
   if (t.prompts === 0 && judged === 0 && t.moved === 0 && helperRuns === 0) return 'nothing measured yet'
   const input = t.input * WEIGHT.input
@@ -2115,7 +1863,7 @@ export function savedText(raw: Spent): string {
     lines.push(`Helpers: ${helperRuns} subagent${helperRuns === 1 ? '' : 's'} (${per.join(', ')}), ${t.helpers.requests} requests, cost about ${tokens(Math.round(t.helpers.cost))} tokens`)
   }
   if (judged) {
-    lines.push(`Judge: Jev ${t.judge.jev}, Haiku ${t.judge.haiku}, average ${Math.round(t.judge.ms / judged)} ms, ${tokens(t.judge.tokens)} tokens in all`)
+    lines.push(`Judge: Haiku ${t.judge.haiku}, average ${Math.round(t.judge.ms / judged)} ms, ${tokens(t.judge.tokens)} tokens in all`)
   }
   return lines.join('\n')
 }
@@ -2267,13 +2015,13 @@ function effortOf(v: Snap, inUse: ModelKey): Effort | undefined {
   return EFFORTS.includes(v.shownByApp as Effort) ? (v.shownByApp as Effort) : undefined
 }
 
-// For /effortless debug: how often the app asked for the band, when, and the last error drawing it.
-// /effortless probe N: 1 a bare box, 2 the panel's frame and header only, 3 the panel without pickers or fields.
+// For /context-lens debug: how often the app asked for the band, when, and the last error drawing it.
+// /context-lens probe N: 1 a bare box, 2 the panel's frame and header only, 3 the panel without pickers or fields.
 let probeLevel = 0
 let renderCalls = 0
 let lastRenderProps = ''
 let lastRenderBranch = ''
-// Every time the app asked for the band, with what it sent, written to ~/.claude/effortless-render-<chat>.log each second
+// Every time the app asked for the band, with what it sent, written to ~/.claude/context-lens-render-<chat>.log each second
 // (the last 300): how often the band is really redrawn in the app, which the render rig cannot see (hover flicker).
 const renderLog: string[] = []
 let renderLogWritten = 0
@@ -2283,7 +2031,7 @@ async function writeRenderLog($: EngineInterface) {
   renderLogWritten = renderLog.length
   const home = (await envUserProfile($)) ?? (await envHome($))
   // One file per chat: a shared file was overwritten whole by whichever chat drew last.
-  if (home) await $.fs.write(`${home}/.claude/effortless-render-${loadedSession}.log`, renderLog.slice(-300).join('\n') + '\n').catch(() => undefined)
+  if (home) await $.fs.write(`${home}/.claude/context-lens-render-${loadedSession}.log`, renderLog.slice(-300).join('\n') + '\n').catch(() => undefined)
 }
 let lastRenderAt = 0
 let loadedSession = '-'
@@ -2293,10 +2041,10 @@ let firstDrawLogged = false
 let drawsTimed = 0
 let lastRenderError = ''
 let sessionStarted = 0
-// When the app's SessionStart came and what it said, for /effortless debug: a cold band that shows late is either a
+// When the app's SessionStart came and what it said, for /context-lens debug: a cold band that shows late is either a
 // late signal or a redraw the app did not take.
 let classicStart: { at: number; said: string } | null = null
-// /effortless cold shows the band whatever the chat's size, until the next response (a test of the band itself).
+// /context-lens cold shows the band whatever the chat's size, until the next response (a test of the band itself).
 let coldForced = false
 let handoffTimer: { cancel: () => void } | undefined
 const HANDOFF_POLL_MS = 1000
@@ -2338,7 +2086,7 @@ function markWarm(modelId: string, usage: unknown, now: number) {
 }
 const isWarm = (key: ModelKey, now: number) => (warmUntil[key] ?? 0) > now
 
-// When Haiku last wrote a compaction (for /effortless debug).
+// When Haiku last wrote a compaction (for /context-lens debug).
 let lastHaikuCompact = 0
 
 // The moving art's timer: one at a time, blitting the next frame to the band that drew it. A blit the surface refuses
@@ -2550,7 +2298,7 @@ function uninstallButton($: EngineInterface, els: ReturnType<EngineInterface['ui
       $.ui.invalidate('ui.render')
       return
     }
-    $.ui.toast('effortless is uninstalled. Thanks for trying it.')
+    $.ui.toast('context-lens is uninstalled. Thanks for trying it.')
     const reloaded = await $.command.run({ command: 'reload-plugins', args: RELOAD_ARGS } as never).then(() => true, () => false)
     if (!reloaded) await typeCommand($, `/reload-plugins ${RELOAD_ARGS}`)
   }
@@ -2600,7 +2348,7 @@ function handoffCardTree($: EngineInterface, e: RenderInput<'AssistantMessage'> 
         ) : cardRunning(fresh.kind) ? (
           <Svg source={HANDOFF_SVG} alt="handing off" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
         ) : (
-          <Svg source={cardLanded(fresh.kind) ? DONE_SVG : BRAND_SVG} alt="effortless" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
+          <Svg source={cardLanded(fresh.kind) ? DONE_SVG : BRAND_SVG} alt="context-lens" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
         )}
       </Box>
       <Box key="reply-handoff-words" position="relative" flexDirection={quiet ? 'row' : 'column'} gap={quiet ? 1 : 0} flexShrink={1} minWidth={0}>
@@ -2854,8 +2602,7 @@ const AUTO_GLOW_H = 37
 /** The cold band's rim: the Auto glow's light in ice, breathing slowly for as long as the band shows, so a cold chat
  * looks alive rather than parked. Placed by the clock (inPhase), so a redraw picks up where the breath was. */
 const COLD_GLOW_MS = 4200
-/** This install's id: effortless@effortless for users, effortless@effortless-dev on the dev channel. Read off the
- * cache path (…/plugins/cache/<marketplace>/effortless/<version>). */
+/** This install's id, context-lens@<marketplace>, read off the cache path (…/plugins/cache/<marketplace>/context-lens/<version>). */
 const pluginId = ($: EngineInterface) => `context-lens@${$.plugin.root.match(/cache[\\/]([^\\/]+)[\\/]/)?.[1] ?? 'context-lens'}`
 
 /** The rim in the brand's violet while the judge decides: it lights up and stays at full while it thinks, then fades from
@@ -2952,7 +2699,7 @@ let autoFlipAt = 0
 let helpersSeen: string | undefined
 let helpersFlipAt = 0
 
-/** The dashboard: what effortless is doing, and Auto, Handoff and settings. The slot above the prompt at rest. */
+/** The dashboard: what context-lens is doing, and Auto, Handoff and settings. The slot above the prompt at rest. */
 async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
   const els = themedEls($.ui.resolve(e))
   const { Box, Text, Button } = els
@@ -2973,7 +2720,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
   const effortNow = effortOf(v, v.modelNow ?? (await sessionModel($)))
   const by = v.current?.by
   const reason = v.current
-    ? `${by === 'manual' || by === 'named' ? 'You' : by === 'jev' ? 'Jev' : 'Haiku'}: ${v.current.why}`
+    ? `${by === 'manual' || by === 'named' ? 'You' : 'Haiku'}: ${v.current.why}`
     : v.auto
       ? 'Auto picks the effort at the next prompt'
       : 'You pick the effort'
@@ -3089,7 +2836,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
         // Auto off: the art goes, so the bar reads as resting, not working.
         v.auto ? (
           <Box key="dash-art" position="absolute" top={-1} right={0} bottom={-1}>
-            <Svg source={DASH_SVG} alt="effortless" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
+            <Svg source={DASH_SVG} alt="context-lens" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
           </Box>
         ) : null
       ) : null}
@@ -3112,7 +2859,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
           {Svg ? (
             // The mark, as it is, where the ✦ stood; faded while Auto is off.
             <Box key="dash-mark" flexShrink={0} marginRight={1} alignItems="center">
-              <Svg source={v.auto ? MARK_SVG : DASH_MARK_OFF} alt="effortless" width={DASH_MARK_SIZE} height={DASH_MARK_SIZE} />
+              <Svg source={v.auto ? MARK_SVG : DASH_MARK_OFF} alt="context-lens" width={DASH_MARK_SIZE} height={DASH_MARK_SIZE} />
             </Box>
           ) : <Text color={v.auto ? ACCENT : DASH_DIM} bold>✦ </Text>}
           {/* A new effort shows in violet, then white (effortFlash): plain text in the app's font. An animated image of the
@@ -3216,7 +2963,7 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>, opt
   const { auto, autoModel, current, judging, wanted, shownByApp } = v
   const inUse = v.modelNow ?? (await sessionModel($))
   const effortNow = effortOf(v, inUse)
-  // The model row is paused: effort first. EFFORTLESS_MODEL_UI=1 brings it back.
+  // The model row is paused: effort first. CONTEXT_LENS_MODEL_UI=1 brings it back.
   const showModel = (await envModelUi($)) === '1'
 
   const setEffort = (level: Effort) => () => pickEffort($, level)
@@ -3260,7 +3007,7 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>, opt
     : notAligned
       ? `/effort shows ${EFFORT_LABELS[shownByApp as Effort] ?? shownByApp}`
       : current
-        ? `${current.by === 'manual' ? 'You' : current.by === 'jev' ? 'Jev' : 'Haiku'}: ${current.why}`
+        ? `${current.by === 'manual' ? 'You' : 'Haiku'}: ${current.why}`
         : auto
           ? 'Picks the effort at the next prompt'
           : 'Pick an effort'
@@ -3343,7 +3090,7 @@ export function helperFloor(floor: Effort, ceiling: Effort): Effort {
 /** The judge's effort for a subagent's task, within the person's slider, Min and Max and save mode; null without a verdict. */
 async function helperEffort($: EngineInterface, prompt: string, type: string): Promise<Pick | null> {
   const { verdict } = await judge($, helperQuestion(prompt, type), null)
-  if (!verdict || verdict.why === UNSURE) return null
+  if (!verdict) return null
   const saving = (await read($, saveUntil)) !== null
   const leaned = tipped(verdict.effort, verdict.sure, config.bias)
   const effort = capped(bounded(leaned, helperFloor(config.floor, config.ceiling), config.ceiling), saving)
@@ -3363,7 +3110,7 @@ async function helperEffortOf($: EngineInterface, id: string): Promise<Effort | 
   return match.effort
 }
 
-/** Counts one request of a helper the judge steered, for /effortless stats. */
+/** Counts one request of a helper the judge steered, for /context-lens stats. */
 async function helperTally($: EngineInterface, usage: Parameters<typeof weighted>[0]) {
   await update($, saved, old => {
     const t = asSpent(old)
@@ -3654,7 +3401,7 @@ export const register: Register = (on, options) => {
     // A subagent's own compaction, the session's model by choice: Claude Code's own.
     if (e.agentId !== undefined || config.compactWith !== 'haiku') return next(e)
     // Ahead-of-time summaries would be written by the chat's model and then not used: none.
-    if (e.trigger === 'precompute') return { skip: 'effortless compacts with Haiku when it is time' }
+    if (e.trigger === 'precompute') return { skip: 'context-lens compacts with Haiku when it is time' }
     // The transcript comes with the event; read it if not (a test's engine hands none).
     const messages = Array.isArray(e.messages) && e.messages.length ? e.messages : await $.session.messages().catch(() => [])
     const got = await haikuCompaction($, messages, e.instructions).catch((error: unknown) => ({ fail: String(error).slice(0, 80) }))
@@ -3667,7 +3414,7 @@ export const register: Register = (on, options) => {
       messages: [
         {
           role: 'user' as const,
-          text: `This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation, written by Haiku 5.5 for effortless.\n\n${got.text}\n\nContinue the conversation from where it left off without asking the user any further questions.`,
+          text: `This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation, written by Haiku 5.5 for context-lens.\n\n${got.text}\n\nContinue the conversation from where it left off without asking the user any further questions.`,
           toolUses: [],
         },
       ],
@@ -3681,10 +3428,9 @@ export const register: Register = (on, options) => {
     await lensStarted($).catch(() => undefined)
     // Everything the first draw needs, asked for at once: one after the other they held the start (and with it the
     // band) for a second or more. What the draw does not need runs after, unawaited.
-    const [sid, kept, kff, storedAuto, storedAutoModel, storedPick, setupDone] = await Promise.all([
+    const [sid, kept, storedAuto, storedAutoModel, storedPick, setupDone] = await Promise.all([
       $.session.id().catch(() => '?'),
       $.store.get('savedSettings').catch(() => null),
-      $.store.get('keyFromFile').catch(() => null),
       $.store.get('isAuto').catch(() => null),
       $.store.get('isAutoModel').catch(() => null),
       $.store.get('pick').catch(() => null) as Promise<Pick | null>,
@@ -3697,16 +3443,15 @@ export const register: Register = (on, options) => {
       config = readConfig({ ...pluginOptions, ...kept })
       applyTheme()
     }
-    keyFromFile = kff === true
     await Promise.all([
       typeof storedAuto === 'boolean' ? update($, isAuto, () => storedAuto) : null,
       typeof storedAutoModel === 'boolean' ? update($, isAutoModel, () => storedAutoModel) : null,
       // Auto off means the effort you chose should still be the one in force.
       storedAuto === false && storedPick && EFFORTS.includes(storedPick.effort) ? update($, pick, () => storedPick).then(() => { pickCarried = true }) : null,
       // The first time the mod runs, the setup guide opens above the prompt.
-      setupDone !== true ? update($, setupStep, () => 'pick').then(() => update($, setupPending, () => true)) : null,
+      setupDone !== true ? update($, setupStep, () => 'lean').then(() => update($, setupPending, () => true)) : null,
     ])
-    // The command file lists /effortless before the session starts; registering it here makes plain /effortless the
+    // The command file lists /context-lens before the session starts; registering it here makes plain /context-lens the
     // mod's own command afterwards, instead of the file run as a skill.
     void $.command.register({ name: 'context-lens', description: 'context-lens: settings, debug, handoff, setup, bench, auto, stats.' }).catch(() => undefined)
     void $.fs.read(`${$.plugin.root}/.claude-plugin/plugin.json`).then(t => { ownVersion = String(JSON.parse(String(t)).version ?? '') }).catch(() => undefined)
@@ -3770,7 +3515,7 @@ export const register: Register = (on, options) => {
     return result
   })
 
-  // /effortless is a command file in the plugin (commands/effortless.md), so the app lists it before the session has
+  // /context-lens is a command file in the plugin (commands/context-lens.md), so the app lists it before the session has
   // started; this hook answers it, and the file's text never reaches the model. Both spellings the app may use.
   on('command.run', async ($, e, next) => {
     if (e.command !== 'context-lens' && e.command !== 'context-lens:context-lens') return next(e)
@@ -3791,7 +3536,7 @@ export const register: Register = (on, options) => {
     }
     if (arg === 'down') {
       await update($, judgeDownHidden, () => null)
-      await update($, judgeDown, () => 'Jev is out of credits (402)')
+      await update($, judgeDown, () => 'Haiku is out of credits (402)')
       $.ui.invalidate('ui.render')
       return { text: 'The judge-down band is showing now (a test). It goes away once the judge answers again.' }
     }
@@ -3835,7 +3580,7 @@ export const register: Register = (on, options) => {
           `hidden: ${config.hide.join(',') || 'nothing'}`,
           `model: ${config.modelAuto === 'on' ? `cheaper when it can, now ${routed ?? 'the chat\'s'}` : 'always the chat\'s'}`,
           lastRequest
-            ? `last request: app asked ${lastRequest.appModel} at ${lastRequest.appEffort ?? 'none'}, sent ${lastRequest.model} at ${lastRequest.effort ?? 'none'}${lastRequest.model === lastRequest.appModel && lastRequest.effort === lastRequest.appEffort ? ' (unchanged)' : ' (changed by effortless)'}, ${ago(lastRequest.at)}`
+            ? `last request: app asked ${lastRequest.appModel} at ${lastRequest.appEffort ?? 'none'}, sent ${lastRequest.model} at ${lastRequest.effort ?? 'none'}${lastRequest.model === lastRequest.appModel && lastRequest.effort === lastRequest.appEffort ? ' (unchanged)' : ' (changed by context-lens)'}, ${ago(lastRequest.at)}`
             : 'last request: none yet',
           `compact with: ${config.compactWith}${lastHaikuCompact ? `, last by Haiku ${ago(lastHaikuCompact)}` : ''}`,
         ].join(' | ') +
@@ -3846,19 +3591,19 @@ model used: ${lastRequest ? `${lastRequest.model} at ${lastRequest.effort ?? 'no
     }
     if (arg === 'settings') {
       await openPluginSettings($)
-      return { text: 'The effortless settings are open above the prompt.' }
+      return { text: 'The context-lens settings are open above the prompt.' }
     }
     if (arg === 'setup') {
-      await update($, setupStep, () => 'pick')
+      await update($, setupStep, () => 'lean')
       $.ui.invalidate('ui.render')
-      return { text: 'The effortless setup is open above the prompt.' }
+      return { text: 'The context-lens setup is open above the prompt.' }
     }
     if (arg === 'bench') {
       const cases = (JSON.parse(await $.fs.read(`${$.plugin.root}/bench/judge-cases.json`)) as { cases: BenchCase[] }).cases
       const answers = await runBench($, cases)
       const report = benchReport(cases, answers)
       const stamp = new Date(await $.clock.now()).toISOString().slice(0, 16).replace(/[:T]/g, '-')
-      const out = `effortless-bench-${stamp}`
+      const out = `context-lens-bench-${stamp}`
       await $.fs.write(`${out}.json`, JSON.stringify({ cases: cases.length, answers }, null, 2))
       await $.fs.write(`${out}.md`, report)
       return { text: `${report}
@@ -3895,7 +3640,7 @@ Saved to ${out}.md and .json` }
     const wantsEffort = await read($, isAuto)
     const wantsModel = await read($, isAutoModel)
     // A typed slash command is judged only when it is a skill or a custom command (what the person added); the app's own
-    // (/compact, /clear, /model) and effortless's never are. The judge is told what the command is, since its name alone says little.
+    // (/compact, /clear, /model) and context-lens's never are. The judge is told what the command is, since its name alone says little.
     const slash = e.text.trim().startsWith('/')
     const skill = slash && byPerson ? await typedSkill($, e.text) : undefined
     if (!byPerson || (slash && !skill) || (!wantsEffort && !wantsModel)) return next(e)
@@ -4118,7 +3863,7 @@ Saved to ${out}.md and .json` }
   // The only desktop UI: the effort in use, as purple text in the prompt footer, under the chat box, and a small
   // button that switches Auto off and on. A Button cannot be coloured and the footer draws no outline or tint, so
   // plain Text is what is purple. While the judge decides it says "Deciding…", for a moment after Auto switches the level it says
-  // "Low → High", and while Auto is off it says "Off" in the dim colour. Auto is switched with /effortless auto.
+  // "Low → High", and while Auto is off it says "Off" in the dim colour. Auto is switched with /context-lens auto.
   on('ui.render', { component: 'SessionMode' }, async ($, e, next) => {
     // The dashboard look keeps all of this in the band above the prompt; the app's own footer shows.
     if (e.surface !== 'desktop' || config.layout === 'default') return next(e)
@@ -4165,7 +3910,7 @@ Saved to ${out}.md and .json` }
             label=" Setup "
             hover={{ scope: 'setup', backgroundColor: HOVER_BOX }}
             onPress={async () => {
-              await update($, setupStep, () => 'pick')
+              await update($, setupStep, () => 'lean')
               $.ui.invalidate('ui.render')
             }}
           />
@@ -4256,7 +4001,7 @@ Saved to ${out}.md and .json` }
 
   // Above the prompt: the terminal's rows (effort steps, Auto, and the model row when it is switched on).
   // On desktop nothing is drawn here, except the question when the judge suggests another model.
-  // Draws the bands and the settings panel. Counted and guarded so /effortless debug can say whether the app asks
+  // Draws the bands and the settings panel. Counted and guarded so /context-lens debug can say whether the app asks
   // for it at all and whether drawing failed: an error here otherwise only leaves the slot empty.
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     // Setup changes a reload cut off are saved from here: the reloaded plugin draws before anything else runs.
@@ -4298,7 +4043,6 @@ Saved to ${out}.md and .json` }
       // The skills and commands installed here, to pick the handoff writer from: no typing, no file paths. A plugin
       // cannot open a file dialog, and a skill is run by its name anyway.
       const skillNames = await read($, installedSkills)
-      const hasKey = Boolean(await jevKey($).catch(() => undefined)) || Boolean(await typesafeKeyAnywhere($).catch(() => undefined))
       // A plain button with its own handler: a dismiss-role button may be taken by the app before onPress runs.
       const close = async () => {
         await update($, settingsDraft, () => ({}))
@@ -4343,11 +4087,10 @@ Saved to ${out}.md and .json` }
       const sameSet = (a: string, b: string) => a.split(',').filter(Boolean).sort().join() === b.split(',').filter(Boolean).sort().join()
       const dirty = Object.entries(draft).some(([field, value]) =>
         value === undefined ? false
-        : field === 'key' ? Boolean(value.trim())
         : field === 'hide' ? !sameSet(value, config.hide.join(','))
-        : value !== String(config[field as Exclude<keyof SettingsDraft, 'key' | 'hide'>] ?? ''))
+        : value !== String(config[field as Exclude<keyof SettingsDraft, 'hide'>] ?? ''))
       const hidden = (draft.hide ?? config.hide.join(',')).split(',').filter(Boolean)
-      const judgeName = shown.judge === 'haiku' ? 'Haiku' : hasKey || shown.judge === 'jev' ? 'Haiku + Jev' : 'Haiku'
+      const judgeName = 'Haiku'
       const summaries: Record<SettingsCard, string> = {
         effort: `${BIAS_WORDS[shown.bias + 2]} · ${shown.floor} to ${shown.ceiling}${shown.helpers === 'on' ? ' · helpers' : ''}`,
         model: shown.modelAuto === 'on' ? 'Cheaper when it can' : "Always the chat's",
@@ -4420,7 +4163,7 @@ Saved to ${out}.md and .json` }
       if (probeLevel === 1) {
         return (
           <Box key="probe" borderStyle="round" borderColor={BRAND_EDGE} paddingX={1}>
-            <Text>effortless probe 1: a bare box</Text>
+            <Text>context-lens probe 1: a bare box</Text>
           </Box>
         )
       }
@@ -4443,7 +4186,7 @@ Saved to ${out}.md and .json` }
             <Box key="settings-bar" position="absolute" top={-1} left={0} right={0} height={3.5} overflow="hidden" backgroundColor={DASH_HEAD}>
               {/* The mark, big, tilted and cut off by the bar's edges, behind the title and the buttons. */}
               <Box key="settings-bar-mark" position="absolute" top={-2} right={20} marginTop={1}>
-                <Svg source={SETTINGS_MARK} alt="effortless mark" width={140} height={140} />
+                <Svg source={SETTINGS_MARK} alt="context-lens mark" width={140} height={140} />
               </Box>
               {/* A hairline along the bar's bottom: a one-pixel image stretched across (a Box cannot draw one pixel). */}
               <Box key="settings-rule" position="absolute" bottom={0} left={0} right={0} height={1} alignItems="flex-end">
@@ -4457,7 +4200,7 @@ Saved to ${out}.md and .json` }
           {headRow([
           <Box key="settings-title" {...(term ? { flexShrink: 0 } : { position: 'absolute', top: 0, left: 2, height: 2.5 })} flexDirection="row" alignItems="center" gap={1}>
             {term ? <Text color={ACCENT} bold>✦</Text> : null}
-            {Svg && !term ? <Svg source={SETTINGS_TITLE} alt="effortless" width={92} height={28} /> : <Text color={DASH_TEXT} bold>effortless</Text>}
+            {Svg && !term ? <Svg source={SETTINGS_TITLE} alt="context-lens" width={112} height={28} /> : <Text color={DASH_TEXT} bold>context-lens</Text>}
             {ownVersion ? <Text color="#6b6b73">v{ownVersion}</Text> : null}
             {/* Inside a part: Back to the cards, then the part's name. */}
             {card === null ? (
@@ -4562,17 +4305,12 @@ Saved to ${out}.md and .json` }
                   </Box>,
                 ]),
 ] : card === 'judge' ? (bare ? [] : [
-            pick({ key: "settings-judge-pick", value: shown.judge, options: [{ value: 'auto', label: hasKey ? 'Haiku + Jev' : 'Haiku (Jev if added)' }, { value: 'haiku', label: 'Haiku only' }], onSelect: v => set('judge')(v === 'haiku' ? 'haiku' : 'auto') }),
-            ...(shown.judge !== 'haiku'
-              ? [field('key-field', <Input key="settings-key" placeholder={hasKey ? 'Key saved. Paste to replace' : 'Paste TypeSafe key'}
-                  value={draft.key ?? ''} submitLabel="ok" onInput={set('key')} onSubmit={set('key')} />, 30)]
-              : []),
             <Button key="settings-judge-test" variant="secondary" dimColor={tested?.ok === null} label={tested?.ok === null ? 'Testing…' : 'Test'}
               onPress={async () => {
                 if (tested?.ok === null) return
                 await update($, judgeTest, () => ({ ok: null, text: '' }))
                 $.ui.invalidate('ui.render')
-                const result = await testJudge($, shown.judge, draft.key ?? '')
+                const result = await testJudge($)
                 await update($, judgeTest, () => result)
                 $.ui.invalidate('ui.render')
               }} />,
@@ -4593,7 +4331,7 @@ Saved to ${out}.md and .json` }
             pick({ key: "settings-compact-with", label: "Compact with", value: shown.compactWith, options: [{ value: 'haiku', label: 'Haiku 5.5' }, { value: 'session', label: "Chat's model" }], onSelect: set('compactWith') }),
           ])) : card === 'handoff' ? (bare ? [] : [
             pick({ key: "settings-skill", label: "Handoff skill", value: shown.handoffSkill || '-', options: [
-                { value: '-', label: 'effortless (built in)' },
+                { value: '-', label: 'Built in' },
                 ...[...new Set([...(shown.handoffSkill ? [shown.handoffSkill] : []), ...skillNames])].map(name => ({ value: name, label: `/${name}` })),
               ], onSelect: v => set('handoffSkill')(v === '-' ? '' : v) }),
             pick({ key: "settings-swamp", label: "Compact alert at", value: shown.swampAt, options: SWAMP_STEPS.map(n => ({ value: String(n), label: `${n}%` })), onSelect: set('swampAt') }),
@@ -4629,7 +4367,7 @@ Saved to ${out}.md and .json` }
         <Box key="compact-bar" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
           backgroundColor={BRAND_BG} borderStyle="round" borderColor={BRAND_EDGE}>
           <Box key="compact-art" position="absolute" top={-1} right={0} bottom={-1}>
-            <Svg source={BRAND_SVG} alt="effortless" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
+            <Svg source={BRAND_SVG} alt="context-lens" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
           </Box>
           {/* Opening from the swamped band: its green fades out over the violet, then the entrance sweep. */}
           {nowCompact - compactOpenedAt < COMPACT_FADE_MS + 100 ? (
@@ -4756,7 +4494,7 @@ Saved to ${out}.md and .json` }
         <Box key="handoff-bar" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
           backgroundColor={BRAND_BG} borderStyle="round" borderColor={BRAND_EDGE}>
           <Box key="handoff-art" position="absolute" top={-1} right={0} bottom={-1}>
-            <Svg source={BRAND_SVG} alt="effortless" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
+            <Svg source={BRAND_SVG} alt="context-lens" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
           </Box>
           {/* The entrance as the bar opens, only then: a choice redraws the bar. */}
           {introLayer({ Box, Svg }, 'handoff', await introShows($, 'handoff'))}
@@ -4800,16 +4538,16 @@ Saved to ${out}.md and .json` }
       // (position="relative" does not lift it). The spacer keeps the words clear of them; room is their width in
       // columns. The art is still: every click redraws the band.
       const band = (words: unknown, room: number, controls: unknown[]) => e.surface === 'terminal' ? (
-        terminalPanel($, e, 'setup', counter ? `✦ effortless setup  ${counter}` : '✦ effortless setup', words, controls)
+        terminalPanel($, e, 'setup', counter ? `✦ context-lens setup  ${counter}` : '✦ context-lens setup', words, controls)
       ) : (
         <Box key="setup" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
           backgroundColor={BRAND_BG} borderStyle="round" borderColor={BRAND_EDGE}>
           <Box key="setup-art" position="absolute" top={-1} right={0} bottom={-1}>
-            <Svg source={BRAND_SVG} alt="effortless" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
+            <Svg source={BRAND_SVG} alt="context-lens" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
           </Box>
           <Box key="setup-words" position="relative" flexDirection="column" flexShrink={1} minWidth={0}>
             <Text color={ACCENT} bold wrap="truncate">
-              {counter ? `✦ effortless setup  ${counter}` : '✦ effortless setup'}
+              {counter ? `✦ context-lens setup  ${counter}` : '✦ context-lens setup'}
             </Text>
             {typeof words === 'string' ? <Text key="setup-what" wrap="truncate">{words}</Text> : words}
           </Box>
@@ -4819,39 +4557,6 @@ Saved to ${out}.md and .json` }
           </Box>
         </Box>
       )
-      if (step === 'pick')
-        return band('Haiku judges. Add Jev too?', 62, [
-          // Haiku first and filled: it needs no key. Jev is the optional faster one; with a key, it is tried first and
-          // Haiku stands in whenever it does not answer. Each mark sits tight against its own button.
-          <Box key="pick-haiku" flexDirection="row" gap={1} alignItems="center">
-            <Svg source={CLAUDE_MARK} alt="Claude" width={16} height={16} />
-            <Button key="setup-haiku" variant="primary" label="Just Haiku (no key)" onPress={() => pickJudge($, 'haiku')} />
-          </Box>,
-          <Box key="pick-jev" flexDirection="row" gap={1} alignItems="center">
-            <Svg source={TYPESAFE_MARK} alt="TypeSafe" width={12} height={18} />
-            <Button key="setup-jev" variant="secondary" label="Add Jev (needs a key)" onPress={() => pickJudge($, 'jev')} />
-          </Box>,
-          ...nav(
-            <Button key="setup-skip" plain dimColor label="Skip" onPress={async () => {
-              await markSetupDone($)
-              await goSetup($, 'lean')
-            }} />,
-          ),
-        ])
-      if (step === 'jev')
-        return band('Key from typesafe.ai:', 52, [
-          <Box key="key-field" width={30} flexShrink={1}>
-            <Input key="setup-key" placeholder="TypeSafe key" value={draft.key ?? ''} submitLabel="Save"
-              onInput={(v: string) => pick('key', v)}
-              onSubmit={async (v: string) => {
-                if (!v.trim()) return
-                await update($, setupDraft, d => ({ ...d, key: undefined }))
-                await saveJevKey($, v, false)
-                await goSetup($, 'lean')
-              }} />
-          </Box>,
-          ...nav(<Button key="setup-skip" plain label="Skip" onPress={go('lean')} />),
-        ])
       if (step === 'lean') {
         // Five stops, the marker on the one picked. The track is lit in purple from the middle out to the marker, so it
         // shows which way it leans, and the words name the stop and say what it does.
@@ -4888,7 +4593,7 @@ Saved to ${out}.md and .json` }
         return band('Who writes a Full ⇥ handoff?', 48, [
           <Select key="setup-skill" value={shown.handoffSkill || '-'}
             options={[
-              { value: '-', label: 'effortless (built in)' },
+              { value: '-', label: 'Built in' },
               ...[...new Set([...(shown.handoffSkill ? [shown.handoffSkill] : []), ...skillNames])].map(name => ({ value: name, label: `/${name}` })),
             ]}
             onSelect={(v: string) => pick('handoffSkill', v === '-' ? '' : v)} />,
@@ -4909,13 +4614,13 @@ Saved to ${out}.md and .json` }
         ...nav(<Button key="setup-done" variant="primary" autoFocus label="Done" onPress={() => finishSetup($)} />),
       ])
     }
-    // The judge the person picked is failing: Haiku stands in until it works again.
+    // The judge is failing: the effort stays as it is until it answers again.
     const downReason = await read($, judgeDown)
     if (downReason && !config.hide.includes('down') && downReason !== (await read($, judgeDownHidden))) {
       if (e.surface === 'terminal')
         return terminalBand($, e, {
           key: 'down', kind: 'down', color: SLATE, bg: SLATE_BG, edge: SLATE_EDGE, title: 'Judge down',
-          detail: `${downReason}. Haiku stands in.`,
+          detail: `${downReason}. The effort stays as it is.`,
           buttons: [
             <Button key="down-settings" variant="primary" hotkey="s" label="Settings" onPress={() => openPluginSettings($)} />,
             <Button key="down-close" plain role="dismiss" label="✕" onPress={() => update($, judgeDownHidden, () => downReason)} />,
@@ -4933,7 +4638,7 @@ Saved to ${out}.md and .json` }
               ✦ Judge down
             </Text>
           </Box>
-          <Text wrap="truncate">{`${downReason}. Haiku stands in.`}</Text>
+          <Text wrap="truncate">{`${downReason}. The effort stays as it is.`}</Text>
           <Box flexGrow={1} minWidth={30} />
           <Box key="down-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={1} alignItems="center">
             <Button key="down-settings" variant="primary" label="Open settings" onPress={() => openPluginSettings($)} />

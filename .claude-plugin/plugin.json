@@ -1,31 +1,13 @@
 {
   "name": "context-lens",
   "version": "0.1.0",
-  "description": "Sets the reasoning effort for every prompt automatically, and shows the prompt-cache timers, context window and rate-limit usage above the prompt. A fork of HeyCubit/effortless (MIT).",
+  "description": "Sets the reasoning effort for every prompt automatically, and shows the prompt-cache timers, context window and rate-limit usage above the prompt. A fork of HeyCubit/context-lens (MIT).",
   "types": "./types/index.d.ts",
   "userConfig": {
-    "judge": {
-      "type": "string",
-      "title": "Judge",
-      "description": "Haiku (your own Claude login, no key) always judges handoffs and, unless Jev answers, the effort. auto: Jev as well when a TypeSafe key is set. haiku: Haiku only. jev: Jev as well, and its key may also come from ~/.config/jev/.env.",
-      "default": "auto",
-      "options": [
-        "auto",
-        "haiku",
-        "jev"
-      ]
-    },
-    "typesafeKey": {
-      "type": "string",
-      "title": "TypeSafe API key (optional, only for jev)",
-      "description": "For the jev judge. Stored as a secret by Claude Code. Left empty, TYPESAFE_API_KEY is used, and with judge set to jev also ~/.config/jev/.env.",
-      "sensitive": true,
-      "default": ""
-    },
     "handoffSkill": {
       "type": "string",
       "title": "Handoff skill (optional)",
-      "description": "A skill or slash command that writes the Full handoff, e.g. session-handoff. Empty: effortless writes it itself (checks git, saves HANDOFF.md). Quick is always a fast fork with the built-in prompt.",
+      "description": "A skill or slash command that writes the Full handoff, e.g. session-handoff. Empty: context-lens writes it itself (checks git, saves HANDOFF.md). Quick is always a fast fork with the built-in prompt.",
       "default": ""
     },
     "handoffAfter": {
@@ -154,7 +136,7 @@
     "theme": {
       "type": "string",
       "title": "Theme",
-      "description": "The accent colour of everything effortless draws. violet: the brand colour. orange: Claude Code orange. rose: cherry-blossom pink, with falling petals.",
+      "description": "The accent colour of everything context-lens draws. violet: the brand colour. orange: Claude Code orange. rose: cherry-blossom pink, with falling petals.",
       "default": "violet",
       "options": [
         "violet",

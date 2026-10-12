@@ -35,10 +35,10 @@ Then `/context-lens settings`. The first run opens a short setup guide. `/contex
 This is a fork of [HeyCubit/effortless](https://github.com/HeyCubit/effortless) (MIT), which provides the effort judge, the band, the handoff and compaction, and the settings. What is changed here:
 
 - the cache timers, context bar and rate-limit row from the original context-lens are folded into the band (`hooks/model.ts` holds their arithmetic);
-- the agent pane, the self-update machinery and the update cards are removed, so nothing here contacts the upstream repository (the optional Jev judge, which needs a TypeSafe key you set yourself, is the only other network call);
+- the Jev judge and its TypeSafe key are removed (Haiku is the only judge), and so are the agent pane, the self-update machinery and the update cards, so nothing here contacts the upstream repository (the judge is Haiku, through your own Claude login: no key, no other service);
 - the plugin, its state and its command are renamed `context-lens`, so it does not clash with an installed `effortless`. Disable one of the two: they would both draw above the prompt.
 
-Upstream's tests run here too: `claude plugin test .`. Three of them (a Windows-style key path, a clipboard fallback and a key-file write) fail on upstream's own `stable` as well, so they were failing before the fork.
+Upstream's tests run here too: `claude plugin test .`. One of them (a clipboard fallback) fails on upstream's own `stable` as well, so it was failing before the fork.
 
 ## License
 
