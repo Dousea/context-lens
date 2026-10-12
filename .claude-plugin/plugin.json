@@ -1,0 +1,7 @@
+{
+  "name": "context-lens",
+  "version": "0.1.0",
+  "description": "A one-line context band above the prompt: prompt-cache timers for the main thread and subagents, the context window by category, and rate-limit usage",
+  "author": { "name": "Orlando Hutapea" },
+  "types": "./types/index.d.ts"
+}

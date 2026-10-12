@@ -1,0 +1,13 @@
+{
+  "name": "context-lens",
+  "description": "Context Lens: a one-line context, prompt-cache and usage band for Claude Code",
+  "owner": {
+    "name": "Orlando Hutapea"
+  },
+  "plugins": [
+    {
+      "name": "context-lens",
+      "source": "./"
+    }
+  ]
+}
