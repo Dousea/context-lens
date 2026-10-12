@@ -568,7 +568,7 @@ let config: JudgeConfig = {
   bias: 0,
   floor: 'low',
   ceiling: 'max',
-  hide: ['reason'],
+  hide: [],
   swampAt: 70,
   layout: 'default',
   compactWith: 'haiku',
@@ -599,8 +599,8 @@ export function readConfig(options: unknown): JudgeConfig {
     helpers: str(o.helpers) === 'on' ? 'on' : 'off',
     theme: THEMES.find(t => t === str(o.theme)) ?? 'violet',
     appearance: (['dark', 'light'] as const).find(a => a === str(o.appearance)) ?? 'auto',
-    // The judge's line is off until switched on; an empty string saved from the panel means everything shows.
-    hide: (o.hide === undefined ? 'reason' : str(o.hide))
+    // Everything shows unless switched off; the judge's line too.
+    hide: (o.hide === undefined ? '' : str(o.hide))
       .split(',')
       .map(part => part.trim())
       .filter((part): part is Hideable => (HIDEABLE as readonly string[]).includes(part)),
@@ -2755,8 +2755,8 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
     contextPercent: !lens && e.surface === 'terminal' && lastContext && lastContext.window ? lastContext.percent : null,
     // A prompt on a cheaper model names it in the judge's line ("On Sonnet · Haiku: a small fix"), not beside the effort word.
     reason: adviceNow ? `Handoff would suit: ${adviceNow}` : config.hide.includes('reason') ? '' : reason,
-    // The last reply's cost is left out of the bar: it was noise there. lastTurn still records it.
-    last: null,
+    // The detail row also says what the last reply cost: weighted tokens and the time it took.
+    last: await read($, lastTurn),
   })
   const toggleSettings = async () => {
     if (await read($, settingsOpen)) {

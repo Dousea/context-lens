@@ -2229,9 +2229,8 @@ describe('settings panel', () => {
     expect(await drawn(panel)).toContain('/session-handoff · compact alert at')
     await panel.press({ key: 'settings-card-show' })
     await panel.press({ key: 'show-box-timer' })
-    await panel.press({ key: 'show-box-reason' })
     expect(await panel.find({ key: 'show-box-sounds' })).toBeUndefined()
-    // The judge line starts off, so its box switches it on; the cache timer goes off. No progress, sounds or alert.
+    // The judge line starts on, so only the cache timer's box is pressed: it goes off. No progress, sounds or alert.
     // The alerts are in the Handoff card, beside when the context alert shows.
     expect(await panel.find({ key: 'show-box-swamp' })).toBeUndefined()
     expect(set).toEqual([])
