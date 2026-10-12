@@ -181,6 +181,8 @@ export const register: Register = on => {
         : (agentList.find(a => a.id === agentId) ?? { ...emptyClock('5m'), id: agentId, type: 'agent' })
     if (agent === undefined && mainClock.lastAt === null && ctx === null && limits.length === 0) return next(e)
 
+    // Draw above whatever the plugins below this one render here, rather than replacing it.
+    const below = await next(e)
     const { Box, Text } = $.ui.resolve(e)
     const clock: CacheClock = agent ?? mainClock
     const state = warmth(clock, at)
@@ -201,7 +203,7 @@ export const register: Register = on => {
           ? stackedBar(ctx, live, layout.ctxBar)
           : fillBar(used / max, layout.ctxBar)
 
-    return (
+    const band = (
       <Box flexDirection="row" gap={1}>
         <Text color={WARMTH_COLOR[state]}>●</Text>
         <Text color={state === 'uncached' ? 'inactive' : WARMTH_COLOR[state]}>{time}</Text>
@@ -231,6 +233,13 @@ export const register: Register = on => {
             {layout.style === 'full' && w.reset !== null && <Text dimColor>{w.reset}</Text>}
           </Box>
         ))}
+      </Box>
+    )
+    if (below == null) return band
+    return (
+      <Box flexDirection="column">
+        {band}
+        {below}
       </Box>
     )
   })
