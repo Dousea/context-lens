@@ -30,9 +30,9 @@ export const LOOKS: Record<Progress['phase'], { color: string; bg: string; edge:
 // Every segment holds the same long run of one character and is clipped to its share: equal content, equal width.
 const RUN = 160
 
-const progressState = atom({ plugin: 'effortless', key: 'progress' } as const, null)
+const progressState = atom({ plugin: 'context-lens', key: 'progress' } as const, null)
 // The list the person closed with ✕, as register.tsx sets it; read here only.
-const progressHidden = atom({ plugin: 'effortless', key: 'progressHidden' } as const, null)
+const progressHidden = atom({ plugin: 'context-lens', key: 'progressHidden' } as const, null)
 
 export type Cue = 'question' | 'done'
 
