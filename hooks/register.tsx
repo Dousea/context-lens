@@ -3658,9 +3658,9 @@ Saved to ${out}.md and .json` }
     const byPerson = e.origin.kind === 'composer' || e.origin.kind === 'bridge' || e.origin.kind === 'sdk'
     // An agent's report (a subagent or background task finishing, another session's message) or a scheduled firing (/loop, a
     // routine) starts a reply nobody typed: with Auto on for effort it is judged like a prompt, so it does not run on the
-    // effort picked for the last typed one.
-    const byAgent =
-      e.origin.kind === 'task-notification' || e.origin.kind === 'peer' || e.origin.kind === 'peer-send-message' || e.origin.kind === 'scheduled-trigger'
+    // effort picked for the last typed one. The model moves only as the cheaper-model picker allows for any prompt.
+    // A relayed channel message (Slack, Telegram) and a follow-up to the person's click are theirs, but not typed here: same.
+    const byAgent = ['task-notification', 'peer', 'peer-send-message', 'scheduled-trigger', 'channel', 'auto-continuation'].includes(e.origin.kind)
     // The handoff check runs for every message the person types, whatever the effort judge is doing (or whether Auto is on).
     if (byPerson && !e.text.trim().startsWith('/') && !isFollowUp(e.text)) void checkHandoff($, e.text).catch(() => undefined)
     const wantsEffort = await read($, isAuto)
@@ -3754,17 +3754,17 @@ Saved to ${out}.md and .json` }
           }
         }
         // A prompt the judge calls simple runs on a cheaper model; a message typed mid-turn leaves the running choice.
-        if (!midTurn && !byAgent) {
+        if (!midTurn) {
           let to = wantsEffort && config.modelAuto === 'on' ? routeTo(verdict.model, inUse) : null
           // The last prompt ran on a cheaper model and this one says it was wrong: that is a miss. The retry runs on the
           // chat's own model, and so do the next few prompts.
-          if (routed && looksLikeRedo(e.text)) {
+          if (routed && !byAgent && looksLikeRedo(e.text)) {
             stayUp = REDO_STAY_PROMPTS
             await update($, saved, old => ({ ...asSpent(old), redone: asSpent(old).redone + 1 }))
             void proof($, `redo after ${routed}: the next ${REDO_STAY_PROMPTS} prompts stay on ${inUse}`)
           }
           if (stayUp > 0) {
-            stayUp--
+            if (!byAgent) stayUp--
             if (to) void proof($, `stays on ${inUse}: a cheaper answer was just redone (${stayUp} more)`)
             to = null
           }
@@ -3781,9 +3781,7 @@ Saved to ${out}.md and .json` }
             $.ui.invalidate('ui.render')
           }
         }
-        if (byAgent) {
-          // Only the effort follows an agent's report; the model is the person's to move.
-        } else if (wantsModel && verdict.model !== inUse && verdict.model !== declined) {
+        if (wantsModel && verdict.model !== inUse && verdict.model !== declined) {
           await update($, suggestion, () => verdict.model)
           $.ui.toast(`Suggestion: switch to ${verdict.model}? /context-lens switch or /context-lens keep`)
         } else if (verdict.model === inUse) {

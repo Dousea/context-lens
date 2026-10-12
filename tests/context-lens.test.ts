@@ -149,7 +149,7 @@ describe('auto', () => {
     expect(sent[2].effort).toBe('xhigh')
   })
 
-  test('an agent report is judged for its own effort when Auto is on, and runs on the last pick when Auto is off', async ($, on) => {
+  test('an agent report is judged for its own effort when Auto is on, and runs on the last pick when Auto is off', { options: { modelAuto: 'off' } } as never, async ($, on) => {
     engine(on)
     const said = ['{"model":"opus","effort":"high","why":"design"}', '{"model":"haiku","effort":"low","why":"a short status"}']
     let asked = 0
@@ -160,16 +160,28 @@ describe('auto', () => {
     expect(sent[0].effort).toBe('high')
     await $.prompt.submit({ text: 'The background task finished.', wait: false, origin: { kind: 'task-notification' } })
     await step($, 'xhigh')
-    // Judged on its own: the last typed prompt's high is not kept, and the cheaper model is only the person's to move.
+    // Judged on its own: the last typed prompt's high is not kept, and with the cheaper-model picker off the model stays.
     expect(asked).toBe(2)
     expect(sent[1]).toEqual({ model: 'claude-opus-5-5', effort: 'low' })
-    // A scheduled firing is judged the same way.
+    // A scheduled firing, a relayed channel message and an auto-continuation are judged the same way.
     await $.prompt.submit({ text: 'Check the deploy.', wait: false, origin: { kind: 'scheduled-trigger' } })
-    expect(asked).toBe(3)
+    await $.prompt.submit({ text: 'Is the build green?', wait: false, origin: { kind: 'channel', server: 'slack' } })
+    await $.prompt.submit({ text: 'Now plan the migration to the new schema.', wait: false, origin: { kind: 'auto-continuation' } })
+    expect(asked).toBe(5)
     await $.command.run({ command: 'context-lens', args: 'auto' })
     await $.prompt.submit({ text: 'The background task finished again.', wait: false, origin: { kind: 'task-notification' } })
     await $.prompt.submit({ text: 'Check the deploy again.', wait: false, origin: { kind: 'scheduled-trigger' } })
-    expect(asked).toBe(3)
+    expect(asked).toBe(5)
+  })
+
+  test('with the cheaper-model picker on, an agent report may run on the cheaper model its verdict names', { options: { modelAuto: 'on' } } as never, async ($, on) => {
+    engine(on)
+    on('model.complete', () => ({ value: { isAnswered: true as const, text: '{"model":"haiku","effort":"low","why":"a short status"}', usage: USAGE } }))
+    const sent = recordSteps(on)
+    await $.prompt.submit({ text: 'The background task finished.', wait: false, origin: { kind: 'task-notification' } })
+    await step($, 'xhigh')
+    expect(sent[0].effort).toBe('low')
+    expect(sent[0].model).not.toBe('claude-opus-5-5')
   })
 
   test('routeWorth: a switch to a cold model pays only when it still comes out cheaper', () => {
