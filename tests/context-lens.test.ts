@@ -2714,6 +2714,36 @@ describe('dashboard', () => {
     expect(turnLineFor({ '1000': 'a', '5000': 'b' }, 3000)).toBeUndefined()
   })
 
+  test('a footer drawn before its turn is saved shows what that reply ran on, not the setting after it', async ($, on) => {
+    engine(on)
+    mock.clock(on)
+    recordSteps(on)
+    on('session.start', (_$, e) => ({ cwd: e.cwd }) as never)
+    on('command.register', () => ({ value: undefined }) as never)
+    on('turn.complete', () => ({ text: '' }))
+    on('prompt.fill', () => ({ isFilled: true }) as never)
+    await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
+    const guide = await $.ui.mount(DESK_BAND)
+    await guide.press({ key: 'setup-close' })
+    await guide.unmount()
+    await step($, 'low')
+    // The setting moves on (a click, or the next message's pick) before this reply's footer is drawn.
+    const rows = await $.ui.mount({ plugin: 'context-lens', surface: 'terminal', ...BAND } as never)
+    await rows.press({ key: 'e-high' })
+    await rows.unmount()
+    const footer = (ms: number) =>
+      $.ui.mount({ plugin: 'context-lens', surface: 'desktop', component: 'TurnDuration', props: { word: 'Baked', durationMs: ms } } as never)
+    const early = await footer(17_000)
+    expect((await early.find({ key: 'turn-line' }))?.text).toContain('Low')
+    expect((await early.find({ key: 'turn-line' }))?.text).toContain('Opus 5.5')
+    await early.unmount()
+    await $.turn.complete({ turnId: 't1', answer: 'Done.', durationMs: 17_000, isAborted: false, reason: 'answer' } as never)
+    await step($, 'high')
+    const late = await footer(17_000)
+    expect((await late.find({ key: 'turn-line' }))?.text).toContain('Low')
+    await late.unmount()
+  })
+
   test('the effort word and the figures after it are drawn apart, so the figures can be cut and the word stays whole', () => {
     const base = { auto: true, paused: false, judging: false, effort: 'low' as const, cacheNow: 42, contextPercent: null, reason: '' }
     expect(dashboardLines(base).what).toBe('Low')

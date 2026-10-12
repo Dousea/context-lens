@@ -4013,8 +4013,9 @@ Saved to ${out}.md and .json` }
     const key = String(e.props.durationMs)
     let ran = turnLineFor(await read($, turnLines), e.props.durationMs) ?? firstDrawn.get(key)
     if (!ran) {
+      // Drawn before turn.complete saved its line: the reply's own last request says what it ran on, not the current setting.
       const inUse = routed ?? v.modelNow ?? 'sonnet'
-      ran = { effort: effortOf(v, inUse), model: inUse }
+      ran = ranThisTurn?.effort ? { ...ranThisTurn } : { effort: effortOf(v, inUse), model: inUse }
       firstDrawn.set(key, ran)
     }
     const model = MODELS.find(m => m.key === ran.model)?.long
