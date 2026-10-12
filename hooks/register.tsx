@@ -39,7 +39,8 @@ export const EFFORTS: Effort[] = ['low', 'medium', 'high', 'xhigh', 'max']
 // What one token costs relative to an uncached input token, the same ratios on every Claude model. Measured over
 // 80k requests of real Claude Code use, cache reads are about 76% of a session's cost, cache writes 16% and output 8%: effort
 // mostly changes how many tool calls a prompt makes, not what one answer writes, so all four are counted.
-const WEIGHT = { input: 1, write: 1.25, read: 0.1, out: 5 }
+// A write to the 1-hour cache costs twice the input price, to the 5-minute one 1.25 times.
+const WEIGHT = { input: 1, write: 1.25, write1h: 2, read: 0.1, out: 5 }
 // Changing effort between two requests keeps the prompt cache on these models only. On Fable 5.1 and older Opus
 // the next request rewrote 56-100% of the cache (measured), which costs more than any effort can save.
 export const cacheSafe = (modelId: string) => /(opus|sonnet)-5-5/.test(modelId)
@@ -94,7 +95,7 @@ const EFFORT_LABELS: Record<Effort, string> = { low: 'Low', medium: 'Medium', hi
 // Auto is two switches. `isAuto` is effort (the name stays: it is what the store and state hold);
 // `isAutoModel` lets the judge suggest another model and starts off.
 const isAuto = atom({ plugin: 'context-lens', key: 'isAuto' } as const, true)
-const EMPTY_SPENT: Spent = { prompts: 0, requests: 0, input: 0, write: 0, read: 0, out: 0, byEffort: {}, judge: { haiku: 0, ms: 0, tokens: 0 }, moved: 0, redone: 0 }
+const EMPTY_SPENT: Spent = { prompts: 0, requests: 0, input: 0, write: 0, writeHour: 0, read: 0, out: 0, byEffort: {}, judge: { haiku: 0, ms: 0, tokens: 0 }, moved: 0, redone: 0 }
 const SWITCHED_MS = 2500
 // The prompt cache lives this long after the last request read or wrote it. A response may say which lifetime its
 // cache writes got (usage.cache_creation: ephemeral_1h / ephemeral_5m); until one does, 1 hour is assumed: 99% of
@@ -184,9 +185,14 @@ async function setHandoffCard($: EngineInterface, kind: HandoffCard['kind'], ful
 
 // The newest reply's text, so the warning card goes under its last block and nowhere else.
 const lastAnswer = atom({ plugin: 'context-lens', key: 'lastAnswer' } as const, '')
-const lastTurn = atom({ plugin: 'context-lens', key: 'lastTurn' } as const, null)
-// The weighted tokens of the main thread's requests since the prompt; kept in lastTurn when the turn ends.
+// What each reply's footer says (effort, model, cost), by the reply's duration in ms: written when the turn ends, so a later
+// effort or model change leaves the older footers as they were.
+const turnLines = atom({ plugin: 'context-lens', key: 'turnLines' } as const, {})
+const TURN_LINES_KEPT = 200
+// The weighted tokens of the requests (the chat's and its subagents') since the prompt; kept in turnLines when the turn ends.
 let turnCost = 0
+// What the reply's last main-thread request ran on: the footer's model and effort.
+let ranThisTurn: { model?: ModelKey; effort?: Effort } | null = null
 const swampHiddenAt = atom({ plugin: 'context-lens', key: 'swampHiddenAt' } as const, null)
 // The first-run setup is not done: the footer offers "Setup".
 const setupPending = atom({ plugin: 'context-lens', key: 'setupPending' } as const, false)
@@ -938,6 +944,7 @@ export function asSpent(t: unknown): Spent {
     requests: num(v.requests),
     input: num(v.input),
     write: num(v.write),
+    writeHour: num(v.writeHour),
     read: num(v.read),
     out: num(v.out),
     byEffort: v.byEffort && typeof v.byEffort === 'object' ? v.byEffort : {},
@@ -952,11 +959,35 @@ export function asSpent(t: unknown): Spent {
   }
 }
 
-/** A request's tokens weighted by price, in input-token terms (see WEIGHT). */
-export function weighted(usage: { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number | null; cache_creation_input_tokens?: number | null }): number {
+/** The saved footer line of a reply: the one written at its end. The footer's duration is the turn's own, but the saved one is
+ * matched within a second in case the two are read at slightly different moments. */
+export function turnLineFor<T>(lines: Record<string, T>, ms: number): T | undefined {
+  const exact = lines[String(ms)]
+  if (exact) return exact
+  let best: T | undefined
+  let gap = 1000
+  for (const [k, v] of Object.entries(lines)) {
+    const d = Math.abs(Number(k) - ms)
+    if (d < gap) { gap = d; best = v }
+  }
+  return best
+}
+
+/** A request's tokens weighted by price, in input-token terms (see WEIGHT). The cache writes are priced by the lifetime the
+ * request says it wrote (1 hour or 5 minutes); one that does not say is counted as 5 minutes. */
+export function weighted(usage: {
+  input_tokens?: number
+  output_tokens?: number
+  cache_read_input_tokens?: number | null
+  cache_creation_input_tokens?: number | null
+  cache_creation?: { ephemeral_1h_input_tokens?: number | null } | null
+}): number {
+  const written = usage.cache_creation_input_tokens ?? 0
+  const hour = Math.min(written, usage.cache_creation?.ephemeral_1h_input_tokens ?? 0)
   return (
     (usage.input_tokens ?? 0) * WEIGHT.input +
-    (usage.cache_creation_input_tokens ?? 0) * WEIGHT.write +
+    hour * WEIGHT.write1h +
+    (written - hour) * WEIGHT.write +
     (usage.cache_read_input_tokens ?? 0) * WEIGHT.read +
     (usage.output_tokens ?? 0) * WEIGHT.out
   )
@@ -966,11 +997,11 @@ export function weighted(usage: { input_tokens?: number; output_tokens?: number;
 async function tally(
   $: EngineInterface,
   effort: Effort,
-  usage: { input_tokens: number; output_tokens: number; cache_read_input_tokens?: number | null; cache_creation_input_tokens?: number | null },
+  usage: Parameters<typeof weighted>[0] & { input_tokens: number; output_tokens: number },
 ) {
   const cached = usage.cache_read_input_tokens ?? 0
   const write = usage.cache_creation_input_tokens ?? 0
-  const cost = usage.input_tokens * WEIGHT.input + write * WEIGHT.write + cached * WEIGHT.read + usage.output_tokens * WEIGHT.out
+  const cost = weighted(usage)
   await update($, saved, old => {
     const t = asSpent(old)
     const bucket = t.byEffort[effort] ?? { prompts: 0, cost: 0 }
@@ -979,6 +1010,7 @@ async function tally(
       requests: t.requests + 1,
       input: t.input + usage.input_tokens,
       write: t.write + write,
+      writeHour: t.writeHour + Math.min(write, usage.cache_creation?.ephemeral_1h_input_tokens ?? 0),
       read: t.read + cached,
       out: t.out + usage.output_tokens,
       byEffort: { ...t.byEffort, [effort]: { ...bucket, cost: bucket.cost + cost } },
@@ -1814,7 +1846,7 @@ export function savedText(raw: Spent): string {
   const helperRuns = EFFORTS.reduce((n, e) => n + (t.helpers.runs[e] ?? 0), 0)
   if (t.prompts === 0 && judged === 0 && t.moved === 0 && helperRuns === 0) return 'nothing measured yet'
   const input = t.input * WEIGHT.input
-  const write = t.write * WEIGHT.write
+  const write = t.writeHour * WEIGHT.write1h + (t.write - t.writeHour) * WEIGHT.write
   const cached = t.read * WEIGHT.read
   const out = t.out * WEIGHT.out
   const total = input + write + cached + out
@@ -2042,7 +2074,7 @@ export const MODEL_PRICE: Record<ModelKey, number> = { haiku: 1 / 3, sonnet: 1, 
 export function routeWorth(to: ModelKey, inUse: ModelKey, contextTokens: number, warm: { to: boolean; inUse: boolean }): boolean {
   if (!(contextTokens > 0)) return true
   // Claude Code writes the 1-hour cache, which costs twice the input price (measured), not the 5-minute 1.25.
-  const write = 2
+  const write = WEIGHT.write1h
   const stay = contextTokens * MODEL_PRICE[inUse] * (warm.inUse ? WEIGHT.read : write)
   const move = contextTokens * MODEL_PRICE[to] * (warm.to ? WEIGHT.read : write)
   return move < stay
@@ -2170,26 +2202,27 @@ export function dashboardLines(d: {
   paused: boolean
   judging: boolean
   effort: Effort | undefined
+  /** The model's long name ("Opus 5.5"), written after the effort; none when unknown. */
+  model?: string
   cacheNow: number | null
   contextPercent: number | null
   reason: string
-  last: { cost: number; ms: number } | null
 }): { head: string; what: string; rest: string; detail: string } {
   const level = d.effort ? EFFORT_LABELS[d.effort] : 'Auto'
   // Auto on or off is the button's to say (and the terminal's effort row's), not the text's.
   const what = d.judging ? 'Deciding…' : !d.auto ? 'Off' : d.paused ? `${level} · Auto paused` : level
   const head = [
     `✦ ${what}`,
+    d.model ?? null,
     d.cacheNow === null ? null : `cache ${cacheLabel(d.cacheNow)}`,
     d.contextPercent === null ? null : `${Math.round(d.contextPercent)}% context`,
   ]
-  const last = d.last ? `last reply ≈${tokens(Math.round(d.last.cost))} tokens · ${Math.max(1, Math.round(d.last.ms / 1000))}s` : null
   const shown = head.filter(Boolean) as string[]
   return {
     head: shown.join(' · '),
     what,
     rest: shown.slice(1).map(part => ` · ${part}`).join(''),
-    detail: [d.reason, last].filter(Boolean).join(' · '),
+    detail: d.reason,
   }
 }
 
@@ -2693,7 +2726,10 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
     autoOnAt = nowMs
   }
   autoSeen = v.auto
-  const effortNow = effortOf(v, v.modelNow ?? (await sessionModel($)))
+  // A subagent in view shows the model and effort it ran at; the chat's own come from the session.
+  const viewed = e.props.view.agentId === undefined ? undefined : (await read($, lensAgents)).find(a => a.id === e.props.view.agentId)
+  const shownModel: ModelKey | undefined = viewed ? viewed.model : (routed ?? v.modelNow ?? undefined)
+  const effortNow = viewed ? viewed.effort : effortOf(v, v.modelNow ?? (await sessionModel($)))
   const by = v.current?.by
   const reason = v.current
     ? `${by === 'manual' || by === 'named' ? 'You' : 'Haiku'}: ${v.current.why}`
@@ -2713,13 +2749,12 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
     paused: Boolean(v.pausedNow),
     judging: Boolean(v.judging),
     effort: effortNow,
+    model: MODELS.find(m => m.key === shownModel)?.long,
     cacheNow: drawn || lens ? null : cacheShown,
     // Desktop draws the context as a ring and a figure (as the swamp band does); the terminal says it in words.
     contextPercent: !lens && e.surface === 'terminal' && lastContext && lastContext.window ? lastContext.percent : null,
     // A prompt on a cheaper model names it in the judge's line ("On Sonnet · Haiku: a small fix"), not beside the effort word.
     reason: adviceNow ? `Handoff would suit: ${adviceNow}` : config.hide.includes('reason') ? '' : reason,
-    // The detail row also says what the last reply cost: weighted tokens and the time it took.
-    last: await read($, lastTurn),
   })
   const toggleSettings = async () => {
     if (await read($, settingsOpen)) {
@@ -2841,10 +2876,6 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
           {/* A new effort shows in violet, then white (effortFlash): plain text in the app's font. An animated image of the
               word looked cheap: another font, a late start and a jump back to the text. */}
           <Text key="dash-level" color={wordColor} bold>{v.judging && Svg ? 'Deciding' : what}</Text>
-          {/* The model this prompt runs on, dim, after the effort: the judge's routing to a cheaper model shows as it happens. */}
-          {!v.judging && v.auto && MODELS.find(m => m.key === (routed ?? v.modelNow)) ? (
-            <Text key="dash-model" color={DASH_DIM}>{` · ${MODELS.find(m => m.key === (routed ?? v.modelNow))!.label}`}</Text>
-          ) : null}
           {/* While the judge decides: the progress bar's thinking dots, as a plain image (its CSS still runs, and a
               redraw does not restart it the way an interactive frame does). */}
           {v.judging && Svg ? (
@@ -3221,7 +3252,7 @@ async function refreshUsage($: EngineInterface): Promise<void> {
   if (breakdown) await update($, lensContext, () => toContextView(breakdown))
 }
 
-async function recordRequest($: EngineInterface, agentId: string | undefined, usage: ModelUsage): Promise<void> {
+async function recordRequest($: EngineInterface, agentId: string | undefined, usage: ModelUsage, ran?: { model?: ModelKey; effort?: Effort }): Promise<void> {
   const [at, ttls] = await Promise.all([$.clock.now(), cacheTtls($)])
   if (agentId === undefined) {
     const previous = await read($, lensMain)
@@ -3233,7 +3264,7 @@ async function recordRequest($: EngineInterface, agentId: string | undefined, us
   const info = known ? undefined : (await $.agent.list()).find(a => a.id === agentId)
   await update($, lensAgents, list => {
     const type = list.find(a => a.id === agentId)?.type ?? info?.type ?? 'agent'
-    const next: AgentCache = { ...applyUsage(usage, at, ttls.agent), id: agentId, type }
+    const next: AgentCache = { ...applyUsage(usage, at, ttls.agent), id: agentId, type, ...(ran?.model ? { model: ran.model } : {}), ...(ran?.effort ? { effort: ran.effort } : {}) }
     return [...list.filter(a => a.id !== agentId), next]
   })
 }
@@ -3260,8 +3291,8 @@ async function lensStarted($: EngineInterface): Promise<void> {
 }
 
 /** One answered request (the main thread's or a subagent's): its cache numbers. Called from turn.step. */
-async function lensRequest($: EngineInterface, agentId: string | undefined, usage: ModelUsage): Promise<void> {
-  await recordRequest($, agentId, usage)
+async function lensRequest($: EngineInterface, agentId: string | undefined, usage: ModelUsage, ran?: { model?: ModelKey; effort?: Effort }): Promise<void> {
+  await recordRequest($, agentId, usage, ran)
 }
 
 /** A main-thread compaction was written (not an ahead-of-time summary, not skipped): a new cache entry starts. */
@@ -3476,7 +3507,17 @@ export const register: Register = (on, options) => {
     }
     // The newest reply's text: its last block carries the warning card (see AssistantMessage).
     if (!e.agentId && e.reason === 'answer') await update($, lastAnswer, () => e.answer.trim())
-    if (!e.agentId && turnCost > 0) await update($, lastTurn, () => ({ cost: turnCost, ms: e.durationMs ?? 0 }))
+    // The footer of this reply keeps what it ran on and what it cost. Taken from its own requests: the pick above may already
+    // be the next message's.
+    if (!e.agentId && e.durationMs) {
+      const key = String(e.durationMs)
+      const ran = ranThisTurn
+      const cost = Math.round(turnCost)
+      await update($, turnLines, lines => {
+        const kept = Object.entries(lines).filter(([k]) => k !== key).slice(1 - TURN_LINES_KEPT)
+        return Object.fromEntries([...kept, [key, { ...ran, ...(cost > 0 ? { cost } : {}) }]])
+      })
+    }
     // A landed handoff card stays under the first reply after it, and goes with the next.
     if (!e.agentId) {
       await update($, handoffCard, card => (!card || cardRunning(card.kind) ? card : card.seen ? null : { ...card, seen: true }))
@@ -3606,7 +3647,11 @@ Saved to ${out}.md and .json` }
 
   on('prompt.submit', async ($, e, next) => {
     await setTurnBusy($, true)
-    turnCost = 0
+    // A message typed while a reply runs belongs to that reply: its cost goes on.
+    if (e.turnId === undefined) {
+      turnCost = 0
+      ranThisTurn = null
+    }
     // A landed handoff's card goes once the next message is sent.
     const card = await read($, handoffCard)
     if (card && (card.kind === 'done' || card.kind === 'copied')) await update($, handoffCard, () => null)
@@ -3755,14 +3800,15 @@ Saved to ${out}.md and .json` }
   on('turn.step', async function* ($, e, next) {
     // Every main-conversation response, whatever its effort, keeps the cache warm for its lifetime from now.
     const send = async function* (request: typeof e) {
+      if (e.agentId === undefined) ranThisTurn = { model: typeof request.model === 'string' ? keyOf(request.model) : undefined, effort: EFFORTS.find(x => x === request.effort) }
       if (e.agentId === undefined) lastRequest = { index: e.index, appModel: e.model, appEffort: e.effort, model: request.model, effort: request.effort, at: Date.now() }
       const answer = yield* next(request)
-      if (answer?.usage) await lensRequest($, e.agentId, answer.usage).catch(() => undefined)
+      if (answer?.usage) await lensRequest($, e.agentId, answer.usage, { model: typeof request.model === 'string' ? keyOf(request.model) : undefined, effort: EFFORTS.find(x => x === request.effort) }).catch(() => undefined)
       // Inside the hook ($ calls after it returns are refused), and never allowed to break the request.
       if (e.agentId === undefined && answer?.usage) markWarm(request.model, answer.usage, await $.clock.now().catch(() => Date.now()))
       // A prompt run on a cheaper model leaves the chat's own cache as it was: only the chat's model restarts the countdown.
       if (e.agentId === undefined && answer?.usage && request.model === e.model) await cacheTouched($, answer.usage).catch(() => undefined)
-      if (e.agentId === undefined && answer?.usage) turnCost += weighted(answer.usage)
+      if (answer?.usage) turnCost += weighted(answer.usage)
       return answer
     }
     if (e.agentId === undefined) await setTurnBusy($, true)
@@ -3958,19 +4004,27 @@ Saved to ${out}.md and .json` }
     return result
   })
 
+  // Turns from before turnLines existed have no saved line: they keep what they first drew.
+  const firstDrawn = new Map<string, { effort?: Effort; model?: ModelKey; cost?: number }>()
   on('ui.render', { component: 'TurnDuration' }, async ($, e, next) => {
     if (config.hide.includes('line')) return next(e)
     const { Box, Text } = themedEls($.ui.resolve(e))
     const v = await snap($)
-    const effortNow = effortOf(v, v.modelNow ?? 'sonnet')
+    const key = String(e.props.durationMs)
+    let ran = turnLineFor(await read($, turnLines), e.props.durationMs) ?? firstDrawn.get(key)
+    if (!ran) {
+      const inUse = routed ?? v.modelNow ?? 'sonnet'
+      ran = { effort: effortOf(v, inUse), model: inUse }
+      firstDrawn.set(key, ran)
+    }
+    const model = MODELS.find(m => m.key === ran.model)?.long
     const took = Math.max(1, Math.round(e.props.durationMs / 1000))
     return (
       <Box key="turn-line" flexDirection="row" gap={1}>
         <Text dimColor>{`${e.props.word} ${took < 60 ? `${took}s` : `${Math.floor(took / 60)}m ${took % 60}s`}`}</Text>
-        <Text color={ACCENT}>{`✦ ${effortNow ? EFFORT_LABELS[effortNow] : 'Auto'}`}</Text>
-        {v.cacheNow === null ? null : (
-          <Text dimColor={cacheColor(v.cacheNow) === undefined} color={cacheColor(v.cacheNow)}>{`· ${v.cacheNow <= 0 ? 'cache cold' : `cache ${cacheLabel(v.cacheNow)}`}`}</Text>
-        )}
+        <Text color={ACCENT}>{`✦ ${ran.effort ? EFFORT_LABELS[ran.effort] : 'Auto'}`}</Text>
+        {model ? <Text dimColor>{`· ${model}`}</Text> : null}
+        {ran.cost ? <Text dimColor>{`· ≈${tokens(ran.cost)} tokens`}</Text> : null}
       </Box>
     )
   })

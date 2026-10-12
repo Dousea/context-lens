@@ -1,7 +1,7 @@
 import { describe, expect, mock, test as baseTest } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
-import { helperFloor, namedEffort, hotVisible, looksLikeRedo, REDO_STAY_PROMPTS, routeWorth, tipped, bounded, handoffEvidence, parseHandoffAnswer, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, flashColor, handoffGlowStep, weighted, handoffLook, claudeCandidates, noClaudeHint, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
+import { helperFloor, namedEffort, hotVisible, looksLikeRedo, REDO_STAY_PROMPTS, routeWorth, tipped, bounded, handoffEvidence, parseHandoffAnswer, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, turnLineFor, flashColor, handoffGlowStep, weighted, handoffLook, claudeCandidates, noClaudeHint, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
 import { ART_COLUMNS, artFrame, artPixel, MOVING } from '../hooks/art'
 import { isLight, lightHex, lightProps, setLight, setTheme, themedEls, themedSvg, tint, tintHex } from '../hooks/theme'
 import { afterPrompt, currentStep, phaseAtTurnEnd, progressShare, progressShows, progressTitle, soundArgv, stepNumber, stepsFromTodos, withTaskCreated, withTaskUpdated } from '../hooks/progress'
@@ -2692,18 +2692,30 @@ describe('dashboard', () => {
     expect(report).toContain('| haiku | 1 | 2 | 0 | 0 |')
   })
 
-  test("its lines: the effort, cache and context; the judge's reason and the last reply", () => {
-    const base = { auto: true, paused: false, judging: false, effort: 'medium' as const, cacheNow: 42, contextPercent: 18, reason: 'Haiku: a small fix', last: null }
+  test("its lines: the effort, cache and context; the judge's reason", () => {
+    const base = { auto: true, paused: false, judging: false, effort: 'medium' as const, cacheNow: 42, contextPercent: 18, reason: 'Haiku: a small fix' }
     expect(dashboardLines(base).head).toBe(`✦ Medium · cache ${cacheLabel(42)} · 18% context`)
     expect(dashboardLines(base).detail).toBe('Haiku: a small fix')
-    expect(dashboardLines({ ...base, last: { cost: 42_000, ms: 38_200 } }).detail).toBe('Haiku: a small fix · last reply ≈42.0k tokens · 38s')
+    expect(dashboardLines({ ...base, model: 'Opus 5.5' }).head).toBe(`✦ Medium · Opus 5.5 · cache ${cacheLabel(42)} · 18% context`)
+    expect(dashboardLines({ ...base, model: 'Opus 5.5' }).rest).toBe(` · Opus 5.5 · cache ${cacheLabel(42)} · 18% context`)
     expect(dashboardLines({ ...base, auto: false }).head).toBe(`✦ Off · cache ${cacheLabel(42)} · 18% context`)
     expect(dashboardLines({ ...base, cacheNow: null, contextPercent: null }).head).toBe('✦ Medium')
     expect(weighted({ input_tokens: 10, output_tokens: 2, cache_read_input_tokens: 1000, cache_creation_input_tokens: 4 })).toBe(10 + 10 + 100 + 5)
+    // A write to the 1-hour cache costs 2x, one to the 5-minute cache 1.25x; a reply's three requests, measured on a real session.
+    const hour = (w: number) => ({ cache_creation_input_tokens: w, cache_creation: { ephemeral_1h_input_tokens: w } })
+    const reply = [
+      { input_tokens: 2, output_tokens: 268, cache_read_input_tokens: 83_991, ...hour(14_092) },
+      { input_tokens: 2, output_tokens: 1025, cache_read_input_tokens: 98_083, ...hour(2_799) },
+      { input_tokens: 2, output_tokens: 1006, cache_read_input_tokens: 100_882, ...hour(2_946) },
+    ]
+    expect(Math.round(reply.reduce((n, u) => n + weighted(u), 0) * 10) / 10).toBe(79_470.6)
+    expect(weighted({ output_tokens: 0, cache_creation_input_tokens: 100, cache_creation: { ephemeral_1h_input_tokens: 40 } })).toBe(40 * 2 + 60 * 1.25)
+    expect(turnLineFor({ '1000': 'a', '5000': 'b' }, 1400)).toBe('a')
+    expect(turnLineFor({ '1000': 'a', '5000': 'b' }, 3000)).toBeUndefined()
   })
 
   test('the effort word and the figures after it are drawn apart, so the figures can be cut and the word stays whole', () => {
-    const base = { auto: true, paused: false, judging: false, effort: 'low' as const, cacheNow: 42, contextPercent: null, reason: '', last: null }
+    const base = { auto: true, paused: false, judging: false, effort: 'low' as const, cacheNow: 42, contextPercent: null, reason: '' }
     expect(dashboardLines(base).what).toBe('Low')
     expect(dashboardLines(base).rest).toBe(` · cache ${cacheLabel(42)}`)
     expect(dashboardLines({ ...base, cacheNow: null }).rest).toBe('')

@@ -7,6 +7,8 @@ export type Spent = {
   requests: number
   input: number
   write: number
+  /** Of the write tokens, those written to the 1-hour cache (twice the input price). */
+  writeHour: number
   read: number
   out: number
   byEffort: Partial<Record<Effort, { prompts: number; cost: number }>>
@@ -95,6 +97,9 @@ export type CacheClock = {
 export type AgentCache = CacheClock & {
   id: string
   type: string
+  /** What its last request ran on, when the engine said. */
+  model?: ModelKey
+  effort?: Effort
 }
 
 export type CategoryKind = 'used' | 'free' | 'buffer' | 'deferred'
@@ -171,8 +176,8 @@ declare module 'claude-code' {
       handoffPick: HandoffChoice | null
       /** The newest reply's text: the reply card hangs under its last block. */
       lastAnswer: string
-      /** What the newest reply cost: tokens weighted by price over the main thread's requests, and its time. */
-      lastTurn: { cost: number; ms: number } | null
+      /** What each reply's footer says (the effort and model it ran on, what it cost in weighted tokens), by the reply's duration in ms. */
+      turnLines: Record<string, { effort?: Effort; model?: ModelKey; cost?: number }>
       /** The handoff card under the newest reply, from the start of a handoff until the reply after it lands. */
       handoffCard: { kind: 'writing' | 'done' | 'copied'; full: boolean; at: number; seen: boolean } | null
       /** The setup guide's step, or null when it is closed. */
