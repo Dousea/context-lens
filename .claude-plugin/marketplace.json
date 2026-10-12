@@ -1,13 +1,21 @@
 {
-  "name": "context-lens",
-  "description": "Context Lens: a one-line context, prompt-cache and usage band for Claude Code",
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "effortless",
+  "description": "Automatic reasoning effort and a prompt-cache countdown for Claude Code.",
   "owner": {
-    "name": "Orlando Hutapea"
+    "name": "HeyCubit",
+    "url": "https://github.com/HeyCubit"
   },
   "plugins": [
     {
-      "name": "context-lens",
-      "source": "./"
+      "name": "effortless",
+      "description": "Sets the reasoning effort for every prompt automatically and shows a prompt-cache countdown with one-click Compact.",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/HeyCubit/effortless.git",
+        "ref": "stable"
+      },
+      "category": "productivity"
     }
   ]
 }
