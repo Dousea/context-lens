@@ -1,7 +1,7 @@
 import { describe, expect, mock, test as baseTest } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
-import { helperFloor, namedEffort, hotVisible, looksLikeRedo, REDO_STAY_PROMPTS, routeWorth, tipped, bounded, handoffEvidence, parseHandoffAnswer, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, turnLineFor, flashColor, handoffGlowStep, weighted, handoffLook, claudeCandidates, noClaudeHint, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
+import { helperFloor, namedEffort, hotVisible, looksLikeRedo, REDO_STAY_PROMPTS, routeWorth, tipped, bounded, handoffEvidence, parseHandoffAnswer, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, bandFit, turnLineFor, flashColor, handoffGlowStep, weighted, handoffLook, claudeCandidates, noClaudeHint, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
 import { ART_COLUMNS, artFrame, artPixel, MOVING } from '../hooks/art'
 import { isLight, lightHex, lightProps, setLight, setTheme, themedEls, themedSvg, tint, tintHex } from '../hooks/theme'
 import { afterPrompt, currentStep, phaseAtTurnEnd, progressShare, progressShows, progressTitle, soundArgv, stepNumber, stepsFromTodos, withTaskCreated, withTaskUpdated } from '../hooks/progress'
@@ -182,6 +182,39 @@ describe('auto', () => {
     await step($, 'xhigh')
     expect(sent[0].effort).toBe('low')
     expect(sent[0].model).not.toBe('claude-opus-5-5')
+  })
+
+  test('a subagent in view shows its own effort, never the chat\'s effort or the judge\'s reason for the chat\'s prompt', async ($, on) => {
+    engine(on)
+    judgeSays(on, '{"model":"opus","effort":"high","why":"design work"}')
+    await $.prompt.submit({ text: 'design the whole trainer architecture', wait: false, origin: { kind: 'composer' } })
+    const chat = await $.ui.mount({ plugin: 'context-lens', surface: 'terminal', ...BAND } as never)
+    await chat.press({ key: 'setup-close' }).catch(() => undefined)
+    const own = await drawn(chat)
+    expect(own).toContain('design work')
+    await chat.unmount()
+    const agent = await $.ui.mount({ plugin: 'context-lens', surface: 'terminal', ...BAND, props: { ...BAND.props, view: { agentId: 'a1' } } } as never)
+    const text = await drawn(agent)
+    expect(text).not.toContain('design work')
+    // No effort lit: the chat's high is not the subagent's, whose own is not known yet.
+    expect(text).not.toContain('"label":"high","variant":"primary"')
+    await agent.unmount()
+    // The dashboard's own line: the subagent's effort alone, none of the chat's Auto state or judge.
+    const base = { auto: true, paused: true, judging: true, effort: undefined, cacheNow: null, contextPercent: null, reason: '' }
+    expect(dashboardLines({ ...base, agent: true }).what).toBe('Subagent')
+    expect(dashboardLines({ ...base, agent: true, effort: 'low' }).what).toBe('Low')
+  })
+
+  test('the band gives up rows in order when the app leaves it little room, and keeps the effort line', () => {
+    const all = { detailText: false, lens: true, effort: 1 }
+    expect(bandFit(6, all)).toEqual({ detail: true, border: true, effort: true, lens: true })
+    // The paste: room for 5 rows, a 6-row band: the empty detail row goes.
+    expect(bandFit(5, all)).toEqual({ detail: false, border: true, effort: true, lens: true })
+    expect(bandFit(3, all)).toEqual({ detail: false, border: false, effort: true, lens: true })
+    expect(bandFit(2, all)).toEqual({ detail: false, border: false, effort: false, lens: true })
+    expect(bandFit(1, all)).toEqual({ detail: false, border: false, effort: false, lens: false })
+    // An alert's words are kept: the border and the effort row give way first.
+    expect(bandFit(5, { ...all, detailText: true })).toEqual({ detail: true, border: false, effort: true, lens: true })
   })
 
   test('routeWorth: a switch to a cold model pays only when it still comes out cheaper', () => {

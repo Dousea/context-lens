@@ -2158,16 +2158,32 @@ type TerminalBand = { key: string; kind: ArtKind; color: string; bg: string; edg
 
 /** An alert band on the terminal: title and buttons, the detail on a line of its own, art on the right, and the effort
  * row under it, so effort stays in sight while a band shows. */
+/** What of the band fits in `maxRows` rows. The app scrolls a taller tree in a window and says "n more", so the band gives up,
+ * in this order: an empty detail row (one with words is kept), the border and art, the effort row, the lens row. The effort line itself stays. */
+export function bandFit(maxRows: number, parts: { detailText: boolean; lens: boolean; effort: number }) {
+  const fit = { detail: true, border: true, effort: parts.effort > 0, lens: parts.lens }
+  const rows = () => 1 + (fit.border ? 2 : 0) + (fit.detail ? 1 : 0) + (fit.lens ? 1 : 0) + (fit.effort ? parts.effort : 0)
+  if (rows() > maxRows && !parts.detailText) fit.detail = false
+  if (rows() > maxRows) fit.border = false
+  if (rows() > maxRows) fit.effort = false
+  if (rows() > maxRows) fit.lens = false
+  return fit
+}
+
 async function terminalBand($: EngineInterface, e: RenderInput<'AbovePrompt'>, b: TerminalBand) {
   const { Box, Text } = themedEls($.ui.resolve(e))
-  const { rows } = await effortRows($, e, { auto: !b.autoInBar })
-  const art = bandArt($, e, b.kind)
+  const { rows: effort, height } = await effortRows($, e, { auto: !b.autoInBar })
+  const maxRows = typeof e.props.maxRows === 'number' ? e.props.maxRows : 99
+  // An empty detail row is kept (so a band does not move when an alert appears) until the room runs out.
+  const fit = bandFit(maxRows, { detailText: Boolean(b.detail), lens: b.extra !== null, effort: height })
+  const art = fit.border ? bandArt($, e, b.kind) : null
+  const rows = fit.effort ? effort : null
   // The lens row stays under every band: the dashboard passes its own; an alert gets one sized to what the art leaves.
   const columns = typeof e.props.bodyColumns === 'number' ? e.props.bodyColumns : 100
-  const extra = b.extra !== undefined ? b.extra : await lensRow($, e, Math.max(20, columns - 4 - (art ? ART_COLUMNS + 1 : 0))).catch(() => null)
+  const extra = !fit.lens ? null : b.extra !== undefined ? b.extra : await lensRow($, e, Math.max(20, columns - 4 - (art ? ART_COLUMNS + 1 : 0))).catch(() => null)
   return (
     <Box key={`${b.key}-col`} flexDirection="column">
-      <Box key={b.key} flexDirection="row" gap={1} alignItems="center" paddingX={1} backgroundColor={b.bg} borderStyle="round" borderColor={b.edge}>
+      <Box key={b.key} flexDirection="row" gap={1} alignItems="center" paddingX={1} backgroundColor={b.bg} borderStyle={fit.border ? 'round' : undefined} borderColor={b.edge}>
         <Box flexDirection="column" flexGrow={1} flexShrink={1} minWidth={0}>
           <Box flexDirection="row" gap={1} alignItems="center">
             <Box flexShrink={0}>
@@ -2186,7 +2202,7 @@ async function terminalBand($: EngineInterface, e: RenderInput<'AbovePrompt'>, b
           </Box>
           {/* An empty detail still takes its row (a no-break space), so the dashboard is as tall as an alert and nothing moves
               when one appears. */}
-          <Text dimColor wrap="truncate">{b.detail || '\u00a0'}</Text>
+          {fit.detail ? <Text dimColor wrap="truncate">{b.detail || '\u00a0'}</Text> : null}
           {extra}
         </Box>
         {art}
@@ -2201,6 +2217,8 @@ export function dashboardLines(d: {
   auto: boolean
   paused: boolean
   judging: boolean
+  /** A subagent is in view: the word is its effort alone, none of the chat's Auto state. */
+  agent?: boolean
   effort: Effort | undefined
   /** The model's long name ("Opus 5.5"), written after the effort; none when unknown. */
   model?: string
@@ -2210,7 +2228,7 @@ export function dashboardLines(d: {
 }): { head: string; what: string; rest: string; detail: string } {
   const level = d.effort ? EFFORT_LABELS[d.effort] : 'Auto'
   // Auto on or off is the button's to say (and the terminal's effort row's), not the text's.
-  const what = d.judging ? 'Deciding…' : !d.auto ? 'Off' : d.paused ? `${level} · Auto paused` : level
+  const what = d.agent ? (d.effort ? level : 'Subagent') : d.judging ? 'Deciding…' : !d.auto ? 'Off' : d.paused ? `${level} · Auto paused` : level
   const head = [
     `✦ ${what}`,
     d.model ?? null,
@@ -2727,9 +2745,13 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
   }
   autoSeen = v.auto
   // A subagent in view shows the model and effort it ran at; the chat's own come from the session.
-  const viewed = e.props.view.agentId === undefined ? undefined : (await read($, lensAgents)).find(a => a.id === e.props.view.agentId)
-  const shownModel: ModelKey | undefined = viewed ? viewed.model : (routed ?? v.modelNow ?? undefined)
-  const effortNow = viewed ? viewed.effort : effortOf(v, v.modelNow ?? (await sessionModel($)))
+  // One just spawned has not made a request yet: its effort is the helper pick if there is one, else unknown, never the chat's.
+  const inAgent = e.props.view.agentId !== undefined
+  const viewed = inAgent ? (await read($, lensAgents)).find(a => a.id === e.props.view.agentId) : undefined
+  const shownModel: ModelKey | undefined = inAgent ? viewed?.model : (routed ?? v.modelNow ?? undefined)
+  const effortNow = inAgent
+    ? (viewed?.effort ?? (await helperEffortOf($, e.props.view.agentId!).catch(() => undefined)))
+    : effortOf(v, v.modelNow ?? (await sessionModel($)))
   const by = v.current?.by
   const reason = v.current
     ? `${by === 'manual' || by === 'named' ? 'You' : 'Haiku'}: ${v.current.why}`
@@ -2744,17 +2766,20 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
   // border and the padding take four columns. The resting terminal band draws no art beside it.
   const columns = typeof e.props.bodyColumns === 'number' ? e.props.bodyColumns : 100
   const lens = await lensRow($, e, Math.max(20, columns - 4)).catch(() => null)
+  const judgingHere = !inAgent && Boolean(v.judging)
   const { head, what, rest, detail } = dashboardLines({
     auto: v.auto,
     paused: Boolean(v.pausedNow),
-    judging: Boolean(v.judging),
+    judging: judgingHere,
+    agent: inAgent,
     effort: effortNow,
     model: MODELS.find(m => m.key === shownModel)?.long,
     cacheNow: drawn || lens ? null : cacheShown,
     // Desktop draws the context as a ring and a figure (as the swamp band does); the terminal says it in words.
     contextPercent: !lens && e.surface === 'terminal' && lastContext && lastContext.window ? lastContext.percent : null,
     // A prompt on a cheaper model names it in the judge's line ("On Sonnet · Haiku: a small fix"), not beside the effort word.
-    reason: adviceNow ? `Handoff would suit: ${adviceNow}` : config.hide.includes('reason') ? '' : reason,
+    // The judge's reason and the handoff advice are about the chat's own prompt, not a subagent's work.
+    reason: inAgent ? '' : adviceNow ? `Handoff would suit: ${adviceNow}` : config.hide.includes('reason') ? '' : reason,
   })
   const toggleSettings = async () => {
     if (await read($, settingsOpen)) {
@@ -2833,9 +2858,9 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
   // The terminal flashes the effort word as the desktop does: violet on a change, fading back to white.
   if (e.surface === 'terminal')
     return terminalBand($, e, { key: 'dash', kind: 'calm', color: DASH_TEXT, bg: DASH_BG, edge: DASH_EDGE, title: head.replace(/^✦ /, ''), detail, buttons, autoInBar: true, extra: lens,
-      word: { text: what, color: await effortFlash($, what, Boolean(v.judging), entering), rest } })
+      word: { text: what, color: await effortFlash($, what, judgingHere, entering), rest } })
   const Svg = 'Svg' in els ? els.Svg : undefined
-  const wordColor = await effortFlash($, what, Boolean(v.judging), entering)
+  const wordColor = await effortFlash($, what, judgingHere, entering)
   glowReadAt = Date.now()
   const glowNow = (await $.clock.now().catch(() => nowMs)) + drawLead
   const glowSource = Svg ? judgeGlowAt(judgeStartedAt, judgeEndedAt, glowNow) : null
@@ -2875,10 +2900,10 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
           ) : <Text color={v.auto ? ACCENT : DASH_DIM} bold>✦ </Text>}
           {/* A new effort shows in violet, then white (effortFlash): plain text in the app's font. An animated image of the
               word looked cheap: another font, a late start and a jump back to the text. */}
-          <Text key="dash-level" color={wordColor} bold>{v.judging && Svg ? 'Deciding' : what}</Text>
+          <Text key="dash-level" color={wordColor} bold>{judgingHere && Svg ? 'Deciding' : what}</Text>
           {/* While the judge decides: the progress bar's thinking dots, as a plain image (its CSS still runs, and a
               redraw does not restart it the way an interactive frame does). */}
-          {v.judging && Svg ? (
+          {judgingHere && Svg ? (
             <Box key="dash-thinking" flexShrink={0} marginLeft={1} alignItems="center">
               <Svg source={thinkingSvg('planning')} alt="deciding" width={THINK_W} height={PILL_H} />
             </Box>
@@ -2967,9 +2992,18 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
 async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>, opts: { auto?: boolean } = {}) {
   const { Box, Text, Button } = themedEls($.ui.resolve(e))
   const v = await snap($)
-  const { auto, autoModel, current, judging, wanted, shownByApp } = v
-  const inUse = v.modelNow ?? (await sessionModel($))
-  const effortNow = effortOf(v, inUse)
+  const { auto, autoModel, wanted } = v
+  // A subagent in view: its own effort and model are lit, and the chat's verdict, note and alignment are not about it.
+  const agentId = e.props.view.agentId
+  const viewed = agentId === undefined ? undefined : (await read($, lensAgents)).find(a => a.id === agentId)
+  const inAgent = agentId !== undefined
+  const current = inAgent ? null : v.current
+  const judging = !inAgent && v.judging
+  const shownByApp = inAgent ? undefined : v.shownByApp
+  const inUse = inAgent ? viewed?.model : (v.modelNow ?? (await sessionModel($)))
+  const effortNow = inAgent
+    ? (viewed?.effort ?? (await helperEffortOf($, agentId).catch(() => undefined)))
+    : effortOf(v, inUse!)
   // The model row is paused: effort first. CONTEXT_LENS_MODEL_UI=1 brings it back.
   const showModel = (await envModelUi($)) === '1'
 
@@ -3009,7 +3043,9 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>, opt
   if (e.surface !== 'terminal') return { question, rows: null }
 
   const notAligned = current && inUse !== 'haiku' && shownByApp && shownByApp !== current.effort
-  const note = judging
+  const note = inAgent
+    ? ''
+    : judging
     ? 'Deciding…'
     : notAligned
       ? `/effort shows ${EFFORT_LABELS[shownByApp as Effort] ?? shownByApp}`
@@ -3071,7 +3107,9 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>, opt
       </Box>
     </Box>
   )
-  return { question, rows }
+  // Rows it takes, for fitting the band into the room the app gives it.
+  const height = rows ? 1 + (question ? 1 : 0) + (showModel ? 1 : 0) : question ? 1 : 0
+  return { question, rows, height }
 }
 
 // Effort for helpers: the effort the judge picked for each subagent, by its id. A subagent's first request can come
