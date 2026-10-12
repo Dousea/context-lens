@@ -1131,9 +1131,8 @@ describe('setup guide', () => {
     await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
     await $.command.run({ command: 'context-lens', args: 'settings' })
     const panel = await $.ui.mount(DESK)
-    expect(await drawn(panel)).toContain('Haiku')
-    await panel.press({ key: 'settings-card-judge' })
-    expect(await panel.find({ key: 'settings-judge-test' })).toBeDefined()
+    // The judge is Haiku alone: no card to pick or test it in.
+    expect(await panel.find({ key: 'settings-card-judge' })).toBeUndefined()
     expect(await drawn(panel)).not.toMatch(/Jev|TypeSafe/)
     await panel.unmount()
   })
@@ -1686,8 +1685,9 @@ describe('handoff', () => {
     const filled: string[] = []
     on('prompt.fill', (_$, e) => {
       filled.push(e.text)
-      return { value: { isFilled: true, text: e.text } } as never
+      return { isFilled: true } as never
     })
+    on('ui.toast', () => ({ value: undefined }) as never)
     const mocked = mock.clock(on)
     await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
     const footer = await $.ui.mount(FOOTER)
@@ -2083,7 +2083,7 @@ describe('running hot and judge down', () => {
     await band.unmount()
   })
 
-  test('a failing judge shows the judge-down band until it answers again; Settings opens the Judge card, where Test clears it', async ($, on) => {
+  test('a failing judge shows the judge-down band until it answers again', async ($, on) => {
     engine(on)
     mock.clock(on)
     let answered = false
@@ -2099,15 +2099,11 @@ describe('running hot and judge down', () => {
     const band = await $.ui.mount(DESK_BAND)
     expect(await drawn(band)).toContain('Judge down')
     expect(await drawn(band)).toContain('out of credits')
-    // Settings goes to the Judge card; Test, once Haiku answers, takes the band away.
+    // The band has no settings to open: it goes once Haiku answers a later prompt.
+    expect(await band.find({ key: 'down-settings' })).toBeUndefined()
     answered = true
-    await band.press({ key: 'down-settings' })
     await band.unmount()
-    const panel = await $.ui.mount(DESK_BAND)
-    expect(await panel.find({ key: 'settings-judge-test' })).toBeDefined()
-    await panel.press({ key: 'settings-judge-test' })
-    await panel.press({ key: 'settings-close' })
-    await panel.unmount()
+    await $.prompt.submit({ text: 'refactor the sync engine end to end', wait: false, origin: { kind: 'composer' } })
     await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
   })
 
@@ -2131,36 +2127,6 @@ describe('running hot and judge down', () => {
 })
 
 describe('settings panel', () => {
-  test('Test asks the judge one sample and says if it answered, or why not', { options: { layout: 'default' } } as never, async ($, on) => {
-    engine(on)
-    mock.clock(on)
-    let answered = true
-    const toasts: string[] = []
-    on('ui.toast', (_$, e) => {
-      toasts.push(String(e))
-      return { value: undefined } as never
-    })
-    on('model.complete', () => ({ value: answered
-      ? { isAnswered: true as const, text: '{"model":"sonnet","effort":"low","why":"x"}', usage: USAGE }
-      : { isAnswered: false as const, reason: 'api-error', status: 401, error: 'authentication_failed', usage: USAGE } }) as never)
-    await start($, on)
-    const guide = await $.ui.mount(DESK_BAND)
-    await guide.press({ key: 'setup-close' })
-    await guide.unmount()
-    const band = await $.ui.mount(DESK_BAND)
-    await band.press({ key: 'dash-settings' })
-    await band.press({ key: 'settings-card-judge' })
-    await band.press({ key: 'settings-judge-test' })
-    const result = async () => (await band.findAll({ type: 'Text' })).map(t => t.text).find(t => /^[✓✗]/.test(t))
-    expect(await result()).toContain('✓ Haiku answered: low in')
-    answered = false
-    await band.press({ key: 'settings-judge-test' })
-    expect(await result()).toBe('✗ Haiku was refused (401): check your Claude login')
-    // A test warns nobody: no toast, no judge-down band.
-    expect(toasts).toEqual([])
-    await band.unmount()
-  })
-
   const start = async ($: Engine, on: On) => {
     on('session.start', (_$, e) => ({ cwd: e.cwd }) as never)
     on('command.register', () => ({ value: undefined }) as never)

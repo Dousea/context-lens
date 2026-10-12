@@ -199,7 +199,7 @@ const installedSkills = atom({ plugin: 'context-lens', key: 'installedSkills' } 
 const settingsDraft = atom({ plugin: 'context-lens', key: 'settingsDraft' } as const, {})
 const judgeDown = atom({ plugin: 'context-lens', key: 'judgeDown' } as const, null)
 // Which part of the settings panel is open: null for the cards.
-type SettingsCard = 'effort' | 'model' | 'judge' | 'handoff' | 'show'
+type SettingsCard = 'effort' | 'model' | 'handoff' | 'show'
 const settingsCard = atom({ plugin: 'context-lens', key: 'settingsCard' } as const, null)
 /** The settings panel's parts: a card each on the overview, and what the part is for, said once it is open. */
 const CARDS: readonly { id: SettingsCard; title: string; about: string }[] = [
@@ -207,7 +207,6 @@ const CARDS: readonly { id: SettingsCard; title: string; about: string }[] = [
   { id: 'model', title: 'Model', about: "Whether a simple prompt may run on a cheaper model, and which model writes a compaction." },
   { id: 'handoff', title: 'Handoff & alerts', about: 'The full handoff skill, when to suggest compacting, and which alerts show.' },
   { id: 'show', title: 'Customize', about: 'How context-lens looks and which parts it shows. Uninstall removes it.' },
-  { id: 'judge', title: 'Judge', about: 'Haiku judges prompts and handoffs, through your own Claude login. Test checks it answers.' },
 ]
 // The Model card: the two ways to run. Effort follows the judge in both.
 const MODEL_CHOICES = [
@@ -215,8 +214,6 @@ const MODEL_CHOICES = [
   { value: 'off', label: "Always the chat's", tag: '', about: "Every prompt keeps the model you picked. Only effort changes." },
 ] as const
 const BIAS_WORDS = ['Cheapest', 'Cheaper', 'Balanced', 'Smarter', 'Smartest'] as const
-// The settings panel's judge test: running, or what it found. Null before a test and once the panel closes.
-const judgeTest = atom({ plugin: 'context-lens', key: 'judgeTest' } as const, null)
 // The judge-down band was closed for this reason; a new reason shows it again.
 const judgeDownHidden = atom({ plugin: 'context-lens', key: 'judgeDownHidden' } as const, null)
 // A usage limit is close: which window, how much is used, when it resets. Null below the line.
@@ -507,11 +504,6 @@ export function judgeFailure(name: string, status: number | 'timeout'): string {
 const warned = new Set<string>()
 /** Tells the person once per session and reason that the judge failed; the effort stays as it is. */
 function warnJudge($: EngineInterface, reason: string) {
-  // A test from the settings panel takes the reason for its own line, with no toast and no judge-down band.
-  if (judgeTesting) {
-    judgeTesting.reason = reason
-    return
-  }
   void proof($, `judge fallback: ${reason}`)
   void update($, judgeDown, () => reason).then(() => $.ui.invalidate('ui.render'))
   if (warned.has(reason)) return
@@ -622,26 +614,6 @@ function judgeQuestion(prompt: string, current: Pick | null, context: string): s
 async function judge($: EngineInterface, prompt: string, current: Pick | null): Promise<Judged> {
   const context = await recentContext($).catch(() => '')
   return askHaiku($, prompt, current, context)
-}
-
-// Set while the settings panel tests a judge: warnJudge leaves its reason here instead of warning.
-let judgeTesting: { reason?: string } | null = null
-/** The prompt a judge test sends: small and plain, so any working judge answers it. */
-const JUDGE_TEST_PROMPT = 'rename one variable in a single file'
-
-/** Asks Haiku one sample prompt and says in a line whether it answered, with what and how fast, or why not. */
-async function testJudge($: EngineInterface): Promise<{ ok: boolean; text: string }> {
-  const start = await $.clock.now()
-  const took = async () => `${(((await $.clock.now()) - start) / 1000).toFixed(1)} s`
-  judgeTesting = {}
-  try {
-    const h = await askHaiku($, JUDGE_TEST_PROMPT, null, '')
-    return h.verdict ? { ok: true, text: `Haiku answered: ${h.verdict.effort} in ${await took()}` } : { ok: false, text: judgeTesting.reason ?? 'Haiku gave no answer' }
-  } catch (error) {
-    return { ok: false, text: String(error).slice(0, 80) }
-  } finally {
-    judgeTesting = null
-  }
 }
 
 /** Haiku through the session's own login: the judge, and it needs no key. */
@@ -1623,16 +1595,9 @@ async function openPluginSettings($: EngineInterface) {
   $.ui.invalidate('ui.render')
 }
 
-/** The panel on its Judge card, where Test says whether Haiku answers: the judge-down band's Settings. */
-async function openJudgeSettings($: EngineInterface) {
-  await openPluginSettings($)
-  await update($, settingsCard, () => 'judge')
-}
-
 /** The settings rows the panel changes, by field: saved as the plugin's own setting and used at once. */
 // Small purple marks beside the settings rows' titles: text glyphs, which draw wherever text does (an Svg there did not).
 const ICON_EFFORT = '◔'
-const ICON_JUDGE = '⚖︎'
 const ICON_HANDOFF = '⇥'
 const ICON_SHOW = '◉'
 const SETTING_FIELDS = {
@@ -1779,7 +1744,7 @@ async function flushSetup($: EngineInterface) {
     appearance: config.appearance,
   }
   const changes: Record<string, string> = {}
-  for (const field of ['hide', 'judge', 'bias', 'handoffSkill', 'appearance'] as const) {
+  for (const field of ['hide', 'bias', 'handoffSkill', 'appearance'] as const) {
     const value = draft[field]
     if (value !== undefined && value.trim() !== saved[field]) changes[field] = value.trim()
   }
@@ -1936,14 +1901,12 @@ export function settingsSvg(color: string): string {
 
 /** The settings rows' icons, drawn in the cog's outline style (14 px, 1.3 stroke) rather than font glyphs, which
  * differ per font. */
-export function rowIconSvg(kind: 'effort' | 'model' | 'judge' | 'handoff' | 'show' | 'quick' | 'full', color: string): string {
+export function rowIconSvg(kind: 'effort' | 'model' | 'handoff' | 'show' | 'quick' | 'full', color: string): string {
   const shapes = {
     // A gauge: an open arc with a needle.
     effort: '<path d="M2.6 10.4A5 5 0 1 1 11.4 10.4"/><path d="M7 8.2L9.6 5.2"/><circle cx="7" cy="8.6" r=".9"/>',
     // Layers: the models, stacked.
     model: '<path d="M7 2 12.2 4.7 7 7.4 1.8 4.7Z"/><path d="M1.8 7.3 7 10 12.2 7.3"/><path d="M1.8 9.9 7 12.6 12.2 9.9"/>',
-    // Scales: a beam on a post, two pans.
-    judge: '<path d="M7 2.4V11.6M4.4 11.6H9.6M2.6 4.2H11.4"/><path d="M2.6 4.2L1.2 7.6A1.5 1.5 0 0 0 4 7.6Z"/><path d="M11.4 4.2L10 7.6A1.5 1.5 0 0 0 12.8 7.6Z"/>',
     // An arrow into a bar: hand off.
     handoff: '<path d="M1.8 7H9.4M6.6 4.2L9.4 7L6.6 9.8"/><path d="M11.8 2.6V11.4"/>',
     // A pencil: customize. The tip down left, a line across the ferrule.
@@ -4059,14 +4022,12 @@ Saved to ${out}.md and .json` }
       // A plain button with its own handler: a dismiss-role button may be taken by the app before onPress runs.
       const close = async () => {
         await update($, settingsDraft, () => ({}))
-        await update($, judgeTest, () => null)
         await update($, settingsCard, () => null)
         await update($, settingsOpen, () => false)
         $.ui.invalidate('ui.render')
       }
       // The panel shows the draft over the saved settings; every control writes to the draft only.
       const draft = await read($, settingsDraft)
-      const tested = await read($, judgeTest)
       const card = await read($, settingsCard)
       const openCard = (to: SettingsCard | null) => async () => {
         await update($, settingsCard, () => to)
@@ -4080,7 +4041,6 @@ Saved to ${out}.md and .json` }
         bias: draft.bias !== undefined ? Number(draft.bias) : config.bias,
         floor: (draft.floor ?? config.floor) as Effort,
         ceiling: (draft.ceiling ?? config.ceiling) as Effort,
-        judge: (draft.judge ?? config.judge) as JudgeConfig['judge'],
         handoffAfter: draft.handoffAfter ?? config.handoffAfter,
         handoffSkill: draft.handoffSkill ?? config.handoffSkill,
         swampAt: draft.swampAt ?? String(config.swampAt),
@@ -4103,11 +4063,9 @@ Saved to ${out}.md and .json` }
         : field === 'hide' ? !sameSet(value, config.hide.join(','))
         : value !== String(config[field as Exclude<keyof SettingsDraft, 'hide'>] ?? ''))
       const hidden = (draft.hide ?? config.hide.join(',')).split(',').filter(Boolean)
-      const judgeName = 'Haiku'
       const summaries: Record<SettingsCard, string> = {
         effort: `${BIAS_WORDS[shown.bias + 2]} · ${shown.floor} to ${shown.ceiling}${shown.helpers === 'on' ? ' · helpers' : ''}`,
         model: shown.modelAuto === 'on' ? 'Cheaper when it can' : "Always the chat's",
-        judge: tested && tested.ok !== null ? `${judgeName} · ${tested.ok ? 'working' : 'failing'}` : judgeName,
         handoff: `${shown.handoffSkill ? `/${shown.handoffSkill}` : 'Built in'} · compact alert at ${shown.swampAt}%`,
         show: `${shown.layout === 'minimal' ? 'Minimal' : 'Dashboard'} · ${2 - ['timer', 'reason'].filter(h => hidden.includes(h)).length} of 2 on`,
       }
@@ -4132,7 +4090,7 @@ Saved to ${out}.md and .json` }
       }
       // The terminal has no art and few rows: no gaps, one row under the title.
       const term = e.surface === 'terminal'
-      const iconKind = { [ICON_EFFORT]: 'effort', [ICON_JUDGE]: 'judge', [ICON_HANDOFF]: 'handoff', [ICON_SHOW]: 'show' } as const
+      const iconKind = { [ICON_EFFORT]: 'effort', [ICON_HANDOFF]: 'handoff', [ICON_SHOW]: 'show' } as const
       const row = (key: string, label: string, icon: string, children: unknown[]) => (
         <Box key={key} flexDirection="row" gap={1} alignItems="center">
           <Box width={13} flexShrink={0} flexDirection="row" gap={1} alignItems="center">
@@ -4317,20 +4275,7 @@ Saved to ${out}.md and .json` }
                     <Text dimColor wrap="truncate">{shown.helpers === 'on' ? "The judge picks each subagent's effort, medium or more" : "Subagents run at the chat's effort"}</Text>
                   </Box>,
                 ]),
-] : card === 'judge' ? (bare ? [] : [
-            <Button key="settings-judge-test" variant="secondary" dimColor={tested?.ok === null} label={tested?.ok === null ? 'Testing…' : 'Test'}
-              onPress={async () => {
-                if (tested?.ok === null) return
-                await update($, judgeTest, () => ({ ok: null, text: '' }))
-                $.ui.invalidate('ui.render')
-                const result = await testJudge($)
-                await update($, judgeTest, () => result)
-                $.ui.invalidate('ui.render')
-              }} />,
-            ...(tested && tested.ok !== null
-              ? [<Text key="settings-judge-result" color={tested.ok ? '#7fd49b' : '#ff8a80'}>{`${tested.ok ? '✓' : '✗'} ${tested.text}`}</Text>]
-              : []),
-]) : card === 'model' ? (bare ? [] : MODEL_CHOICES.map(c => (
+] : card === 'model' ? (bare ? [] : MODEL_CHOICES.map(c => (
             <Box key={`model-${c.value}`} flexDirection="column" flexGrow={1} flexShrink={1} minWidth={26}>
               <Box flexDirection="row" gap={1} alignItems="center">
                 <Button key={`settings-model-${c.value}`} plain label={`${shown.modelAuto === c.value ? '◉' : '○'} ${c.label}`} onPress={() => set('modelAuto')(c.value)} />
@@ -4637,7 +4582,6 @@ Saved to ${out}.md and .json` }
           key: 'down', kind: 'down', color: SLATE, bg: SLATE_BG, edge: SLATE_EDGE, title: 'Judge down',
           detail: `${downReason}. The effort stays as it is.`,
           buttons: [
-            <Button key="down-settings" variant="primary" hotkey="s" label="Settings" onPress={() => openJudgeSettings($)} />,
             <Button key="down-close" plain role="dismiss" label="✕" onPress={() => update($, judgeDownHidden, () => downReason)} />,
           ],
         })
@@ -4656,7 +4600,6 @@ Saved to ${out}.md and .json` }
           <Text wrap="truncate">{`${downReason}. The effort stays as it is.`}</Text>
           <Box flexGrow={1} minWidth={30} />
           <Box key="down-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={1} alignItems="center">
-            <Button key="down-settings" variant="primary" label="Open settings" onPress={() => openJudgeSettings($)} />
             <Button key="down-close" plain role="dismiss" label="✕" onPress={() => update($, judgeDownHidden, () => downReason)} />
           </Box>
         </Box>

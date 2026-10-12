@@ -142,12 +142,11 @@ declare module 'claude-code' {
       isColdHidden: boolean
       /** Why the picked judge is failing, or null. */
       judgeDown: string | null
-      judgeTest: { ok: boolean | null; text: string } | null
       /** The reason the judge-down band was closed for. */
       judgeDownHidden: string | null
       /** The settings panel is open above the prompt. */
       settingsOpen: boolean
-      settingsCard: 'effort' | 'judge' | 'handoff' | 'show' | null
+      settingsCard: 'effort' | 'model' | 'handoff' | 'show' | null
       /** Changes made in the settings panel and not saved yet. */
       settingsDraft: SettingsDraft
       /** The user and plugin skills, read when the settings panel opens. */
