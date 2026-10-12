@@ -2189,7 +2189,9 @@ async function terminalBand($: EngineInterface, e: RenderInput<'AbovePrompt'>, b
             <Box flexGrow={1} />
             {b.buttons}
           </Box>
-          <Text dimColor wrap="truncate">{b.detail}</Text>
+          {/* An empty detail still takes its row (a no-break space), so the dashboard is as tall as an alert and nothing moves
+              when one appears. */}
+          <Text dimColor wrap="truncate">{b.detail || '\u00a0'}</Text>
           {extra}
         </Box>
         {art}
