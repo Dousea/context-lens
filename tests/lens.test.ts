@@ -186,3 +186,17 @@ test('a subagent in view shows its own five-minute clock', async ($, on) => {
   const mainLine = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', component: 'AbovePrompt', props: band(140) })
   expect(await mainLine.find({ text: /^—$/ })).toBeDefined()
 })
+
+test('the lens row stays under an alert band on the terminal', async ($, on) => {
+  mock.clock(on, { now: 0 })
+  engine(on)
+  answering(on, 140_000, 4_000)
+  await begin($)
+  await step($)
+  // The cold alert, forced: it takes the slot, and the row sits under it.
+  await $.command.run({ command: 'context-lens', args: 'cold' } as never)
+  const line = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', component: 'AbovePrompt', props: band(140) })
+  expect(await line.find({ key: 'cold-hide' })).toBeDefined()
+  expect(await line.find({ text: /^ctx$/ })).toBeDefined()
+  expect(await line.find({ text: /^152k\/250k$/ })).toBeDefined()
+})

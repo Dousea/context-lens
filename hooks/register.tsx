@@ -2166,6 +2166,10 @@ type TerminalBand = { key: string; kind: ArtKind; color: string; bg: string; edg
 async function terminalBand($: EngineInterface, e: RenderInput<'AbovePrompt'>, b: TerminalBand) {
   const { Box, Text } = themedEls($.ui.resolve(e))
   const { rows } = await effortRows($, e, { auto: !b.autoInBar })
+  const art = bandArt($, e, b.kind)
+  // The lens row stays under every band: the dashboard passes its own; an alert gets one sized to what the art leaves.
+  const columns = typeof e.props.bodyColumns === 'number' ? e.props.bodyColumns : 100
+  const extra = b.extra !== undefined ? b.extra : await lensRow($, e, Math.max(20, columns - 4 - (art ? ART_COLUMNS + 1 : 0))).catch(() => null)
   return (
     <Box key={`${b.key}-col`} flexDirection="column">
       <Box key={b.key} flexDirection="row" gap={1} alignItems="center" paddingX={1} backgroundColor={b.bg} borderStyle="round" borderColor={b.edge}>
@@ -2186,9 +2190,9 @@ async function terminalBand($: EngineInterface, e: RenderInput<'AbovePrompt'>, b
             {b.buttons}
           </Box>
           <Text dimColor wrap="truncate">{b.detail}</Text>
-          {b.extra}
+          {extra}
         </Box>
-        {bandArt($, e, b.kind)}
+        {art}
       </Box>
       {rows}
     </Box>
