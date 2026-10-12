@@ -2,6 +2,9 @@
   "name": "context-lens",
   "version": "0.1.0",
   "description": "Sets the reasoning effort for every prompt automatically, and shows the prompt-cache timers, context window and rate-limit usage above the prompt. A fork of HeyCubit/context-lens (MIT).",
+  "author": {
+    "name": "Orlando Hutapea"
+  },
   "types": "./types/index.d.ts",
   "userConfig": {
     "handoffSkill": {

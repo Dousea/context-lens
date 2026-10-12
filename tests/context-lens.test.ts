@@ -1227,7 +1227,7 @@ describe('judge failures are said', () => {
   test('judgeFailure names the cause', () => {
     expect(judgeFailure('Haiku', 402)).toContain('out of credits')
     expect(judgeFailure('Haiku', 429)).toContain('rate limited')
-    expect(judgeFailure('Haiku', 401)).toContain('rejected the key')
+    expect(judgeFailure('Haiku', 401)).toContain('was refused')
     expect(judgeFailure('Haiku', 'timeout')).toContain('did not answer')
   })
 
@@ -2083,13 +2083,13 @@ describe('running hot and judge down', () => {
     await band.unmount()
   })
 
-  test('a failing judge shows the judge-down band until it answers again', async ($, on) => {
+  test('a failing judge shows the judge-down band until it answers again; Settings opens the Judge card, where Test clears it', async ($, on) => {
     engine(on)
     mock.clock(on)
     let answered = false
     on('model.complete', () => ({ value: answered
       ? { isAnswered: true as const, text: '{"model":"sonnet","effort":"high","why":"x"}', usage: USAGE }
-      : { isAnswered: false as const, reason: 'api-error', status: 402 } }) as never)
+      : { isAnswered: false as const, reason: 'api-error', status: 402, error: 'billing_error', usage: USAGE } }) as never)
     on('ui.toast', () => ({ value: undefined }) as never)
     await start($, on)
     const guide = await $.ui.mount(DESK_BAND)
@@ -2098,11 +2098,35 @@ describe('running hot and judge down', () => {
     await $.prompt.submit({ text: 'refactor the sync engine end to end', wait: false, origin: { kind: 'composer' } })
     const band = await $.ui.mount(DESK_BAND)
     expect(await drawn(band)).toContain('Judge down')
-    expect(await drawn(band)).toContain('Haiku did not answer')
-    await band.unmount()
+    expect(await drawn(band)).toContain('out of credits')
+    // Settings goes to the Judge card; Test, once Haiku answers, takes the band away.
     answered = true
-    await $.prompt.submit({ text: 'now write tests for the queue module', wait: false, origin: { kind: 'composer' } })
+    await band.press({ key: 'down-settings' })
+    await band.unmount()
+    const panel = await $.ui.mount(DESK_BAND)
+    expect(await panel.find({ key: 'settings-judge-test' })).toBeDefined()
+    await panel.press({ key: 'settings-judge-test' })
+    await panel.press({ key: 'settings-close' })
+    await panel.unmount()
     await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
+  })
+
+  test('an aborted or empty judge reply is no failure: no band, no toast', async ($, on) => {
+    engine(on)
+    mock.clock(on)
+    const toasts: string[] = []
+    on('model.complete', () => ({ value: { isAnswered: false as const, reason: 'aborted', usage: USAGE } }) as never)
+    on('ui.toast', (_$, e) => {
+      toasts.push(String(e))
+      return { value: undefined } as never
+    })
+    await start($, on)
+    const guide = await $.ui.mount(DESK_BAND)
+    await guide.press({ key: 'setup-close' })
+    await guide.unmount()
+    await $.prompt.submit({ text: 'refactor the sync engine end to end', wait: false, origin: { kind: 'composer' } })
+    await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
+    expect(toasts).toEqual([])
   })
 })
 
@@ -2118,7 +2142,7 @@ describe('settings panel', () => {
     })
     on('model.complete', () => ({ value: answered
       ? { isAnswered: true as const, text: '{"model":"sonnet","effort":"low","why":"x"}', usage: USAGE }
-      : { isAnswered: false as const, reason: 'api-error', status: 401 } }) as never)
+      : { isAnswered: false as const, reason: 'api-error', status: 401, error: 'authentication_failed', usage: USAGE } }) as never)
     await start($, on)
     const guide = await $.ui.mount(DESK_BAND)
     await guide.press({ key: 'setup-close' })
@@ -2131,7 +2155,7 @@ describe('settings panel', () => {
     expect(await result()).toContain('✓ Haiku answered: low in')
     answered = false
     await band.press({ key: 'settings-judge-test' })
-    expect(await result()).toBe('✗ Haiku did not answer (api-error)')
+    expect(await result()).toBe('✗ Haiku was refused (401): check your Claude login')
     // A test warns nobody: no toast, no judge-down band.
     expect(toasts).toEqual([])
     await band.unmount()
@@ -2314,9 +2338,9 @@ describe('progress bar rules', () => {
   })
 
   test('Windows plays the chime with PowerShell; elsewhere the app plays it', () => {
-    const argv = soundArgv('C:\\Users\\x\\plugins\\effortless', 'sounds/done.wav')
+    const argv = soundArgv('C:\\Users\\x\\plugins\\context-lens', 'sounds/done.wav')
     expect(argv?.[0]).toBe('powershell.exe')
-    expect(argv?.join(' ')).toContain("SoundPlayer 'C:\\Users\\x\\plugins\\effortless\\sounds\\done.wav'")
+    expect(argv?.join(' ')).toContain("SoundPlayer 'C:\\Users\\x\\plugins\\context-lens\\sounds\\done.wav'")
     expect(soundArgv('/Users/x/.claude/plugins/context-lens', 'sounds/done.wav')).toBeNull()
   })
 
@@ -3161,14 +3185,7 @@ describe('updates', () => {
 
 })
 
-describe('agent panel', () => {
-  const PANE = {
-    plugin: 'context-lens',
-    surface: 'desktop',
-    component: 'Pane',
-    requestId: 'effortless-agents',
-    props: { title: 'Agents', isFocused: false, bodyColumns: 46, placement: 'dock', scroll: { offset: 0, bodyRows: 40 }, view: {} },
-  } as never
+describe('subagent effort', () => {
   const start = async ($: Engine, on: On) => {
     engine(on)
     mock.clock(on)

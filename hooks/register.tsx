@@ -499,7 +499,7 @@ type Judged = { verdict?: Pick; tokens: number }
 /** Why a judge the person picked could not answer, in words: what a status code means for them. */
 export function judgeFailure(name: string, status: number | 'timeout'): string {
   if (status === 'timeout') return `${name} did not answer in time`
-  if (status === 401 || status === 403) return `${name} rejected the key (${status})`
+  if (status === 401 || status === 403) return `${name} was refused (${status}): check your Claude login`
   if (status === 402) return `${name} is out of credits (${status})`
   if (status === 429) return `${name} is rate limited (${status})`
   return `${name} failed (${status})`
@@ -655,9 +655,10 @@ async function askHaiku($: EngineInterface, prompt: string, current: Pick | null
   if (!r.isAnswered) r = await ask('haiku')
   const verdict = r.isAnswered ? parseVerdict(r.text) : undefined
   const tokens = r.isAnswered && r.usage ? r.usage.input_tokens + r.usage.output_tokens : 0
-  // Neither model answered: say so once (the band's judge-down line); an answer again takes the line away.
-  if (!r.isAnswered) warnJudge($, `Haiku did not answer (${r.reason})`)
-  else if (verdict && (await read($, judgeDown))) await update($, judgeDown, () => null)
+  // The API refused or could not be reached (a login problem, no credits, a rate limit): say so once, in the
+  // judge-down band. An abort (Esc, the timeout) or an empty reply is no failure of the judge. An answer takes the band away.
+  if (!r.isAnswered && r.reason === 'api-error') warnJudge($, r.status === null ? 'Haiku could not be reached' : judgeFailure('Haiku', r.status))
+  else if (r.isAnswered && verdict && (await read($, judgeDown))) await update($, judgeDown, () => null)
   return { verdict: verdict && { ...verdict, by: 'haiku' }, tokens }
 }
 
@@ -1620,6 +1621,12 @@ async function openPluginSettings($: EngineInterface) {
   // The store is shared by every chat, so the request names this one: another chat must not open its panel too.
   await $.store.set('openSettingsAt', { at: Date.now(), session: await $.session.id().catch(() => '') })
   $.ui.invalidate('ui.render')
+}
+
+/** The panel on its Judge card, where Test says whether Haiku answers: the judge-down band's Settings. */
+async function openJudgeSettings($: EngineInterface) {
+  await openPluginSettings($)
+  await update($, settingsCard, () => 'judge')
 }
 
 /** The settings rows the panel changes, by field: saved as the plugin's own setting and used at once. */
@@ -4517,7 +4524,9 @@ Saved to ${out}.md and .json` }
     }
     // The setup guide, one step at a time: the judge (and only what that judge needs), the lean, the handoff, the
     // footer, then a word on what else is there. The choices are saved together at Done or ✕ (see setupDraft).
-    const step = await read($, setupStep)
+    // A step an older build left in the state (the judge's pick or key) is the guide's first step now.
+    const storedStep = await read($, setupStep)
+    const step = storedStep && !(['lean', 'handoff', 'look', 'done'] as const).includes(storedStep) ? 'lean' : storedStep
     if (step) {
       const { Input, Select } = themedEls($.ui.resolve(e))
       const draft = await read($, setupDraft)
@@ -4622,7 +4631,7 @@ Saved to ${out}.md and .json` }
           key: 'down', kind: 'down', color: SLATE, bg: SLATE_BG, edge: SLATE_EDGE, title: 'Judge down',
           detail: `${downReason}. The effort stays as it is.`,
           buttons: [
-            <Button key="down-settings" variant="primary" hotkey="s" label="Settings" onPress={() => openPluginSettings($)} />,
+            <Button key="down-settings" variant="primary" hotkey="s" label="Settings" onPress={() => openJudgeSettings($)} />,
             <Button key="down-close" plain role="dismiss" label="✕" onPress={() => update($, judgeDownHidden, () => downReason)} />,
           ],
         })
@@ -4641,7 +4650,7 @@ Saved to ${out}.md and .json` }
           <Text wrap="truncate">{`${downReason}. The effort stays as it is.`}</Text>
           <Box flexGrow={1} minWidth={30} />
           <Box key="down-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={1} alignItems="center">
-            <Button key="down-settings" variant="primary" label="Open settings" onPress={() => openPluginSettings($)} />
+            <Button key="down-settings" variant="primary" label="Open settings" onPress={() => openJudgeSettings($)} />
             <Button key="down-close" plain role="dismiss" label="✕" onPress={() => update($, judgeDownHidden, () => downReason)} />
           </Box>
         </Box>

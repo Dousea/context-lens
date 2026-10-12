@@ -10,7 +10,10 @@
       "name": "context-lens",
       "description": "Sets the reasoning effort for every prompt automatically, and shows the prompt-cache timers, context window and rate-limit usage above the prompt.",
       "source": "./",
-      "category": "productivity"
+      "category": "productivity",
+      "author": {
+        "name": "Orlando Hutapea"
+      }
     }
   ]
 }
