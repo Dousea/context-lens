@@ -40,11 +40,18 @@ function judgeSays(on: On, text: string) {
   return asked
 }
 
+/** The prompts that got through to the app, since the last engine(). */
+const submitted: string[] = []
+
 /** What sits beneath the plugins in a session: the prompt goes through, the status line takes text. */
 function engine(on: On, env: Record<string, string> = {}, sessionModel = 'claude-opus-5-5', said: { role: string; text: string }[] = []) {
   mock.store(on)
   mock.env(on, { CONTEXT_LENS_MODEL_UI: '1', ...env })
-  on('prompt.submit', (_$, e) => ({ text: e.text }))
+  submitted.length = 0
+  on('prompt.submit', (_$, e) => {
+    submitted.push(e.text)
+    return { text: e.text }
+  })
   on('ui.status', () => ({ value: undefined }))
   on('session.messages', () => ({ value: said }) as never)
   on('session.model', () => ({ value: sessionModel }))
@@ -375,6 +382,88 @@ describe('model suggestion', () => {
     await ui.redraw()
     expect(await ui.find({ key: 'accept' })).toBeUndefined()
     await ui.unmount()
+  })
+})
+
+describe('offer a cheaper model first', () => {
+  const OFFER = { options: { holdOffer: 'on' } } as never
+  // The prompt as the engine sees it: when it is let through (its text reaches the app), and what ran meanwhile.
+  const sendHeld = async ($: Engine, _on: On, text = 'vad heter mappen?') => {
+    const sending = $.prompt.submit({ text, wait: false, origin: { kind: 'composer' } })
+    return { through: submitted, sending }
+  }
+  const settle = async (ui: { redraw(): Promise<unknown> }) => {
+    for (let i = 0; i < 5; i++) await ui.redraw()
+  }
+
+  test('offer first: a new chat holds the prompt until Switch: the model is switched, then the prompt goes', OFFER, async ($, on) => {
+    engine(on)
+    judgeSays(on, '{"model":"haiku","effort":"low","why":"simple question"}')
+    const ran = recordCommands(on)
+    const clock = mock.clock(on)
+    const ui = await $.ui.mount({ plugin: 'context-lens', surface: 'terminal', ...BAND })
+    const { through, sending } = await sendHeld($, on)
+    await settle(ui)
+    expect(await ui.find({ key: 'accept' })).toBeDefined()
+    expect(through).toEqual([])
+    await ui.press({ key: 'accept' })
+    await sending
+    // The prompt is dropped, the model switched from a later event, and the same prompt sent again.
+    expect(through).toEqual([])
+    await clock.advance(50)
+    expect(ran).toEqual(['/model haiku'])
+    expect(through).toEqual(['vad heter mappen?'])
+    await ui.unmount()
+  })
+
+  test('offer first: Keep sends the prompt as it is, on the chat model', OFFER, async ($, on) => {
+    engine(on)
+    judgeSays(on, '{"model":"haiku","effort":"low","why":"simple question"}')
+    const ran = recordCommands(on)
+    mock.clock(on)
+    const ui = await $.ui.mount({ plugin: 'context-lens', surface: 'terminal', ...BAND })
+    const { through, sending } = await sendHeld($, on)
+    await settle(ui)
+    expect(through).toEqual([])
+    await ui.press({ key: 'decline' })
+    await sending
+    expect(ran).toEqual([])
+    expect(through).toEqual(['vad heter mappen?'])
+    await ui.unmount()
+  })
+
+  test('offer first: nobody answers, the prompt goes after 20 seconds, the model unchanged', OFFER, async ($, on) => {
+    engine(on)
+    judgeSays(on, '{"model":"haiku","effort":"low","why":"simple question"}')
+    const ran = recordCommands(on)
+    const clock = mock.clock(on)
+    const ui = await $.ui.mount({ plugin: 'context-lens', surface: 'terminal', ...BAND })
+    const { through, sending } = await sendHeld($, on)
+    await settle(ui)
+    expect(through).toEqual([])
+    await clock.advance(20_000)
+    await sending
+    expect(ran).toEqual([])
+    expect(through).toEqual(['vad heter mappen?'])
+    await ui.unmount()
+  })
+
+  test('offer first: with the setting off the prompt is never held', async ($, on) => {
+    engine(on)
+    judgeSays(on, '{"model":"haiku","effort":"low","why":"simple question"}')
+    mock.clock(on)
+    const { through, sending } = await sendHeld($, on)
+    await sending
+    expect(through).toEqual(['vad heter mappen?'])
+  })
+
+  test('offer first: a dearer model is not offered, so the prompt is not held', OFFER, async ($, on) => {
+    engine(on, {}, 'claude-sonnet-5-5')
+    judgeSays(on, '{"model":"opus","effort":"high","why":"hard problem"}')
+    mock.clock(on)
+    const { through, sending } = await sendHeld($, on, 'design the whole trainer architecture')
+    await sending
+    expect(through).toEqual(['design the whole trainer architecture'])
   })
 })
 
@@ -2242,6 +2331,9 @@ describe('settings panel', () => {
     await panel.press({ key: 'settings-card-model' })
     // Compact with is a model choice: it lives here, not in the Handoff card.
     expect(await panel.find({ key: 'settings-compact-with' })).toBeDefined()
+    // Offering a cheaper model first is its own switch, off until pressed.
+    expect((await panel.find({ key: 'settings-hold-switch' }))?.text).toContain('○')
+    await panel.press({ key: 'settings-hold-switch' })
     await panel.press({ key: 'settings-back' })
     // The cards say what is set, unsaved changes included.
     expect(await drawn(panel)).toContain('Smarter · medium to max · helpers')
@@ -2259,6 +2351,7 @@ describe('settings panel', () => {
     expect(set).toContainEqual({ key: 'context-lens.effortBias', value: '1' })
     expect(set).toContainEqual({ key: 'context-lens.effortFloor', value: 'medium' })
     expect(set).toContainEqual({ key: 'context-lens.helpers', value: 'on' })
+    expect(set).toContainEqual({ key: 'context-lens.holdOffer', value: 'on' })
     await panel.unmount()
     // A plain card says it was saved, then goes.
     const saved = await $.ui.mount(DESK_BAND)

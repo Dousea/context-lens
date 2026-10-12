@@ -537,6 +537,8 @@ export type JudgeConfig = {
   handoffButton: 'advised' | 'always'
   /** on: every subagent the chat sends off gets an effort picked by the judge before it starts. */
   helpers: 'on' | 'off'
+  /** on: in a new, small or cold chat, a prompt waits while a cheaper model is offered (see suggestWorth). */
+  holdOffer: 'on' | 'off'
   /** The accent colour of everything context-lens draws: the brand violet, Claude orange or cherry-blossom rose. */
   theme: ThemeName
   /** auto: light when Claude Code's own theme is light. dark and light fix it. */
@@ -565,6 +567,7 @@ let config: JudgeConfig = {
   compactWith: 'haiku',
   handoffButton: 'advised',
   helpers: 'off',
+  holdOffer: 'off',
   theme: 'violet',
   appearance: 'auto',
 }
@@ -584,6 +587,7 @@ export function readConfig(options: unknown): JudgeConfig {
     compactWith: str(o.compactWith) === 'session' ? 'session' : 'haiku',
     handoffButton: str(o.handoffButton) === 'always' ? 'always' : 'advised',
     helpers: str(o.helpers) === 'on' ? 'on' : 'off',
+    holdOffer: str(o.holdOffer) === 'on' ? 'on' : 'off',
     theme: THEMES.find(t => t === str(o.theme)) ?? 'violet',
     appearance: (['dark', 'light'] as const).find(a => a === str(o.appearance)) ?? 'auto',
     // Everything shows unless switched off; the judge's line too.
@@ -825,6 +829,7 @@ async function modelIs($: EngineInterface, id: string) {
   // and a model turned down earlier may be suggested again.
   engineEffort = undefined
   declined = null
+  settleOffer(false)
   const current = await read($, pick)
   if (current && current.model !== key) await choose($, { ...current, model: key })
   if ((await read($, suggestion)) === key) await update($, suggestion, () => null)
@@ -905,6 +910,33 @@ async function typeCommand($: EngineInterface, text: string): Promise<boolean> {
   } catch {
     return false
   }
+}
+
+// A prompt waiting for the answer to a cheaper-model offer (the holdOffer setting): who to tell, and the model offered.
+let offer: { model: ModelKey; done: (accepted: boolean) => void } | null = null
+const OFFER_HOLD_MS = 20_000
+
+/** Ends the wait: true when the person took the offer, false for Keep, a timeout or anything else. */
+function settleOffer(accepted: boolean) {
+  const open = offer
+  offer = null
+  open?.done(accepted)
+}
+
+/** Holds the prompt until the offer is answered; true when it was taken. Only one offer waits at a time. */
+async function holdForOffer($: EngineInterface, model: ModelKey): Promise<boolean> {
+  settleOffer(false)
+  $.ui.invalidate('ui.render')
+  return new Promise<boolean>(resolve => {
+    const timer = $.clock.after(OFFER_HOLD_MS, () => settleOffer(false))
+    offer = {
+      model,
+      done: accepted => {
+        timer?.cancel?.()
+        resolve(accepted)
+      },
+    }
+  })
 }
 
 /** A model change reloads the context, so it only happens when the person says yes. */
@@ -1636,6 +1668,7 @@ const SETTING_FIELDS = {
   compactWith: 'compactWith',
   handoffButton: 'handoffButton',
   helpers: 'helpers',
+  holdOffer: 'holdOffer',
   theme: 'theme',
   appearance: 'appearance',
 } as const
@@ -1665,6 +1698,7 @@ async function saveSetting($: EngineInterface, field: keyof typeof SETTING_FIELD
     compactWith: config.compactWith,
     handoffButton: config.handoffButton,
     helpers: config.helpers,
+    holdOffer: config.holdOffer,
     theme: config.theme,
     appearance: config.appearance,
     [SETTING_FIELDS[field]]: value,
@@ -2967,7 +3001,11 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>, opt
     if (await typeCommand($, `/model ${model}`)) return
     await switchModel($, model)
   }
-  const acceptSuggestion = (model: ModelKey) => () => changeModel(model)
+  // A prompt waiting for the answer takes the switch itself (the box is empty, there is nothing to type into).
+  const acceptSuggestion = (model: ModelKey) => async () => {
+    if (offer) settleOffer(true)
+    else await changeModel(model)
+  }
   const toggleAutoModel = async () => {
     const turnOn = !(await read($, isAutoModel))
     await update($, isAutoModel, () => turnOn)
@@ -2977,12 +3015,13 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>, opt
   const dismiss = async () => {
     declined = wanted
     await update($, suggestion, () => null)
+    settleOffer(false)
   }
 
   const question = wanted ? (
     <Box flexDirection="column">
       <Box flexDirection="row" gap={1} alignItems="center">
-        <Text>Switch to {MODELS.find(m => m.key === wanted)?.label}? The context reloads.</Text>
+        <Text>Switch to {MODELS.find(m => m.key === wanted)?.label}? {offer ? 'Your prompt waits.' : 'The context reloads.'}</Text>
         <Button key="accept" variant="primary" label="Switch" onPress={acceptSuggestion(wanted)} />
         <Button key="decline" label="Keep" onPress={dismiss} />
       </Box>
@@ -3622,11 +3661,13 @@ Saved to ${out}.md and .json` }
     if (arg === 'stats' || arg === 'saved') return { text: `Auto, this session:\n${savedText(await read($, saved))}` }
     if (!wanted) return { text: 'No model suggestion right now.' }
     if (arg === 'switch') {
-      $.clock.after(0, () => void switchModel($, wanted))
+      if (offer) settleOffer(true)
+      else $.clock.after(0, () => void switchModel($, wanted))
       return { text: `Switching to ${wanted}. The context reloads.` }
     }
     declined = wanted
     await update($, suggestion, () => null)
+    settleOffer(false)
     return { text: `Keeping the current model.` }
   })
 
@@ -3650,12 +3691,14 @@ Saved to ${out}.md and .json` }
     if (byPerson && !e.text.trim().startsWith('/') && !isFollowUp(e.text)) void checkHandoff($, e.text).catch(() => undefined)
     const wantsEffort = await read($, isAuto)
     const wantsModel = await read($, isAutoModel)
+    const wantsOffer = config.holdOffer === 'on'
+    settleOffer(false)
     // A typed slash command is judged only when it is a skill or a custom command (what the person added); the app's own
     // (/compact, /clear, /model) and context-lens's never are. The judge is told what the command is, since its name alone says little.
     const slash = e.text.trim().startsWith('/')
     const skill = slash && byPerson ? await typedSkill($, e.text) : undefined
     if (byAgent && !wantsEffort) return next(e)
-    if ((!byPerson && !byAgent) || (slash && !skill) || (!wantsEffort && !wantsModel)) return next(e)
+    if ((!byPerson && !byAgent) || (slash && !skill) || (!wantsEffort && !wantsModel && !wantsOffer)) return next(e)
     // On a model where an effort change rewrites the cache, Auto waits instead of judging.
     const modelId = await $.session.model()
     await modelIs($, modelId)
@@ -3698,6 +3741,8 @@ Saved to ${out}.md and .json` }
     // The band is drawn again as the judge starts, so the rise is placed by the clock from the first frame.
     $.ui.invalidate('ui.render')
     await update($, isJudging, () => true)
+    // The cheaper model offered to a prompt that waits for the answer (holdOffer), once the judge is done.
+    let held: ModelKey | null = null
     try {
       const inUse = await sessionModel($)
       const startedAt = Date.now()
@@ -3739,9 +3784,11 @@ Saved to ${out}.md and .json` }
         }
         // Only a cheaper model, and only where the switch pays: a cold or small chat (see suggestWorth).
         const cold = (await read($, cacheLeft)) === 0 || coldForced
-        if (wantsModel && verdict.model !== declined && suggestWorth(verdict.model, inUse, { cold, tokens: lastContext?.tokens })) {
+        if ((wantsModel || wantsOffer) && verdict.model !== declined && suggestWorth(verdict.model, inUse, { cold, tokens: lastContext?.tokens })) {
           await update($, suggestion, () => verdict.model)
-          $.ui.toast(`Suggestion: switch to ${verdict.model}? /context-lens switch or /context-lens keep`)
+          // A prompt typed here waits for the answer; a note, an agent's report or a message typed mid-turn only gets the toast.
+          if (wantsOffer && byPerson && !midTurn && !slash) held = verdict.model
+          else if (wantsModel) $.ui.toast(`Suggestion: switch to ${verdict.model}? /context-lens switch or /context-lens keep`)
         } else {
           await update($, suggestion, () => null)
         }
@@ -3750,6 +3797,21 @@ Saved to ${out}.md and .json` }
       // A judge that failed or threw ends the glow here.
       await endJudgeGlow($, 'end')
       await update($, isJudging, () => false)
+    }
+    if (held) {
+      void proof($, `offer: ${held} for "${e.text.slice(0, 50)}", the prompt waits`)
+      const accepted = await holdForOffer($, held)
+      await update($, suggestion, () => null)
+      $.ui.invalidate('ui.render')
+      void proof($, accepted ? `offer taken: switching to ${held}` : 'offer not taken: the prompt goes on as it is')
+      if (accepted) {
+        // The host refuses /model from inside a prompt.submit hook (it would wait on the turn this hook holds): the prompt is
+        // dropped here, the model switched from a later event, and the same prompt sent again on the new model.
+        const again = { text: e.text, attachments: e.attachments }
+        await setTurnBusy($, false)
+        $.clock.after(0, () => void switchModel($, held!).then(() => $.prompt.submit(again)).catch(() => undefined))
+        return { drop: `switching to ${held} first` }
+      }
     }
     return next(e)
   })
@@ -4055,6 +4117,7 @@ Saved to ${out}.md and .json` }
         compactWith: draft.compactWith ?? config.compactWith,
         handoffButton: draft.handoffButton ?? config.handoffButton,
         helpers: draft.helpers ?? config.helpers,
+        holdOffer: draft.holdOffer ?? config.holdOffer,
         theme: draft.theme ?? config.theme,
         appearance: draft.appearance ?? config.appearance,
       }
@@ -4071,7 +4134,7 @@ Saved to ${out}.md and .json` }
       const hidden = (draft.hide ?? config.hide.join(',')).split(',').filter(Boolean)
       const summaries: Record<SettingsCard, string> = {
         effort: `${BIAS_WORDS[shown.bias + 2]} · ${shown.floor} to ${shown.ceiling}${shown.helpers === 'on' ? ' · helpers' : ''}`,
-        model: shown.compactWith === 'session' ? "Chat's model" : 'Haiku 5.5',
+        model: `${shown.compactWith === 'session' ? "Chat's model" : 'Haiku 5.5'}${shown.holdOffer === 'on' ? ' · offers cheaper' : ''}`,
         handoff: `${shown.handoffSkill ? `/${shown.handoffSkill}` : 'Built in'} · compact alert at ${shown.swampAt}%`,
         show: `${shown.layout === 'minimal' ? 'Minimal' : 'Dashboard'} · ${2 - ['timer', 'reason'].filter(h => hidden.includes(h)).length} of 2 on`,
       }
@@ -4284,6 +4347,10 @@ Saved to ${out}.md and .json` }
 ] : card === 'model' ? (bare ? [] : [
             // Which model writes a compaction's summary.
             pick({ key: "settings-compact-with", label: "Compact with", value: shown.compactWith, options: [{ value: 'haiku', label: 'Haiku 5.5' }, { value: 'session', label: "Chat's model" }], onSelect: set('compactWith') }),
+            <Box key="settings-hold" flexDirection="column">
+              <Button key="settings-hold-switch" plain label={`${shown.holdOffer === 'on' ? '◉' : '○'} Offer a cheaper model first`} onPress={() => set('holdOffer')(shown.holdOffer === 'on' ? 'off' : 'on')} />
+              <Text dimColor wrap="wrap">{shown.holdOffer === 'on' ? "In a new, small or cold chat the prompt waits (up to 20 s) while a cheaper model is offered" : "A prompt is never held; a suggestion is only a note"}</Text>
+            </Box>,
           ]) : card === 'handoff' ? (bare ? [] : [
             pick({ key: "settings-skill", label: "Handoff skill", value: shown.handoffSkill || '-', options: [
                 { value: '-', label: 'Built in' },
