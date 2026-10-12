@@ -1,9 +1,30 @@
 import { atom, read, update } from 'claude-code'
-import type { EngineInterface, ModelForkResult, Register, RenderInput } from 'claude-code'
+import type { EngineInterface, ModelForkResult, ModelUsage, Register, RenderInput } from 'claude-code'
 
-import type { AgentRec, Effort, HandoffAfter, HandoffChoice, ModelKey, Pick, SettingsDraft, Spent } from '../types'
+import type { AgentCache, CacheTtl, Effort, HandoffAfter, HandoffChoice, ModelKey, Pick, SettingsDraft, Spent } from '../types'
 import { ART_COLUMNS, ART_FRAME_MS, ART_MIN_WIDTH, ART_ROWS, type ArtKind, artFrame, MOVING } from './art'
 import { MARK_SVG } from './brand-mark'
+import {
+  applyUsage,
+  bar,
+  clockTokens,
+  emptyClock,
+  fillBar,
+  fillColor,
+  formatRemaining,
+  formatTokens,
+  isRecache,
+  layoutLine,
+  remainingMs,
+  resolveTtl,
+  segmentGlyph,
+  stackedBar,
+  toContextView,
+  usageWindow,
+  warmth,
+  type BarSegment,
+  type Warmth,
+} from './model'
 import { accent, setLight, setTheme, themedEls, type ThemeName, THEMES, tintHex } from './theme'
 import { PILL_H, stepsFromTodos, thinkingSvg, THINK_W, withTaskCreated, withTaskUpdated } from './progress'
 
@@ -2383,7 +2404,7 @@ function terminalPanel($: EngineInterface, e: RenderInput<'AbovePrompt'>, key: s
   )
 }
 
-type TerminalBand = { key: string; kind: ArtKind; color: string; bg: string; edge: string; title: string; detail: string; buttons: unknown[]; autoInBar?: boolean; word?: { text: string; color: string; rest: string } }
+type TerminalBand = { key: string; kind: ArtKind; color: string; bg: string; edge: string; title: string; detail: string; buttons: unknown[]; autoInBar?: boolean; extra?: unknown; word?: { text: string; color: string; rest: string } }
 
 /** An alert band on the terminal: title and buttons, the detail on a line of its own, art on the right, and the effort
  * row under it, so effort stays in sight while a band shows. */
@@ -2410,6 +2431,7 @@ async function terminalBand($: EngineInterface, e: RenderInput<'AbovePrompt'>, b
             {b.buttons}
           </Box>
           <Text dimColor wrap="truncate">{b.detail}</Text>
+          {b.extra}
         </Box>
         {bandArt($, e, b.kind)}
       </Box>
@@ -2960,14 +2982,18 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
   const drawn = e.surface !== 'terminal' && 'Svg' in els
   // A cold cache is the cold band's to say; the resting bar shows the countdown only while there is one.
   const cacheShown = config.hide.includes('timer') || (v.cacheNow !== null && v.cacheNow <= 0) ? null : v.cacheNow
+  // The lens's row (cache timers, context bar, usage) sits under the detail line. Its width is the band's inside: the
+  // border and the padding take four columns. The resting terminal band draws no art beside it.
+  const columns = typeof e.props.bodyColumns === 'number' ? e.props.bodyColumns : 100
+  const lens = await lensRow($, e, Math.max(20, columns - 4)).catch(() => null)
   const { head, what, rest, detail } = dashboardLines({
     auto: v.auto,
     paused: Boolean(v.pausedNow),
     judging: Boolean(v.judging),
     effort: effortNow,
-    cacheNow: drawn ? null : cacheShown,
+    cacheNow: drawn || lens ? null : cacheShown,
     // Desktop draws the context as a ring and a figure (as the swamp band does); the terminal says it in words.
-    contextPercent: e.surface === 'terminal' && lastContext && lastContext.window ? lastContext.percent : null,
+    contextPercent: !lens && e.surface === 'terminal' && lastContext && lastContext.window ? lastContext.percent : null,
     // A prompt on a cheaper model names it in the judge's line ("On Sonnet · Haiku: a small fix"), not beside the effort word.
     reason: adviceNow ? `Handoff would suit: ${adviceNow}` : config.hide.includes('reason') ? '' : reason,
     // The last reply's cost is left out of the bar: it was noise there. lastTurn still records it.
@@ -3049,7 +3075,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
   ].filter(Boolean)
   // The terminal flashes the effort word as the desktop does: violet on a change, fading back to white.
   if (e.surface === 'terminal')
-    return terminalBand($, e, { key: 'dash', kind: 'calm', color: DASH_TEXT, bg: DASH_BG, edge: DASH_EDGE, title: head.replace(/^✦ /, ''), detail, buttons, autoInBar: true,
+    return terminalBand($, e, { key: 'dash', kind: 'calm', color: DASH_TEXT, bg: DASH_BG, edge: DASH_EDGE, title: head.replace(/^✦ /, ''), detail, buttons, autoInBar: true, extra: lens,
       word: { text: what, color: await effortFlash($, what, Boolean(v.judging), entering), rest } })
   const Svg = 'Svg' in els ? els.Svg : undefined
   const wordColor = await effortFlash($, what, Boolean(v.judging), entering)
@@ -3428,7 +3454,196 @@ async function haikuHandoff($: EngineInterface, messages: Parameters<typeof comp
   return r.isAnswered && r.text.trim().length > 100 ? r.text.trim() : null
 }
 
+// --- The lens: prompt-cache timers, the context window and rate-limit usage, one row in the band --------------------
+
+const LENS_TICK_MS = 5_000
+
+const lensMain = atom({ plugin: 'context-lens', key: 'lensMain' } as const, emptyClock('1h'))
+const lensAgents = atom({ plugin: 'context-lens', key: 'lensAgents' } as const, [])
+const lensContext = atom({ plugin: 'context-lens', key: 'lensContext' } as const, null)
+const lensLiveTokens = atom({ plugin: 'context-lens', key: 'lensLive' } as const, null)
+const lensRewritten = atom({ plugin: 'context-lens', key: 'lensRewritten' } as const, false)
+const lensLimits = atom({ plugin: 'context-lens', key: 'lensLimits' } as const, [])
+const lensNow = atom({ plugin: 'context-lens', key: 'lensNow' } as const, 0)
+
+const LENS_WARMTH_COLOR: Record<Warmth, string> = {
+  uncached: 'inactive',
+  warm: 'success',
+  expiring: 'warning',
+  cold: 'error',
+}
+
+/** The TTLs the engine picks, in the order the promptCacheTtl and subagentPromptCacheTtl settings document. */
+async function cacheTtls($: EngineInterface): Promise<{ main: CacheTtl; agent: CacheTtl }> {
+  const [settings, usage, mainEnv, agentEnv, force5m, enable1h] = await Promise.all([
+    $.settings.read(),
+    $.session.usage(),
+    $.env.get('CLAUDE_CODE_PROMPT_CACHE_TTL'),
+    $.env.get('CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL'),
+    $.env.get('FORCE_PROMPT_CACHING_5M'),
+    $.env.get('ENABLE_PROMPT_CACHING_1H'),
+  ])
+  if (force5m) return { main: '5m', agent: '5m' }
+  const isSubscription = usage.rateLimits.length > 0
+  return {
+    main: resolveTtl(mainEnv ?? settings.promptCacheTtl, isSubscription ? '1h' : '5m'),
+    agent: resolveTtl(agentEnv ?? settings.subagentPromptCacheTtl, enable1h ? '1h' : '5m'),
+  }
+}
+
+async function refreshUsage($: EngineInterface): Promise<void> {
+  const usage = await $.session.usage({ breakdown: 'summary' })
+  await update($, lensLiveTokens, () => usage.context.tokens ?? null)
+  await update($, lensLimits, () => usage.rateLimits)
+  const breakdown = usage.context.breakdown
+  if (breakdown) await update($, lensContext, () => toContextView(breakdown))
+}
+
+async function recordRequest($: EngineInterface, agentId: string | undefined, usage: ModelUsage): Promise<void> {
+  const [at, ttls] = await Promise.all([$.clock.now(), cacheTtls($)])
+  if (agentId === undefined) {
+    const previous = await read($, lensMain)
+    await update($, lensRewritten, () => isRecache(previous, usage) && warmth(previous, at) !== 'cold')
+    await update($, lensMain, () => applyUsage(usage, at, ttls.main))
+    return
+  }
+  const known = (await read($, lensAgents)).find(a => a.id === agentId)
+  const info = known ? undefined : (await $.agent.list()).find(a => a.id === agentId)
+  await update($, lensAgents, list => {
+    const type = list.find(a => a.id === agentId)?.type ?? info?.type ?? 'agent'
+    const next: AgentCache = { ...applyUsage(usage, at, ttls.agent), id: agentId, type }
+    return [...list.filter(a => a.id !== agentId), next]
+  })
+}
+
+/** A main-thread compaction's summary starts a new cache entry. */
+async function afterCompaction($: EngineInterface): Promise<void> {
+  await update($, lensMain, clock => emptyClock(clock.ttl))
+  await update($, lensRewritten, () => false)
+  await refreshUsage($)
+}
+
+async function lensTick($: EngineInterface): Promise<void> {
+  const at = await $.clock.now()
+  await update($, lensNow, () => at)
+}
+
+/** The session started: the clock that redraws the countdown, and the first read of the usage. Called from the
+ * dashboard's own session.start hook: one plugin may hook an event once. */
+async function lensStarted($: EngineInterface): Promise<void> {
+  const at = await $.clock.now()
+  await update($, lensNow, () => at)
+  $.clock.every(LENS_TICK_MS, () => void lensTick($).catch(() => undefined))
+  void refreshUsage($).catch(() => undefined)
+}
+
+/** One answered request (the main thread's or a subagent's): its cache numbers. Called from turn.step. */
+async function lensRequest($: EngineInterface, agentId: string | undefined, usage: ModelUsage): Promise<void> {
+  await recordRequest($, agentId, usage)
+}
+
+/** A main-thread compaction was written (not an ahead-of-time summary, not skipped): a new cache entry starts. */
+async function lensCompacted($: EngineInterface): Promise<void> {
+  await afterCompaction($)
+}
+
+function lensCacheTime(state: Warmth, left: number | null): string {
+  if (state === 'uncached') return '—'
+  if (state === 'cold') return 'cold'
+  return formatRemaining(left ?? 0)
+}
+
+/** The lens's row, `columns` wide: the cache timer, the context bar and the usage windows; null when there is
+ * nothing to show yet. A subagent in view shows its own clock. */
+async function lensRow($: EngineInterface, e: RenderInput<'AbovePrompt'>, columns: number) {
+  const [mainClock, ctx, live, rewritten, limits, at, agentList] = await Promise.all([
+    read($, lensMain),
+    read($, lensContext),
+    read($, lensLiveTokens),
+    read($, lensRewritten),
+    read($, lensLimits),
+    read($, lensNow),
+    read($, lensAgents),
+  ])
+  const agentId = e.props.view.agentId
+  const agent: AgentCache | undefined =
+    agentId === undefined
+      ? undefined
+      : (agentList.find(a => a.id === agentId) ?? { ...emptyClock('5m'), id: agentId, type: 'agent' })
+  if (agent === undefined && mainClock.lastAt === null && ctx === null && limits.length === 0) return null
+
+  const { Box, Text } = themedEls($.ui.resolve(e))
+  const clock = agent ?? mainClock
+  const state = warmth(clock, at)
+  const time = lensCacheTime(state, remainingMs(clock, at))
+  const showRewritten = agent === undefined && rewritten && state !== 'cold'
+  const headWidth = 2 + time.length + (showRewritten ? ' re-cached'.length : 0)
+
+  const max = ctx?.maxTokens ?? 0
+  const used = agent === undefined ? (live ?? ctx?.totalTokens ?? 0) : clockTokens(agent)
+  const ctxTexts = max > 0 ? [`${formatTokens(used)}/${formatTokens(max)}`, formatTokens(used)] : [formatTokens(used)]
+  const windows = limits.map(l => usageWindow(l, at))
+  const layout = layoutLine(columns, headWidth, ctxTexts, windows)
+
+  const segments: BarSegment[] =
+    max === 0 || layout.ctxBar === 0
+      ? []
+      : agent === undefined && ctx !== null
+        ? stackedBar(ctx, live, layout.ctxBar)
+        : fillBar(used / max, layout.ctxBar)
+
+  return (
+    <Box key="lens-row" flexDirection="row" gap={1}>
+      <Text color={LENS_WARMTH_COLOR[state]}>●</Text>
+      <Text color={state === 'uncached' ? 'inactive' : LENS_WARMTH_COLOR[state]}>{time}</Text>
+      {showRewritten && <Text color="warning">re-cached</Text>}
+      <Text dimColor>│</Text>
+      <Text>ctx</Text>
+      {segments.length > 0 && (
+        <Box flexDirection="row">
+          {segments
+            .filter(s => s.cells > 0)
+            .map((s, i) => (
+              <Text key={`s${i}`} color={s.color}>
+                {segmentGlyph(s.kind).repeat(s.cells)}
+              </Text>
+            ))}
+        </Box>
+      )}
+      <Text>{layout.ctxText}</Text>
+      {windows.slice(0, layout.windows).map(w => (
+        <Box key={`u-${w.label}`} flexDirection="row" gap={1}>
+          <Text dimColor>│</Text>
+          <Text>{w.label}</Text>
+          {layout.style !== 'percent' && (
+            <Text color={fillColor(w.percent / 100)}>{bar(w.percent / 100, layout.usageBar)}</Text>
+          )}
+          <Text color={layout.style === 'percent' ? fillColor(w.percent / 100) : undefined}>{w.percent}%</Text>
+          {layout.style === 'full' && w.reset !== null && <Text dimColor>{w.reset}</Text>}
+        </Box>
+      ))}
+    </Box>
+  )
+}
+
 export const register: Register = (on, options) => {
+  // The lens's own hooks, on events the rest of the module does not hook.
+  on('session.measure', async ($, e, next) => {
+    const result = await next(e)
+    if (e.changed.includes('rateLimits')) await update($, lensLimits, () => e.rateLimits)
+    if (e.changed.includes('context')) await refreshUsage($)
+    return result
+  })
+
+  on('session.end', async ($, e, next) => {
+    if (e.reason === 'clear') {
+      await update($, lensMain, clock => emptyClock(clock.ttl))
+      await update($, lensLiveTokens, () => null)
+      await update($, lensRewritten, () => false)
+      void refreshUsage($).catch(() => undefined)
+    }
+    return next(e)
+  })
   loadedAt = Date.now()
   firstDrawLogged = false
   drawsTimed = 0
@@ -3436,6 +3651,7 @@ export const register: Register = (on, options) => {
   applyTheme()
   pluginOptions = options
   on('session.compact', async ($, e, next) => {
+    const result = await (async () => {
     // A subagent's own compaction, the session's model by choice: Claude Code's own.
     if (e.agentId !== undefined || config.compactWith !== 'haiku') return next(e)
     // Ahead-of-time summaries would be written by the chat's model and then not used: none.
@@ -3457,9 +3673,13 @@ export const register: Register = (on, options) => {
         },
       ],
     }
+    })()
+    if (e.agentId === undefined && e.trigger !== 'precompute' && !('skip' in result && result.skip)) await lensCompacted($).catch(() => undefined)
+    return result
   })
   on('session.start', async ($, e, next) => {
     sessionStarted = Date.now()
+    await lensStarted($).catch(() => undefined)
     // Everything the first draw needs, asked for at once: one after the other they held the start (and with it the
     // band) for a second or more. What the draw does not need runs after, unawaited.
     const [sid, kept, kff, storedAuto, storedAutoModel, storedPick, setupDone] = await Promise.all([
@@ -3817,6 +4037,7 @@ Saved to ${out}.md and .json` }
     const send = async function* (request: typeof e) {
       if (e.agentId === undefined) lastRequest = { index: e.index, appModel: e.model, appEffort: e.effort, model: request.model, effort: request.effort, at: Date.now() }
       const answer = yield* next(request)
+      if (answer?.usage) await lensRequest($, e.agentId, answer.usage).catch(() => undefined)
       // Inside the hook ($ calls after it returns are refused), and never allowed to break the request.
       if (e.agentId === undefined && answer?.usage) markWarm(request.model, answer.usage, await $.clock.now().catch(() => Date.now()))
       // A prompt run on a cheaper model leaves the chat's own cache as it was: only the chat's model restarts the countdown.
@@ -4893,10 +5114,12 @@ Saved to ${out}.md and .json` }
       if (e.surface === 'terminal') return dashboardBand($, e)
       const { question } = await effortRows($, e)
       const dash = await dashboardBand($, e)
-      return question ? (
+      const lensBelow = await lensRow($, e, typeof e.props.bodyColumns === 'number' ? e.props.bodyColumns : 100).catch(() => null)
+      return question || lensBelow ? (
         <Box key="dash-col" flexDirection="column">
           {question}
           {dash}
+          {lensBelow}
         </Box>
       ) : dash
     }

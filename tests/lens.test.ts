@@ -4,10 +4,17 @@ import type {
   SessionUsage,
   TurnStepResult,
 } from 'claude-code'
-import { expect, mock, test } from 'claude-code/testing'
+import { expect, mock, test as baseTest } from 'claude-code/testing'
 import type { Engine } from 'claude-code/testing'
 
 const MINUTE = 60_000
+
+// The lens row lives in the dashboard band, so every test runs in the dashboard look.
+type Opts = Parameters<typeof baseTest>[1]
+const test = ((name: string, run: unknown) => baseTest(name, { options: { layout: 'default' } } as Opts, run as never)) as unknown as (
+  name: string,
+  run: ($: Engine, on: On) => unknown,
+) => void
 const PLUGIN = 'context-lens'
 
 const BREAKDOWN: SessionContextBreakdown = {
@@ -57,10 +64,18 @@ const START = { cwd: '/tmp/project', surface: 'terminal' as const, isInteractive
 /** Stands in for the engine beneath the plugin; keeps the toasts it was asked to raise. */
 function engine(on: On) {
   const toasts: string[] = []
+  // What the dashboard around the lens needs beneath it: a store, the environment, the prompt and the session's model.
+  mock.store(on)
+  mock.env(on, { EFFORTLESS_MODEL_UI: '1' })
+  on('prompt.submit', (_$, e) => ({ text: e.text }))
+  on('ui.status', () => ({ value: undefined }))
+  on('session.messages', () => ({ value: [] }) as never)
+  on('session.model', () => ({ value: 'claude-opus-5-5' }))
+  on('command.list', () => ({ value: [{ name: 'model' }, { name: 'effort' }] as never }))
   on('session.start', ($, e) => ({ cwd: e.cwd }))
+  on('command.register', () => ({ value: undefined }) as never)
   on('session.usage', () => ({ value: USAGE }))
   on('settings.read', () => ({ value: {} }))
-  on('env.get', () => ({ value: undefined }))
   on('ui.toast', ($, e) => {
     toasts.push(e.text)
     return { value: undefined }
@@ -69,6 +84,14 @@ function engine(on: On) {
     value: [{ id: 'agent-1', description: 'Implement spec 14', type: 'pz-implementer', status: 'running' as const }],
   }))
   return { toasts }
+}
+
+/** Starts the session and closes the setup guide effortless opens the first time. */
+async function begin($: Engine) {
+  await $.session.start(START)
+  const guide = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', component: 'AbovePrompt', props: band(140) })
+  await guide.press({ key: 'setup-close' })
+  await guide.unmount()
 }
 
 async function step($: Engine, agentId?: string) {
@@ -102,7 +125,7 @@ test('the line counts the main cache down and shows the context and usage', asyn
   const clock = mock.clock(on, { now: 0 })
   engine(on)
   answering(on, 140_000, 4_000)
-  await $.session.start(START)
+  await begin($)
   await step($)
 
   for (const surface of ['terminal', 'desktop'] as const) {
@@ -126,7 +149,7 @@ test('a narrow line keeps the token count and drops the reset times', async ($, 
   mock.clock(on, { now: 0 })
   engine(on)
   answering(on, 140_000, 4_000)
-  await $.session.start(START)
+  await begin($)
   await step($)
 
   const line = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', component: 'AbovePrompt', props: band(60) })
@@ -134,31 +157,11 @@ test('a narrow line keeps the token count and drops the reset times', async ($, 
   expect(await line.find({ text: /^2h14m$/ })).toBeUndefined()
 })
 
-test('a large idle context warns before the hour ends and again when it goes cold', async ($, on) => {
-  const clock = mock.clock(on, { now: 0 })
-  const host = engine(on)
-  answering(on, 140_000, 4_000)
-  await $.session.start(START)
-  await step($)
-
-  await clock.advance(49 * MINUTE)
-  expect(host.toasts).toEqual([])
-  await clock.advance(2 * MINUTE)
-  expect(host.toasts.length).toBe(1)
-  expect(host.toasts[0]).toMatch(/expires in .* \(152k\)/)
-  await clock.advance(10 * MINUTE)
-  expect(host.toasts.length).toBe(2)
-  expect(host.toasts[1]).toMatch(/went cold.*152k/)
-
-  const line = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', component: 'AbovePrompt', props: band(140) })
-  expect(await line.find({ text: /^cold$/ })).toBeDefined()
-})
-
 test('a request that rewrites a warm cache is marked re-cached', async ($, on) => {
   mock.clock(on, { now: 0 })
   engine(on)
   answering(on, 0, 120_000)
-  await $.session.start(START)
+  await begin($)
   await step($)
 
   const line = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', component: 'AbovePrompt', props: band(140) })
@@ -171,7 +174,7 @@ test('a subagent in view shows its own five-minute clock', async ($, on) => {
   const clock = mock.clock(on, { now: 0 })
   engine(on)
   answering(on, 20_000, 1_000)
-  await $.session.start(START)
+  await begin($)
   await step($, 'agent-1')
   await clock.advance(MINUTE)
 

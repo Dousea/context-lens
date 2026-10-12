@@ -84,50 +84,43 @@ export type Progress = {
   steps: ProgressStep[]
 }
 
-/** Where one subagent stands, as the agent panel shows it. */
-export type AgentState = 'picking' | 'running' | 'waiting' | 'done' | 'failed'
+export type CacheTtl = '5m' | '1h'
 
-/** One subagent of this chat, for the agent panel. */
-export type AgentRec = {
-  id: string
-  /** The agent type (Explore, general-purpose, a plugin's agent). */
-  type: string
-  /** The Agent call's short description of the task. */
-  task: string
-  state: AgentState
-  /** The id of the agent that spawned it; absent when the main chat did. */
-  parentId?: string
-  /** When it was spawned and when it ended (clock ms). */
-  startedAt: number
-  endedAt?: number
-  /** Its own task list, when it keeps one: the progress the card shows. */
-  steps?: ProgressStep[]
-  /** What it does now: a tool and its argument, short. */
-  now?: string
-  /** When its current tool call started (clock ms); absent between calls. */
-  toolSince?: number
-  /** Since when it waits on that tool (clock ms). */
-  waitingSince?: number
-  model?: string
-  effort?: string
-  /** Why effortless picked that, a few words. */
-  why?: string
-  /** Weighted tokens so far. */
-  cost?: number
-  /** The file its current tool call is in, relative to the project root; absent between calls. */
-  file?: string
+/** One loop's prompt cache: when it was last touched and what the last request did with it. */
+export type CacheClock = {
+  ttl: CacheTtl
+  /** Epoch ms of the last answered request; null before the first or after a compaction or /clear. */
+  lastAt: number | null
+  read: number
+  written: number
+  uncached: number
 }
 
-/** A file this chat or its agents read or changed, for the agent panel's map. */
-export type FileTouch = {
-  /** Relative to the project root, with forward slashes. */
-  path: string
-  edited: boolean
-  /** Who touched it: agent ids, 'main' for the main chat. */
-  by: string[]
-  lastAt: number
-  /** The project files it imports, relative to the root, without extension. */
-  imports: string[]
+export type AgentCache = CacheClock & {
+  id: string
+  type: string
+}
+
+export type CategoryKind = 'used' | 'free' | 'buffer' | 'deferred'
+
+export type ContextCategoryView = {
+  name: string
+  tokens: number
+  color: string
+  kind: CategoryKind
+}
+
+export type ContextView = {
+  totalTokens: number
+  maxTokens: number
+  categories: ContextCategoryView[]
+}
+
+/** A rate-limit window as the last response reported it. */
+export type RateLimit = {
+  kind: string
+  percentUsed: number
+  resetsAt?: string
 }
 
 declare module 'claude-code' {
@@ -187,8 +180,6 @@ declare module 'claude-code' {
       lastTurn: { cost: number; ms: number } | null
       /** The handoff card under the newest reply, from the start of a handoff until the reply after it lands. */
       handoffCard: { kind: 'writing' | 'done' | 'copied'; full: boolean; at: number; seen: boolean } | null
-      /** A new version above the prompt: offered, updating, updated or failed, or null. */
-      updateCard: { stage: 'offer' | 'updating' | 'done' | 'failed'; version: string; note: string; at: number; detail?: string } | null
       /** The setup guide's step, or null when it is closed. */
       setupStep: 'pick' | 'jev' | 'lean' | 'handoff' | 'done' | null
       /** Choices made in the setup guide, saved together at Done or the cross. */
@@ -206,16 +197,20 @@ declare module 'claude-code' {
       progress: Progress | null
       /** The step list the progress bar was closed for; a new list shows it again. */
       progressHidden: string | null
-      /** This chat's subagents, oldest first, for the agent panel. */
-      agents: AgentRec[]
-      /** The agent card opened in the panel, or 'done' for the finished ones, or null. */
-      agentsOpen: string | null
-      /** The files this chat and its agents touched, newest last, for the panel's map. */
-      agentFiles: FileTouch[]
-      /** The main chat's own task list, for the panel's total progress; null when it keeps none. */
-      agentSteps: ProgressStep[] | null
-      /** The module (folder) opened in the panel's list, or null. */
-      agentsModule: string | null
+      /** Context lens: the main thread's prompt cache. */
+      lensMain: CacheClock
+      /** Context lens: each subagent's own prompt cache. */
+      lensAgents: AgentCache[]
+      /** Context lens: the context window by category. */
+      lensContext: ContextView | null
+      /** Context lens: the last main-thread response's input tokens, as the API counted them. */
+      lensLive: number | null
+      /** Context lens: whether the last main-thread request rewrote a cache that was still warm. */
+      lensRewritten: boolean
+      /** Context lens: the rate-limit windows as the last response reported them. */
+      lensLimits: RateLimit[]
+      /** Context lens: the clock's last tick, so the countdown redraws. */
+      lensNow: number
     }
   }
 }
