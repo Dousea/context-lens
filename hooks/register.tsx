@@ -3050,7 +3050,7 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>, opt
     : notAligned
       ? `/effort shows ${EFFORT_LABELS[shownByApp as Effort] ?? shownByApp}`
       : current
-        ? `${current.by === 'manual' ? 'You' : 'Why'}: ${current.why}`
+        ? `${current.by === 'manual' || current.by === 'named' ? 'You' : 'Why'}: ${current.why}`
         : auto
           ? 'Picks the effort at the next prompt'
           : 'Pick an effort'
