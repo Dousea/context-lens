@@ -95,7 +95,7 @@ const EFFORT_LABELS: Record<Effort, string> = { low: 'Low', medium: 'Medium', hi
 // Auto is two switches. `isAuto` is effort (the name stays: it is what the store and state hold);
 // `isAutoModel` lets the judge suggest another model and starts off.
 const isAuto = atom({ plugin: 'context-lens', key: 'isAuto' } as const, true)
-const EMPTY_SPENT: Spent = { prompts: 0, requests: 0, input: 0, write: 0, writeHour: 0, read: 0, out: 0, byEffort: {}, judge: { haiku: 0, ms: 0, tokens: 0 }, moved: 0, redone: 0 }
+const EMPTY_SPENT: Spent = { prompts: 0, requests: 0, input: 0, write: 0, writeHour: 0, read: 0, out: 0, byEffort: {}, judge: { haiku: 0, ms: 0, tokens: 0 } }
 const SWITCHED_MS = 2500
 // The prompt cache lives this long after the last request read or wrote it. A response may say which lifetime its
 // cache writes got (usage.cache_creation: ephemeral_1h / ephemeral_5m); until one does, 1 hour is assumed: 99% of
@@ -210,15 +210,10 @@ const settingsCard = atom({ plugin: 'context-lens', key: 'settingsCard' } as con
 /** The settings panel's parts: a card each on the overview, and what the part is for, said once it is open. */
 const CARDS: readonly { id: SettingsCard; title: string; about: string }[] = [
   { id: 'effort', title: 'Effort', about: 'How hard Claude thinks. The slider tips close calls; Min and Max are hard limits.' },
-  { id: 'model', title: 'Model', about: "Whether a simple prompt may run on a cheaper model, and which model writes a compaction." },
+  { id: 'model', title: 'Model', about: "Which model writes a compaction's summary." },
   { id: 'handoff', title: 'Handoff & alerts', about: 'The full handoff skill, when to suggest compacting, and which alerts show.' },
   { id: 'show', title: 'Customize', about: 'How context-lens looks and which parts it shows. Uninstall removes it.' },
 ]
-// The Model card: the two ways to run. Effort follows the judge in both.
-const MODEL_CHOICES = [
-  { value: 'on', label: 'Cheaper when it can', tag: 'experimental', about: "A simple prompt may run on Haiku or Sonnet. Rarely pays: the other model has to reread the whole chat." },
-  { value: 'off', label: "Always the chat's", tag: '', about: "Every prompt keeps the model you picked. Only effort changes." },
-] as const
 const BIAS_WORDS = ['Cheapest', 'Cheaper', 'Balanced', 'Smarter', 'Smartest'] as const
 // The judge-down band was closed for this reason; a new reason shows it again.
 const judgeDownHidden = atom({ plugin: 'context-lens', key: 'judgeDownHidden' } as const, null)
@@ -540,8 +535,6 @@ export type JudgeConfig = {
   compactWith: 'haiku' | 'session'
   /** advised: the footer slot is Compact until Haiku advises a handoff. always: it is always the Handoff button. */
   handoffButton: 'advised' | 'always'
-  /** A prompt the judge calls simple runs on a cheaper model than the chat's (never a dearer one). */
-  modelAuto: 'on' | 'off'
   /** on: every subagent the chat sends off gets an effort picked by the judge before it starts. */
   helpers: 'on' | 'off'
   /** The accent colour of everything context-lens draws: the brand violet, Claude orange or cherry-blossom rose. */
@@ -571,7 +564,6 @@ let config: JudgeConfig = {
   layout: 'default',
   compactWith: 'haiku',
   handoffButton: 'advised',
-  modelAuto: 'off',
   helpers: 'off',
   theme: 'violet',
   appearance: 'auto',
@@ -591,9 +583,6 @@ export function readConfig(options: unknown): JudgeConfig {
     layout: str(o.layout) === 'minimal' ? 'minimal' : 'default',
     compactWith: str(o.compactWith) === 'session' ? 'session' : 'haiku',
     handoffButton: str(o.handoffButton) === 'always' ? 'always' : 'advised',
-    // Off unless switched on: one prompt on another model rewrites the whole chat into that model's cache, which costs
-    // more than it saves in a chat that is in use (measured 2026-10-10).
-    modelAuto: str(o.modelAuto) === 'on' ? 'on' : 'off',
     helpers: str(o.helpers) === 'on' ? 'on' : 'off',
     theme: THEMES.find(t => t === str(o.theme)) ?? 'violet',
     appearance: (['dark', 'light'] as const).find(a => a === str(o.appearance)) ?? 'auto',
@@ -767,7 +756,7 @@ export function benchReport(cases: BenchCase[], answers: BenchAnswer[]): string 
     })
     lines.push(`| ${k} (${ids.length}) | ${cells.join(' | ')} |`)
   }
-  // Does "unsure" predict a miss? The Smarter lean and the cheaper-model guard both act on it, so it is measured here.
+  // Does "unsure" predict a miss? The Smarter lean acts on it, so it is measured here.
   const judged = judges.filter(j => !j.startsWith('always'))
   const sureLines = ['', '| Judge | Sure when right | Sure when wrong | Misses under 65% sure | Misses under 85% sure | Answers under 65% | Answers under 85% |', '| --- | --- | --- | --- | --- | --- | --- |']
   for (const j of judged) {
@@ -949,8 +938,6 @@ export function asSpent(t: unknown): Spent {
     out: num(v.out),
     byEffort: v.byEffort && typeof v.byEffort === 'object' ? v.byEffort : {},
     judge: { haiku: num(judged.haiku), ms: num(judged.ms), tokens: num(judged.tokens) },
-    moved: num(v.moved),
-    redone: num(v.redone),
     helpers: {
       runs: v.helpers?.runs && typeof v.helpers.runs === 'object' ? v.helpers.runs : {},
       requests: num(v.helpers?.requests),
@@ -1193,16 +1180,6 @@ export function resetLabel(iso: string | null, now: number): string {
   const at = new Date(iso)
   const hm = `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`
   return at.getTime() - now < 20 * 3600_000 ? hm : `${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][at.getDay()]} ${hm}`
-}
-
-/**
- * A message that says the last answer was wrong or did not work. After a prompt ran on a cheaper model, this is the
- * signal the cheaper model missed: the retry and the next few prompts stay on the chat's own model.
- */
-const REDO_RE = /^(no|nope|nah)(?![a-z'])(?! +(problem|worries|thanks|thank|need|rush|hurry))|^(that'?s |this is |it'?s )?(wrong|incorrect|not (right|correct|what i))|^(it |that |this )?(still )?(doesn'?t|didn'?t|isn'?t|does not|did not|is not) (work|fix|help|change|run|compile|pass)|^still (not|broken|wrong|failing|fails|the same|happening|doesn'?t)|^(not working|try again|do it again|redo|you missed|you forgot|you broke)|^(fel|inte rätt|funkar inte|fungerar inte|försök igen|gör om|det är fel)(?![a-zåäö])|(still (broken|wrong|failing)|try again|funkar fortfarande inte)/i
-export const REDO_STAY_PROMPTS = 4
-export function looksLikeRedo(text: string): boolean {
-  return REDO_RE.test(text.trim().replace(/^["'“ ]+/, ''))
 }
 
 /**
@@ -1643,7 +1620,6 @@ const SETTING_FIELDS = {
   layout: 'layout',
   compactWith: 'compactWith',
   handoffButton: 'handoffButton',
-  modelAuto: 'modelAuto',
   helpers: 'helpers',
   theme: 'theme',
   appearance: 'appearance',
@@ -1673,7 +1649,6 @@ async function saveSetting($: EngineInterface, field: keyof typeof SETTING_FIELD
     layout: config.layout,
     compactWith: config.compactWith,
     handoffButton: config.handoffButton,
-    modelAuto: config.modelAuto,
     helpers: config.helpers,
     theme: config.theme,
     appearance: config.appearance,
@@ -1844,7 +1819,7 @@ export function savedText(raw: Spent): string {
   const t = asSpent(raw)
   const judged = t.judge.haiku
   const helperRuns = EFFORTS.reduce((n, e) => n + (t.helpers.runs[e] ?? 0), 0)
-  if (t.prompts === 0 && judged === 0 && t.moved === 0 && helperRuns === 0) return 'nothing measured yet'
+  if (t.prompts === 0 && judged === 0 && helperRuns === 0) return 'nothing measured yet'
   const input = t.input * WEIGHT.input
   const write = t.writeHour * WEIGHT.write1h + (t.write - t.writeHour) * WEIGHT.write
   const cached = t.read * WEIGHT.read
@@ -1859,9 +1834,6 @@ export function savedText(raw: Spent): string {
     return `${EFFORT_LABELS[e]} ${b.prompts}, average ${tokens(Math.round(b.cost / b.prompts))}`
   })
   if (per.length) lines.push(`Per prompt: ${per.join('; ')}`)
-  if (t.moved) {
-    lines.push(`Cheaper model: ${t.moved} prompt${t.moved === 1 ? '' : 's'} moved down, ${t.redone} redone (${share(t.redone, t.moved)})`)
-  }
   if (helperRuns) {
     const per = EFFORTS.filter(e => t.helpers.runs[e]).map(e => `${EFFORT_LABELS[e]} ${t.helpers.runs[e]}`)
     lines.push(`Helpers: ${helperRuns} subagent${helperRuns === 1 ? '' : 's'} (${per.join(', ')}), ${t.helpers.requests} requests, cost about ${tokens(Math.round(t.helpers.cost))} tokens`)
@@ -2050,44 +2022,6 @@ let classicStart: { at: number; said: string } | null = null
 let coldForced = false
 let handoffTimer: { cancel: () => void } | undefined
 const HANDOFF_POLL_MS = 1000
-// The model this prompt's requests run on when the judge picked a cheaper one than the chat's, else null. The chat's
-// own model stays as it is: each request is sent to the cheaper model in turn.step, so the chat model's cache stays warm
-// for the next prompt that needs it.
-let routed: ModelKey | null = null
-// Prompts left that stay on the chat's model, after a cheaper answer was redone.
-let stayUp = 0
-const MODEL_RANK: ModelKey[] = ['haiku', 'sonnet', 'opus', 'fable']
-/** The model a verdict sends this prompt to: a cheaper one than the chat's, or null for the chat's own. Never Fable. */
-export function routeTo(verdict: ModelKey, inUse: ModelKey): ModelKey | null {
-  if (verdict === 'fable') return null
-  return MODEL_RANK.indexOf(verdict) < MODEL_RANK.indexOf(inUse) ? verdict : null
-}
-
-// What one input token costs on each model, in Sonnet's price: Opus about 2x (measured: the same prompt cost 1.97x on Opus), Haiku about a third. These are the ratios
-// the savings estimate uses; they only have to be right enough to tell which side of a switch is cheaper.
-export const MODEL_PRICE: Record<ModelKey, number> = { haiku: 1 / 3, sonnet: 1, opus: 2, fable: 5 }
-/**
- * Whether sending this one prompt to a cheaper model pays. The chat's context is read from the cache (a tenth of the input
- * price) where that model's cache is warm, and written to it (1.25 times) where it is cold. A switch to a cold model
- * writes the whole context first, which can cost more than staying on the chat's own warm one at a low effort.
- */
-export function routeWorth(to: ModelKey, inUse: ModelKey, contextTokens: number, warm: { to: boolean; inUse: boolean }): boolean {
-  if (!(contextTokens > 0)) return true
-  // Claude Code writes the 1-hour cache, which costs twice the input price (measured), not the 5-minute 1.25.
-  const write = WEIGHT.write1h
-  const stay = contextTokens * MODEL_PRICE[inUse] * (warm.inUse ? WEIGHT.read : write)
-  const move = contextTokens * MODEL_PRICE[to] * (warm.to ? WEIGHT.read : write)
-  return move < stay
-}
-// Until when each model's prompt cache is warm for this chat: set by every main response on it.
-const warmUntil: Partial<Record<ModelKey, number>> = {}
-// On the mod's clock, the same one the cache countdown runs on.
-function markWarm(modelId: string, usage: unknown, now: number) {
-  const key = keyOf(modelId)
-  if (key) warmUntil[key] = now + CACHE_TTL[cacheTtlOf(usage) ?? '5m']
-}
-const isWarm = (key: ModelKey, now: number) => (warmUntil[key] ?? 0) > now
-
 // When Haiku last wrote a compaction (for /context-lens debug).
 let lastHaikuCompact = 0
 
@@ -2748,7 +2682,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
   // One just spawned has not made a request yet: its effort is the helper pick if there is one, else unknown, never the chat's.
   const inAgent = e.props.view.agentId !== undefined
   const viewed = inAgent ? (await read($, lensAgents)).find(a => a.id === e.props.view.agentId) : undefined
-  const shownModel: ModelKey | undefined = inAgent ? viewed?.model : (routed ?? v.modelNow ?? undefined)
+  const shownModel: ModelKey | undefined = inAgent ? viewed?.model : (v.modelNow ?? undefined)
   const effortNow = inAgent
     ? (viewed?.effort ?? (await helperEffortOf($, e.props.view.agentId!).catch(() => undefined)))
     : effortOf(v, v.modelNow ?? (await sessionModel($)))
@@ -2777,7 +2711,6 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
     cacheNow: drawn || lens ? null : cacheShown,
     // Desktop draws the context as a ring and a figure (as the swamp band does); the terminal says it in words.
     contextPercent: !lens && e.surface === 'terminal' && lastContext && lastContext.window ? lastContext.percent : null,
-    // A prompt on a cheaper model names it in the judge's line ("On Sonnet · Why: a small fix"), not beside the effort word.
     // The judge's reason and the handoff advice are about the chat's own prompt, not a subagent's work.
     reason: inAgent ? '' : adviceNow ? `Handoff would suit: ${adviceNow}` : config.hide.includes('reason') ? '' : reason,
   })
@@ -3633,7 +3566,6 @@ export const register: Register = (on, options) => {
           `handoff: ${await read($, handoffStage)}`,
           `last fork: ${lastFork ? `${lastFork.outcome}, ${ago(lastFork.at)}` : 'none'}`,
           `hidden: ${config.hide.join(',') || 'nothing'}`,
-          `model: ${config.modelAuto === 'on' ? `cheaper when it can, now ${routed ?? 'the chat\'s'}` : 'always the chat\'s'}`,
           lastRequest
             ? `last request: app asked ${lastRequest.appModel} at ${lastRequest.appEffort ?? 'none'}, sent ${lastRequest.model} at ${lastRequest.effort ?? 'none'}${lastRequest.model === lastRequest.appModel && lastRequest.effort === lastRequest.appEffort ? ' (unchanged)' : ' (changed by context-lens)'}, ${ago(lastRequest.at)}`
             : 'last request: none yet',
@@ -3696,7 +3628,7 @@ Saved to ${out}.md and .json` }
     const byPerson = e.origin.kind === 'composer' || e.origin.kind === 'bridge' || e.origin.kind === 'sdk'
     // An agent's report (a subagent or background task finishing, another session's message) or a scheduled firing (/loop, a
     // routine) starts a reply nobody typed: with Auto on for effort it is judged like a prompt, so it does not run on the
-    // effort picked for the last typed one. The model moves only as the cheaper-model picker allows for any prompt.
+    // effort picked for the last typed one. The model is left alone.
     // A relayed channel message (Slack, Telegram) and a follow-up to the person's click are theirs, but not typed here: same.
     const byAgent = ['task-notification', 'peer', 'peer-send-message', 'scheduled-trigger', 'channel', 'auto-continuation'].includes(e.origin.kind)
     // The handoff check runs for every message the person types, whatever the effort judge is doing (or whether Auto is on).
@@ -3738,7 +3670,6 @@ Saved to ${out}.md and .json` }
         heldPick = null
         await choose($, applied)
       }
-      if (!midTurn && routed) routed = null
       await countPrompt($, inUse !== 'haiku' ? named : undefined, 'named', 0, 0)
       void proof($, `named level ${named} in "${e.text.slice(0, 50)}": no judge`)
       $.ui.invalidate('ui.render')
@@ -3791,34 +3722,6 @@ Saved to ${out}.md and .json` }
             await choose($, applied)
           }
         }
-        // A prompt the judge calls simple runs on a cheaper model; a message typed mid-turn leaves the running choice.
-        if (!midTurn) {
-          let to = wantsEffort && config.modelAuto === 'on' ? routeTo(verdict.model, inUse) : null
-          // The last prompt ran on a cheaper model and this one says it was wrong: that is a miss. The retry runs on the
-          // chat's own model, and so do the next few prompts.
-          if (routed && !byAgent && looksLikeRedo(e.text)) {
-            stayUp = REDO_STAY_PROMPTS
-            await update($, saved, old => ({ ...asSpent(old), redone: asSpent(old).redone + 1 }))
-            void proof($, `redo after ${routed}: the next ${REDO_STAY_PROMPTS} prompts stay on ${inUse}`)
-          }
-          if (stayUp > 0) {
-            if (!byAgent) stayUp--
-            if (to) void proof($, `stays on ${inUse}: a cheaper answer was just redone (${stayUp} more)`)
-            to = null
-          }
-          // A switch to a model whose cache is cold writes the whole chat to it: stay when that costs more than it saves.
-          const now = await $.clock.now().catch(() => Date.now())
-          if (to && !routeWorth(to, inUse, lastContext?.tokens ?? 0, { to: isWarm(to, now), inUse: !(cacheExpires > 0 && now >= cacheExpires) })) {
-            void proof($, `stays on ${inUse}: ${to} has a cold cache, switching would cost more`)
-            to = null
-          }
-          if (to) await update($, saved, old => ({ ...asSpent(old), moved: asSpent(old).moved + 1 }))
-          if (to !== routed) {
-            routed = to
-            void proof($, to ? `this prompt runs on ${to} (the chat is on ${inUse})` : `back on ${inUse}`)
-            $.ui.invalidate('ui.render')
-          }
-        }
         if (wantsModel && verdict.model !== inUse && verdict.model !== declined) {
           await update($, suggestion, () => verdict.model)
           $.ui.toast(`Suggestion: switch to ${verdict.model}? /context-lens switch or /context-lens keep`)
@@ -3849,9 +3752,7 @@ Saved to ${out}.md and .json` }
       const answer = yield* next(request)
       if (answer?.usage) await lensRequest($, e.agentId, answer.usage, { model: typeof request.model === 'string' ? keyOf(request.model) : undefined, effort: EFFORTS.find(x => x === request.effort) }).catch(() => undefined)
       // Inside the hook ($ calls after it returns are refused), and never allowed to break the request.
-      if (e.agentId === undefined && answer?.usage) markWarm(request.model, answer.usage, await $.clock.now().catch(() => Date.now()))
-      // A prompt run on a cheaper model leaves the chat's own cache as it was: only the chat's model restarts the countdown.
-      if (e.agentId === undefined && answer?.usage && request.model === e.model) await cacheTouched($, answer.usage).catch(() => undefined)
+      if (e.agentId === undefined && answer?.usage) await cacheTouched($, answer.usage).catch(() => undefined)
       if (answer?.usage) turnCost += weighted(answer.usage)
       return answer
     }
@@ -3876,16 +3777,6 @@ Saved to ${out}.md and .json` }
         $.ui.toast(`context-lens: Auto is off. You picked ${EFFORT_LABELS[seen as Effort] ?? seen}; turn Auto on to hand it back.`)
         return yield* send(e)
       }
-    }
-    // The judge put this prompt on a cheaper model: each of its requests goes there, at the picked effort.
-    if (e.agentId === undefined && routed && (await read($, isAuto))) {
-      const to = MODELS.find(m => m.key === routed)!.id
-      const picked = await read($, pick)
-      const effort = picked?.effort ?? e.effort
-      void proof($, `request ${e.index}: ${e.model} -> ${to} at ${effort}`)
-      const result = yield* send({ ...e, model: to, effort })
-      if (picked && picked.by !== 'manual' && result.usage) await tally($, picked.effort, result.usage)
-      return result
     }
     // A helper the judge picked an effort for at its spawn runs every request at it. Haiku takes no effort.
     if (e.agentId !== undefined && config.helpers === 'on' && typeof e.effort === 'string' && keyOf(e.model) !== 'haiku') {
@@ -4058,7 +3949,7 @@ Saved to ${out}.md and .json` }
     let ran = turnLineFor(await read($, turnLines), e.props.durationMs) ?? firstDrawn.get(key)
     if (!ran) {
       // Drawn before turn.complete saved its line: the reply's own last request says what it ran on, not the current setting.
-      const inUse = routed ?? v.modelNow ?? 'sonnet'
+      const inUse = v.modelNow ?? 'sonnet'
       ran = ranThisTurn?.effort ? { ...ranThisTurn } : { effort: effortOf(v, inUse), model: inUse }
       firstDrawn.set(key, ran)
     }
@@ -4146,7 +4037,6 @@ Saved to ${out}.md and .json` }
         layout: draft.layout ?? config.layout,
         compactWith: draft.compactWith ?? config.compactWith,
         handoffButton: draft.handoffButton ?? config.handoffButton,
-        modelAuto: draft.modelAuto ?? config.modelAuto,
         helpers: draft.helpers ?? config.helpers,
         theme: draft.theme ?? config.theme,
         appearance: draft.appearance ?? config.appearance,
@@ -4164,7 +4054,7 @@ Saved to ${out}.md and .json` }
       const hidden = (draft.hide ?? config.hide.join(',')).split(',').filter(Boolean)
       const summaries: Record<SettingsCard, string> = {
         effort: `${BIAS_WORDS[shown.bias + 2]} · ${shown.floor} to ${shown.ceiling}${shown.helpers === 'on' ? ' · helpers' : ''}`,
-        model: shown.modelAuto === 'on' ? 'Cheaper when it can' : "Always the chat's",
+        model: shown.compactWith === 'session' ? "Chat's model" : 'Haiku 5.5',
         handoff: `${shown.handoffSkill ? `/${shown.handoffSkill}` : 'Built in'} · compact alert at ${shown.swampAt}%`,
         show: `${shown.layout === 'minimal' ? 'Minimal' : 'Dashboard'} · ${2 - ['timer', 'reason'].filter(h => hidden.includes(h)).length} of 2 on`,
       }
@@ -4374,19 +4264,10 @@ Saved to ${out}.md and .json` }
                     <Text dimColor wrap="truncate">{shown.helpers === 'on' ? "The judge picks each subagent's effort, medium or more" : "Subagents run at the chat's effort"}</Text>
                   </Box>,
                 ]),
-] : card === 'model' ? (bare ? [] : MODEL_CHOICES.map(c => (
-            <Box key={`model-${c.value}`} flexDirection="column" flexGrow={1} flexShrink={1} minWidth={26}>
-              <Box flexDirection="row" gap={1} alignItems="center">
-                <Button key={`settings-model-${c.value}`} plain label={`${shown.modelAuto === c.value ? '◉' : '○'} ${c.label}`} onPress={() => set('modelAuto')(c.value)} />
-                {/* A warning in the cache countdown's yellow: this choice rarely pays. */}
-                {c.tag ? <Text key={`model-tag-${c.value}`} color={YELLOW} bold>{`⚠ ${c.tag}`}</Text> : null}
-              </Box>
-              <Text dimColor wrap="wrap">{c.about}</Text>
-            </Box>
-          )).concat([
-            // Which model writes a compaction's summary: a model choice, so it sits with the others.
+] : card === 'model' ? (bare ? [] : [
+            // Which model writes a compaction's summary.
             pick({ key: "settings-compact-with", label: "Compact with", value: shown.compactWith, options: [{ value: 'haiku', label: 'Haiku 5.5' }, { value: 'session', label: "Chat's model" }], onSelect: set('compactWith') }),
-          ])) : card === 'handoff' ? (bare ? [] : [
+          ]) : card === 'handoff' ? (bare ? [] : [
             pick({ key: "settings-skill", label: "Handoff skill", value: shown.handoffSkill || '-', options: [
                 { value: '-', label: 'Built in' },
                 ...[...new Set([...(shown.handoffSkill ? [shown.handoffSkill] : []), ...skillNames])].map(name => ({ value: name, label: `/${name}` })),

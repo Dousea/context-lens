@@ -14,9 +14,6 @@ export type Spent = {
   byEffort: Partial<Record<Effort, { prompts: number; cost: number }>>
   /** How often each judge decided, the time it took in all (ms), and its tokens. */
   judge: { haiku: number; ms: number; tokens: number }
-  /** Prompts that ran on a cheaper model than the chat's, and how many of those the person then redid. */
-  moved: number
-  redone: number
   /** Subagents the judge picked an effort for: how many per effort, their requests, and what those cost (weighted). */
   helpers: { runs: Partial<Record<Effort, number>>; requests: number; cost: number }
 }
@@ -57,8 +54,6 @@ export type SettingsDraft = {
   compactWith?: string
   /** advised (the slot is Compact until Haiku advises a handoff) or always (the slot is the Handoff button). */
   handoffButton?: string
-  /** on: a prompt the judge calls simple runs on a cheaper model than the chat's; off: always the chat's model. */
-  modelAuto?: string
   /** on: each subagent gets an effort picked by the judge before it starts; off: it runs at the chat's effort. */
   helpers?: string
   /** violet (the brand), orange (Claude's) or rose (cherry blossom). */
