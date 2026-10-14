@@ -482,7 +482,7 @@ A message that pushes back on, corrects or adds to a plan or claim under discuss
 
 If the person asks for deep thought ("think hard", "ultrathink", "be thorough"), pick at least high; if they ask for a quick answer, pick low.
 
-If the message is a short follow-up to ongoing work ("yes", "go", "ok", "continue", or the same in any language), keep the current pair.
+If the message is a short follow-up to ongoing work ("yes", "go", "ok", "continue", or the same in any language), keep the current pair. Thanks or praise with no new request ("ok perfect, thanks") is not a follow-up: it is low and one step.
 
 Steps: how many tool calls and replies the task takes. one: a single command, lookup or plain answer. few: a handful of reads or edits. many: a broad search, many files or long multi-step work.
 
