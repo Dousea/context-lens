@@ -238,15 +238,22 @@ describe('auto', () => {
     expect(asked.length).toBe(1)
   })
 
-  test('the judge never moves a prompt to a dearer model than the chat model, nor to Fable', async ($, on) => {
+  test('a dearer model than the chat\'s is only offered: declined, the request keeps the chat model', async ($, on) => {
     engine(on, {}, 'claude-sonnet-5-5')
     judgeSays(on, '{"model":"opus","effort":"high","why":"hard"}')
     const sent = recordSteps(on)
-    await $.prompt.submit({ text: 'debug this race condition', wait: false, origin: { kind: 'composer' } })
+    mock.clock(on)
+    const ui = await $.ui.mount({ plugin: 'context-lens', surface: 'terminal', ...BAND })
+    const sending = $.prompt.submit({ text: 'debug this race condition', wait: false, origin: { kind: 'composer' } })
+    for (let i = 0; i < 5; i++) await ui.redraw()
+    expect(await ui.find({ key: 'accept' })).toBeDefined()
+    await ui.press({ key: 'decline' })
+    await sending
     for await (const _ of $.turn.step({ turnId: 't1', index: 0, model: 'claude-sonnet-5-5', effort: 'high', messageCount: 1 })) {
       // drain
     }
     expect(sent[0].model).toBe('claude-sonnet-5-5')
+    await ui.unmount()
   })
 
   test('a reply that is not a verdict leaves the session as it is', async ($, on) => {
@@ -3010,7 +3017,7 @@ describe('dashboard', () => {
     await rows.press({ key: 'e-low' })
     await rows.unmount()
     const band = await $.ui.mount(DESK_BAND)
-    expect(await drawn(band)).toContain('"color":"#d4d4d8","bold":true},"children":["Off"]')
+    expect(await drawn(band)).toMatch(/"color":"#d4d4d8"[^{}]*\},"children":\["Off"\]/)
     await band.unmount()
   })
 
