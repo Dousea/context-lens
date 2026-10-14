@@ -434,7 +434,6 @@ function lastAssistantText(messages: readonly { role: string; text: string }[]):
   return [...messages].reverse().find(m => m.role === 'assistant' && m.text.trim())?.text ?? ''
 }
 
-
 /** The skill or custom command a typed "/name args" runs, or nothing for the app's own commands and context-lens's. */
 async function typedSkill($: EngineInterface, text: string): Promise<{ name: string; description: string } | undefined> {
   const name = text.trim().slice(1).split(/\s+/)[0]
@@ -858,7 +857,6 @@ async function sessionModelId($: EngineInterface): Promise<string> {
   return sessionPick ? MODELS.find(m => m.key === sessionPick)!.id : $.session.model()
 }
 
-
 // Proof log: every verdict, /effort and request effort, written to CONTEXT_LENS_LOG, or to
 // %TEMP%/context-lens-proof.log while the mod is loaded from a dev-mods folder. Off otherwise.
 const proofLines: string[] = []
@@ -1033,7 +1031,10 @@ export function turnLineFor<T>(lines: Record<string, T>, ms: number): T | undefi
   let gap = 1000
   for (const [k, v] of Object.entries(lines)) {
     const d = Math.abs(Number(k) - ms)
-    if (d < gap) { gap = d; best = v }
+    if (d < gap) {
+      gap = d
+      best = v
+    }
   }
   return best
 }
@@ -2334,7 +2335,6 @@ async function effortFlash($: EngineInterface, what: string, judging: boolean, e
   return flashColor(since)
 }
 
-
 // Uninstall's first press arms it; a second within UNINSTALL_ARM_MS uninstalls. Then the plugins reload and the mod is
 // gone from this chat; its settings stay in settings.json, so a reinstall picks them up.
 const UNINSTALL_ARM_MS = 4000
@@ -2674,7 +2674,8 @@ const JUDGE_GLOW_MAX = 0.85
 /** CSS's ease-in-out, cubic-bezier(.42,0,.58,1): the progress at time t (0 to 1), by bisection on the curve's x. */
 export function easeInOut(t: number): number {
   const at = (a: number, b: number, u: number) => 3 * (1 - u) * (1 - u) * u * a + 3 * (1 - u) * u * u * b + u * u * u
-  let lo = 0, hi = 1
+  let lo = 0
+  let hi = 1
   for (let i = 0; i < 30; i++) {
     const mid = (lo + hi) / 2
     if (at(0.42, 0.58, mid) < t) lo = mid
@@ -2697,7 +2698,8 @@ export const JUDGE_STEP_MS = 50
  * asks), so a piece never ends and stands still before the next one is drawn. A piece of 50 ms did, in visible steps. */
 export const JUDGE_PIECE_MS = 150
 export function judgeGlowSvg(kind: 'rise' | 'fade', elapsedMs = 0): string {
-  const W = AUTO_GLOW_W, H = AUTO_GLOW_H
+  const W = AUTO_GLOW_W
+  const H = AUTO_GLOW_H
   const dur = kind === 'rise' ? JUDGE_RISE_MS : JUDGE_FADE_MS
   const from = judgeBrightnessAt(kind, elapsedMs)
   // Five points along the true curve, so the piece is where the curve is at every moment and the next one starts on it.
@@ -2743,7 +2745,8 @@ async function endJudgeGlow($: EngineInterface, why: string) {
 /** The cold band's rim: the Auto glow's light in ice, breathing slowly for as long as the band shows, so a cold chat
  * looks alive rather than parked. Placed by the clock (inPhase), so a redraw picks up where the breath was. */
 export function coldGlowSvg(): string {
-  const W = AUTO_GLOW_W, H = AUTO_GLOW_H
+  const W = AUTO_GLOW_W
+  const H = AUTO_GLOW_H
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><style>.r{opacity:.15;animation:r ${COLD_GLOW_MS / 1000}s ease-in-out infinite}@keyframes r{0%,100%{opacity:.15}50%{opacity:.6}}</style><defs><filter id="b" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation="1.5"/></filter></defs><g class="r"><rect x="0" y="0" width="${W}" height="${H}" rx="8" fill="none" stroke="${ICE}" stroke-width="4" opacity=".16" filter="url(#b)"/><rect x=".75" y="1.75" width="${W - 1.5}" height="${H - 3.5}" rx="8.25" fill="none" stroke="#cfeeff" stroke-width="1.5" vector-effect="non-scaling-stroke"/></g></svg>`
 }
 /** The image starts inside the band's side borders but over its top and bottom ones (the layer's top and bottom are the
@@ -2754,7 +2757,8 @@ export function coldGlowSvg(): string {
  * app scales a Svg to its box's width and keeps its height); drawn at about the band's real width so the sides stay
  * as thick as the top and bottom. Clipped to the bar's inside, so the light falls inward. */
 export function autoGlowSvg(on: boolean): string {
-  const W = AUTO_GLOW_W, H = AUTO_GLOW_H
+  const W = AUTO_GLOW_W
+  const H = AUTO_GLOW_H
   const rim = `x="0" y="0" width="${W}" height="${H}" rx="8"`
   const [wash, line, strength] = on ? [ACCENT, '#b9a7ff', 0.9] : ['#8b8b93', '#c8c8d0', 0.6]
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><style>.r{opacity:0;animation:r ${AUTO_GLOW_MS / 1000}s ease-in-out}@keyframes r{0%{opacity:0}15%{opacity:${strength}}45%{opacity:${(strength * 0.85).toFixed(2)}}100%{opacity:0}}</style><defs><filter id="b" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation="1.5"/></filter><filter id="s" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation=".8"/></filter></defs><g class="r"><rect ${rim} fill="none" stroke="${wash}" stroke-width="4" opacity=".14" filter="url(#b)"/><rect x=".75" y="1.75" width="${W - 1.5}" height="${H - 3.5}" rx="8.25" fill="none" stroke="${line}" stroke-width="1.5" vector-effect="non-scaling-stroke"/></g></svg>`
@@ -4527,7 +4531,10 @@ Saved to ${out}.md and .json` }
             {markTitle({ Box, Text, Svg }, 'compact-title', ACCENT, '✦ Compact')}
             <Box key="compact-switch-box" position="relative" flexShrink={0} marginLeft={1}>
               <Box position="absolute" top={0} left={0} />
-              <Button key="compact-to-handoff" plain dimColor label="Handoff instead" onPress={async () => { await update($, compactAsk, () => false); await openHandoffBar($) }} />
+              <Button key="compact-to-handoff" plain dimColor label="Handoff instead" onPress={async () => {
+                await update($, compactAsk, () => false)
+                await openHandoffBar($)
+              }} />
             </Box>
           </Box>
           <Box key="compact-controls" position="relative" flexGrow={1} flexShrink={1} minWidth={0} flexDirection="row" justifyContent="flex-end" alignItems="center" gap={1}>
@@ -4542,7 +4549,11 @@ Saved to ${out}.md and .json` }
               <Box position="absolute" top={-1} bottom={-1} left={0} right={0} overflow="hidden">
                 <Box position="absolute" top={0} bottom={0} right={-3} width={60} flexDirection="row" alignItems="center" justifyContent="flex-end" paddingRight={1}>
                   <Input key="compact-note" placeholder="Summary (optional)" submitLabel={'​'}
-                      onInput={v => { compactNote = v }} onSubmit={v => { compactNote = v; void go() }} />
+                      onInput={v => { compactNote = v }}
+                      onSubmit={v => {
+                        compactNote = v
+                        void go()
+                      }} />
                 </Box>
               </Box>
             </Box>
