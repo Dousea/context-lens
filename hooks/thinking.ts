@@ -10,7 +10,10 @@ export function thinkingSvg(w = THINK_W, h = PILL_H): string {
   const color = tintHex('#a79cf7')
   const r = h / 2
   const dots = [0, 1, 2]
-    .map(i => `<circle class="dot" style="animation-delay:${(i * 0.18).toFixed(2)}s" cx="${6 + i * 11}" cy="${r}" r="3" fill="${color}"/>`)
+    .map(
+      i =>
+        `<circle class="dot" style="animation-delay:${(i * 0.18).toFixed(2)}s" cx="${6 + i * 11}" cy="${r}" r="3" fill="${color}"/>`,
+    )
     .join('')
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">` +

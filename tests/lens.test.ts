@@ -1,9 +1,4 @@
-import type {
-  On,
-  SessionContextBreakdown,
-  SessionUsage,
-  TurnStepResult,
-} from 'claude-code'
+import type { On, SessionContextBreakdown, SessionUsage, TurnStepResult } from 'claude-code'
 import { expect, mock, test as baseTest } from 'claude-code/testing'
 import type { Engine } from 'claude-code/testing'
 
@@ -11,7 +6,8 @@ const MINUTE = 60_000
 
 // The lens row lives in the dashboard band, so every test runs in the dashboard look.
 type Opts = Parameters<typeof baseTest>[1]
-const test = ((name: string, run: unknown) => baseTest(name, { options: { layout: 'default' } } as Opts, run as never)) as unknown as (
+const test = ((name: string, run: unknown) =>
+  baseTest(name, { options: { layout: 'default' } } as Opts, run as never)) as unknown as (
   name: string,
   run: ($: Engine, on: On) => unknown,
 ) => void
@@ -95,7 +91,13 @@ async function begin($: Engine) {
 }
 
 async function step($: Engine, agentId?: string) {
-  const stream = $.turn.step({ turnId: 't', index: 0, model: 'claude-opus-5-5', messageCount: 3, ...(agentId ? { agentId } : {}) })
+  const stream = $.turn.step({
+    turnId: 't',
+    index: 0,
+    model: 'claude-opus-5-5',
+    messageCount: 3,
+    ...(agentId ? { agentId } : {}),
+  })
   for await (const _ of stream) {
     // drain
   }
@@ -178,7 +180,12 @@ test('a subagent in view shows its own five-minute clock', async ($, on) => {
   await step($, 'agent-1')
   await clock.advance(MINUTE)
 
-  const line = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', component: 'AbovePrompt', props: band(140, 'agent-1') })
+  const line = await $.ui.mount({
+    plugin: PLUGIN,
+    surface: 'terminal',
+    component: 'AbovePrompt',
+    props: band(140, 'agent-1'),
+  })
   expect(await line.find({ text: /^pz-implementer$/ })).toBeUndefined()
   expect(await line.find({ text: /^4:00$/ })).toBeDefined()
   expect(await line.find({ text: /^22k\/250k$/ })).toBeDefined()

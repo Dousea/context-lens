@@ -79,10 +79,8 @@ export const bar = (fraction: number, width: number): string => {
   return '█'.repeat(filled) + '░'.repeat(width - filled)
 }
 
-export const resolveTtl = (
-  explicit: unknown,
-  fallback: CacheTtl,
-): CacheTtl => (explicit === '5m' || explicit === '1h' ? explicit : fallback)
+export const resolveTtl = (explicit: unknown, fallback: CacheTtl): CacheTtl =>
+  explicit === '5m' || explicit === '1h' ? explicit : fallback
 
 export const toContextView = (breakdown: SessionContextBreakdown): ContextView => ({
   totalTokens: breakdown.totalTokens,

@@ -165,7 +165,12 @@ declare module 'claude-code' {
       /** What each reply's footer says (the effort and model it ran on, what it cost in weighted tokens), by the reply's duration in ms. */
       turnLines: Record<string, { effort?: Effort; model?: ModelKey; cost?: number }>
       /** The handoff card under the newest reply, from the start of a handoff until the reply after it lands. */
-      handoffCard: { kind: 'writing' | 'done' | 'copied' | 'compacting' | 'compacted'; full: boolean; at: number; seen: boolean } | null
+      handoffCard: {
+        kind: 'writing' | 'done' | 'copied' | 'compacting' | 'compacted'
+        full: boolean
+        at: number
+        seen: boolean
+      } | null
       /** The setup guide's step, or null when it is closed. */
       setupStep: 'lean' | 'handoff' | 'look' | 'done' | null
       /** Choices made in the setup guide, saved together at Done or the cross. */

@@ -12,32 +12,34 @@ Four coding tasks in a fresh copy of this repo: find and explain a setting, add 
 
 **Opus 5.5**
 
-| Setup | Correct | Cost per task | Requests per task | Time per task |
-| --- | --- | --- | --- | --- |
-| medium (Anthropic's recommendation), no context-lens | 12 of 12 | $0.190 | 7.3 | 24 s |
-| high, no context-lens | 12 of 12 | $0.209 | 8.0 | 27 s |
-| xhigh, no context-lens | 12 of 12 | $0.257 | 9.9 | 44 s |
-| **context-lens on** | **12 of 12** | **$0.149** | **5.8** | **20 s** |
+| Setup                                                | Correct      | Cost per task | Requests per task | Time per task |
+| ---------------------------------------------------- | ------------ | ------------- | ----------------- | ------------- |
+| medium (Anthropic's recommendation), no context-lens | 12 of 12     | $0.190        | 7.3               | 24 s          |
+| high, no context-lens                                | 12 of 12     | $0.209        | 8.0               | 27 s          |
+| xhigh, no context-lens                               | 12 of 12     | $0.257        | 9.9               | 44 s          |
+| **context-lens on**                                  | **12 of 12** | **$0.149**    | **5.8**           | **20 s**      |
 
 context-lens saved **21%** against medium, **29%** against high and **42%** against xhigh, with every answer still right. It picked low 9 times and medium 3 times.
 
 **Sonnet 5.5**
 
-| Setup | Correct | Cost per task | Requests per task | Time per task |
-| --- | --- | --- | --- | --- |
-| medium, no context-lens | 12 of 12 | $0.092 | 6.4 | 15 s |
-| high, no context-lens | 12 of 12 | $0.107 | 8.8 | 20 s |
-| xhigh, no context-lens | 12 of 12 | $0.146 | 11.4 | 31 s |
-| **context-lens on** | **12 of 12** | **$0.096** | **7.5** | **18 s** |
+| Setup                   | Correct      | Cost per task | Requests per task | Time per task |
+| ----------------------- | ------------ | ------------- | ----------------- | ------------- |
+| medium, no context-lens | 12 of 12     | $0.092        | 6.4               | 15 s          |
+| high, no context-lens   | 12 of 12     | $0.107        | 8.8               | 20 s          |
+| xhigh, no context-lens  | 12 of 12     | $0.146        | 11.4              | 31 s          |
+| **context-lens on**     | **12 of 12** | **$0.096**    | **7.5**           | **18 s**      |
 
 On Sonnet it came out even against medium (4% more, inside the noise), and saved **10%** against high and **35%** against xhigh.
 
 What it says:
+
 - The saving comes from fewer steps, not only less thinking. Every request rereads the whole chat, and at low effort the model took fewer of them (5.8 against 7.3 on Opus medium).
 - It is faster too: 20 s per task against 24 s on Opus medium.
 - Sonnet at medium is already lean, so there is little to take off it.
 
 Limits:
+
 - Four tasks, three runs each. The percentages could move a few points on a rerun.
 - Mostly easy tasks, where context-lens goes low and saves the most. On hard tasks it picks more effort and saves less; not measured here.
 - The checks test the right fact, file or number, not how well an answer is written.
@@ -50,12 +52,12 @@ Every run: `bench/results/agentic-2026-10-10.md` and `.json`.
 
 73 hand-labelled prompts (20 held out), version 1.5.1. A case is "right" when the judge's effort is one a careful person would accept.
 
-| Judge | Right | Held out |
-| --- | --- | --- |
-| always medium | 44% | 40% |
-| always high | 51% | 50% |
-| Haiku | 93% | 95% |
-| Jev | 99% | 100% |
+| Judge         | Right | Held out |
+| ------------- | ----- | -------- |
+| always medium | 44%   | 40%      |
+| always high   | 51%   | 50%      |
+| Haiku         | 93%   | 95%      |
+| Jev           | 99%   | 100%     |
 
 Prompts and labels: `bench/judge-cases.json`.
 
@@ -63,19 +65,19 @@ Prompts and labels: `bench/judge-cases.json`.
 
 An earlier version also moved simple prompts to Haiku or Sonnet. This benchmark measured the answers: 30 self-contained prompts, each answered on Opus and on the model and effort a router would pick (Haiku low for easy, Sonnet medium for normal, Opus high for hard), compared by a blind grader (Opus, high effort). Run 2026-10-09, one run each.
 
-| Against Opus medium | Routed good enough | Baseline cost | Routed cost | Saved |
-| --- | --- | --- | --- | --- |
-| easy (12) | 75% | $0.124 | $0.029 | 77% |
-| normal (12) | 100% | $0.284 | $0.115 | 60% |
-| hard (6, routed to Opus high) | 100% | $0.714 | $0.903 | -26% |
-| all (30) | 90% | $1.121 | $1.046 | 7% |
+| Against Opus medium           | Routed good enough | Baseline cost | Routed cost | Saved |
+| ----------------------------- | ------------------ | ------------- | ----------- | ----- |
+| easy (12)                     | 75%                | $0.124        | $0.029      | 77%   |
+| normal (12)                   | 100%               | $0.284        | $0.115      | 60%   |
+| hard (6, routed to Opus high) | 100%               | $0.714        | $0.903      | -26%  |
+| all (30)                      | 90%                | $1.121        | $1.046      | 7%    |
 
-| Against Opus high | Routed good enough | Baseline cost | Routed cost | Saved |
-| --- | --- | --- | --- | --- |
-| easy (12) | 83% | $0.126 | $0.028 | 78% |
-| normal (12) | 100% | $0.329 | $0.113 | 66% |
-| hard (6, same model) | 100% | $1.164 | $1.164 | 0% |
-| all (30) | 93% | $1.620 | $1.306 | 19% |
+| Against Opus high    | Routed good enough | Baseline cost | Routed cost | Saved |
+| -------------------- | ------------------ | ------------- | ----------- | ----- |
+| easy (12)            | 83%                | $0.126        | $0.028      | 78%   |
+| normal (12)          | 100%               | $0.329        | $0.113      | 66%   |
+| hard (6, same model) | 100%               | $1.164        | $1.164      | 0%    |
+| all (30)             | 93%                | $1.620        | $1.306      | 19%   |
 
 Those prompts started with no chat history, and that is what made the switch look cheap. In a real chat the context sits in the chat model's prompt cache, and each model keeps its own. A prompt moved to another model has to write the whole chat into that model's cache first, at twice the input price (Claude Code writes the 1-hour cache). Measured on 2026-10-10 with an 80k-token chat: from a warm Opus chat, one prompt on Haiku costs about 5 times what staying on Opus does, and about 10 times on Sonnet. Switching only pays once the chat model's cache has gone cold, or for a long run of prompts on the cheaper model.
 

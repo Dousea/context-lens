@@ -21,14 +21,14 @@ Then `/context-lens settings`. The first run opens a short setup guide. `/contex
 
 ## Commands
 
-| Command | |
-|---|---|
-| `/context-lens settings` | opens the settings panel |
-| `/context-lens auto` | Auto effort on or off |
-| `/context-lens handoff [full]` | writes a handoff for a fresh chat |
-| `/context-lens stats` | what Auto steered and what it cost |
-| `/context-lens bench` | runs the judge against the labelled prompts in `bench/` |
-| `/context-lens cold`, `swamp`, `hot`, `down` | previews an alert band |
+| Command                                      |                                                         |
+| -------------------------------------------- | ------------------------------------------------------- |
+| `/context-lens settings`                     | opens the settings panel                                |
+| `/context-lens auto`                         | Auto effort on or off                                   |
+| `/context-lens handoff [full]`               | writes a handoff for a fresh chat                       |
+| `/context-lens stats`                        | what Auto steered and what it cost                      |
+| `/context-lens bench`                        | runs the judge against the labelled prompts in `bench/` |
+| `/context-lens cold`, `swamp`, `hot`, `down` | previews an alert band                                  |
 
 ## Where it comes from
 

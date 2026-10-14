@@ -6,9 +6,7 @@
     "find": "saving && EFFORTS.indexOf(effort) > EFFORTS.indexOf('medium') ? 'medium' : effort",
     "replace": "saving && EFFORTS.indexOf(effort) < EFFORTS.indexOf('medium') ? 'medium' : effort",
     "report": "Save mode does the opposite of what it says. With it on, prompts still run at high and xhigh effort, and quick questions that used to run at low now get bumped up to medium. With save mode off everything looks normal.",
-    "fails": [
-      "running hot and judge down > save mode caps at medium, and reset times read short"
-    ]
+    "fails": ["running hot and judge down > save mode caps at medium, and reset times read short"]
   },
   {
     "id": "b2",
@@ -17,9 +15,7 @@
     "find": "return at.getTime() - now < 20 * 3600_000 ? hm",
     "replace": "return at.getTime() - now > 20 * 3600_000 ? hm",
     "report": "The reset times in the running-hot warning are the wrong way round. A limit that resets this afternoon shows a weekday in front of the time, and the weekly one that resets in four days shows only the hour, with no day.",
-    "fails": [
-      "running hot and judge down > save mode caps at medium, and reset times read short"
-    ]
+    "fails": ["running hot and judge down > save mode caps at medium, and reset times read short"]
   },
   {
     "id": "b3",
@@ -40,9 +36,7 @@
     "find": "(Math.abs(bias) === 1 ? 0.65 : 0.85)",
     "replace": "(Math.abs(bias) === 1 ? 0.85 : 0.65)",
     "report": "The effort slider's notches feel swapped. One notch toward smarter already moves picks the judge was fairly sure about, and the outer notch moves fewer picks than the first one does. I'd expect the outer notch to tip more close calls, not fewer.",
-    "fails": [
-      "settings panel > the slider tips only close calls; floor and ceiling clamp"
-    ]
+    "fails": ["settings panel > the slider tips only close calls; floor and ceiling clamp"]
   },
   {
     "id": "b5",
@@ -51,9 +45,7 @@
     "find": "t.split(/\\s+/).length <= 2",
     "replace": "t.split(/\\s+/).length < 2",
     "report": "Short go-aheads between two steps only keep the effort when they are one word. \"go\" or \"continue\" keep the current effort like they should, but \"ok go\" or \"yes please\" get sent to the judge and the effort sometimes changes.",
-    "fails": [
-      "follow-ups > isFollowUp: short go-aheads yes, real requests no"
-    ]
+    "fails": ["follow-ups > isFollowUp: short go-aheads yes, real requests no"]
   },
   {
     "id": "b6",
@@ -62,9 +54,7 @@
     "find": "const shown = minutesLeft - 1",
     "replace": "const shown = minutesLeft",
     "report": "The cache countdown in the footer changes colour a minute late. It should turn yellow when it shows 20m and red when it shows 5m, but it is still grey at 20m and still yellow at 5m. Each colour only appears one minute later.",
-    "fails": [
-      "cache countdown > cacheTtlOf and cacheLabel"
-    ]
+    "fails": ["cache countdown > cacheTtlOf and cacheLabel"]
   },
   {
     "id": "b7",
@@ -84,9 +74,7 @@
     "find": "const i = Math.min(Math.max(EFFORTS.indexOf(floor), EFFORTS.indexOf('medium')), EFFORTS.indexOf(ceiling))",
     "replace": "const i = Math.max(Math.min(EFFORTS.indexOf(floor), EFFORTS.indexOf(ceiling)), EFFORTS.indexOf('medium'))",
     "report": "I set Max effort to low. The main chat respects it, but with Helpers on, subagents still run at medium. Nothing should go above my Max.",
-    "fails": [
-      "subagent effort > helperFloor: medium, the person's Min when higher, never above their Max"
-    ]
+    "fails": ["subagent effort > helperFloor: medium, the person's Min when higher, never above their Max"]
   },
   {
     "id": "b9",

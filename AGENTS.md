@@ -20,6 +20,7 @@ For the mod API (`$`, `on(...)`, `ui.render`, state, timers), load the `plugin-a
 
 - `claude plugin test .` runs every test. All pass; there are no known failures, so any failure is yours.
 - `claude plugin validate .` checks the manifest and marketplace.
+- `npm run format` formats the repo with Prettier (`npm install` first); `npm run format:check` reports files that are not formatted.
 - Try a change live with `CONTEXT_LENS_LOG=<file> claude --plugin-dir <repo or worktree path>`. A `--plugin-dir` copy replaces the installed `context-lens@context-lens` for that session. `/context-lens debug` shows the state, and `/reload-plugins` reloads the installed copy, not the working tree.
 
 ## Host traps
@@ -55,7 +56,7 @@ Separate the distinct steps of a block with blank lines, the way paragraphs sepa
 - Insert a blank line between logical phases: computing a value, branching on it, and each independent side effect.
 - Keep tightly-coupled lines together (a value and the guard on it, a guard and its early return) with no blank line between them — grouping is meaningful in both directions.
 - One state update / one concern per visual paragraph. If a block does three things, show three groups.
-- There is no formatter here, so the blank lines are yours to keep. Apply this to code you write or change; don't regroup untouched code, since a whitespace-only diff buries the real change.
+- Prettier keeps blank lines but never adds them, so the grouping is yours to write. Apply this to code you write or change; don't regroup untouched code, since a whitespace-only diff buries the real change.
 
 ```tsx
 // Cramped: computing the expiry, saving it and redrawing run together
@@ -87,4 +88,4 @@ redrawSoon()
 
 ## Style that already holds
 
-Match the surrounding code: no semicolons, single quotes, two-space indent, lines up to about 120 characters, arrow functions for small helpers.
+Prettier (`.prettierrc.json`) sets the layout: no semicolons, single quotes, two-space indent, lines up to 120 characters. Run `npm run format` before committing. Beyond that, match the surrounding code, such as arrow functions for small helpers.

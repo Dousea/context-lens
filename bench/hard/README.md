@@ -6,12 +6,12 @@ test names. A run counts as solved when `tests/` is untouched and the whole test
 
 Setups (`run.sh`, 5th argument):
 
-| Setup | What runs |
-| --- | --- |
-| `m` | the app at medium effort, context-lens not loaded |
-| `h` | the app at high effort, context-lens not loaded |
-| `x` | the app at xhigh effort, context-lens not loaded (not in the default set) |
-| `on` | the app at medium, context-lens loaded from this repo with its defaults (Auto on) |
+| Setup | What runs                                                                         |
+| ----- | --------------------------------------------------------------------------------- |
+| `m`   | the app at medium effort, context-lens not loaded                                 |
+| `h`   | the app at high effort, context-lens not loaded                                   |
+| `x`   | the app at xhigh effort, context-lens not loaded (not in the default set)         |
+| `on`  | the app at medium, context-lens loaded from this repo with its defaults (Auto on) |
 
 Tasks: 3 easy (an inverted comparison), 4 medium (a swapped constant, an off-by-one, a regex), 3 hard (clamps in the
 wrong order, a cost formula that only goes wrong when two caches differ, a bug whose symptom shows in another function).

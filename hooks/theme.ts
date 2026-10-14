@@ -34,7 +34,9 @@ const memo = new Map<string, string>()
 const lmemo = new Map<string, string>()
 
 function toHsl(r: number, g: number, b: number): [number, number, number, number] {
-  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min
+  const max = Math.max(r, g, b),
+    min = Math.min(r, g, b),
+    d = max - min
   const l = (max + min) / 2
   const s = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1))
   let h = 0
@@ -49,8 +51,22 @@ function fromHsl(h: number, s: number, l: number): string {
   const c = (1 - Math.abs(2 * l - 1)) * s
   const x = c * (1 - Math.abs(((h / 60) % 2) - 1))
   const m = l - c / 2
-  const [r, g, b] = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x]
-  const byte = (v: number) => Math.max(0, Math.min(255, Math.round((v + m) * 255))).toString(16).padStart(2, '0')
+  const [r, g, b] =
+    h < 60
+      ? [c, x, 0]
+      : h < 120
+        ? [x, c, 0]
+        : h < 180
+          ? [0, c, x]
+          : h < 240
+            ? [0, x, c]
+            : h < 300
+              ? [x, 0, c]
+              : [c, 0, x]
+  const byte = (v: number) =>
+    Math.max(0, Math.min(255, Math.round((v + m) * 255)))
+      .toString(16)
+      .padStart(2, '0')
   return `#${byte(r)}${byte(g)}${byte(b)}`
 }
 
@@ -63,7 +79,14 @@ export function tintHex(hex: string): string {
   const n = parseInt(key.slice(1), 16)
   const [h, s, l, chroma] = toHsl((n >> 16) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255)
   // Violet hues with real colour in them; the greys that lean blue (hardly any chroma or saturation) are not in the family.
-  const out = h >= 235 && h <= 300 && chroma >= 0.03 && s >= 0.15 ? fromHsl(HUES[current], Math.min(1, s * (current === 'rose' ? 0.9 : 0.75)), l > 0.5 ? Math.max(0.5, l - (current === 'rose' ? 0.08 : 0.19)) : l) : hex
+  const out =
+    h >= 235 && h <= 300 && chroma >= 0.03 && s >= 0.15
+      ? fromHsl(
+          HUES[current],
+          Math.min(1, s * (current === 'rose' ? 0.9 : 0.75)),
+          l > 0.5 ? Math.max(0.5, l - (current === 'rose' ? 0.08 : 0.19)) : l,
+        )
+      : hex
   memo.set(key, out)
   return out
 }
@@ -71,18 +94,22 @@ export function tintHex(hex: string): string {
 // A cherry-blossom petal, and the fall it makes: each sparkle of the art becomes a petal at the same place, falling slowly
 // and turning as it goes. The drawing's own CSS animates sparkles in place; the petals bring their own.
 const PETAL = 'M0 -2.2C1.7 -1.7 1.9 0.9 0 2.2C-1.9 0.9 -1.7 -1.7 0 -2.2Z'
-const PETAL_CSS = '.pt{fill:#ffb3cf;opacity:0;animation-name:fall;animation-timing-function:linear;animation-iteration-count:infinite}@keyframes fall{0%{opacity:0;transform:translate(0,-4px) rotate(0deg)}12%{opacity:.6}85%{opacity:.5}100%{opacity:0;transform:translate(-16px,34px) rotate(280deg)}}'
+const PETAL_CSS =
+  '.pt{fill:#ffb3cf;opacity:0;animation-name:fall;animation-timing-function:linear;animation-iteration-count:infinite}@keyframes fall{0%{opacity:0;transform:translate(0,-4px) rotate(0deg)}12%{opacity:.6}85%{opacity:.5}100%{opacity:0;transform:translate(-16px,34px) rotate(280deg)}}'
 function petals(text: string): string {
   if (!text.includes('class="sp"')) return text
   return text
-    .replace(/<path class="sp" style="transform-origin:([\d.]+)px [\d.]+px;animation-duration:([\d.]+)s;animation-delay:([\d.]+)s" d="[^"]*"\/>/g, (_m, x: string, dur: string, delay: string) =>
-      `<g transform="translate(${x} 0)"><path class="pt" style="animation-duration:${(Number(dur) * 2.2).toFixed(1)}s;animation-delay:${delay}s" d="${PETAL}"/></g>`)
+    .replace(
+      /<path class="sp" style="transform-origin:([\d.]+)px [\d.]+px;animation-duration:([\d.]+)s;animation-delay:([\d.]+)s" d="[^"]*"\/>/g,
+      (_m, x: string, dur: string, delay: string) =>
+        `<g transform="translate(${x} 0)"><path class="pt" style="animation-duration:${(Number(dur) * 2.2).toFixed(1)}s;animation-delay:${delay}s" d="${PETAL}"/></g>`,
+    )
     .replace('</style>', `${PETAL_CSS}</style>`)
 }
 
 const luminance = (hex: string) => {
   const n = parseInt(hex.slice(1, 7), 16)
-  const f = (v: number) => (v /= 255) <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)
+  const f = (v: number) => ((v /= 255) <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4))
   return 0.2126 * f(n >> 16) + 0.7152 * f((n >> 8) & 255) + 0.0722 * f(n & 255)
 }
 // The palest and the deepest of the turned surfaces: text has to read on both.
@@ -116,7 +143,10 @@ export function lightHex(hex: string, role: 'text' | 'surface' | 'art' = 'art'):
     // lighter ones (hover, edges, header) a step darker, as they were a step lighter on dark.
     // A tinted surface (an alert band, the brand panel) keeps more of its colour, so cold still reads blue and swamp green.
     const top = s >= 0.2 ? 0.955 : 0.99
-    out = l >= 0.5 ? key.slice(0, 7) : fromHsl(h, Math.min(s, s >= 0.2 ? 0.6 : 0.35), Math.max(0.8, Math.min(top, top - (l - 0.07) * 0.9)))
+    out =
+      l >= 0.5
+        ? key.slice(0, 7)
+        : fromHsl(h, Math.min(s, s >= 0.2 ? 0.6 : 0.35), Math.max(0.8, Math.min(top, top - (l - 0.07) * 0.9)))
   }
   const result = key.length === 9 ? out + key.slice(7) : out
   lmemo.set(memoKey, result)
@@ -133,7 +163,8 @@ export function tint(text: string): string {
   if (!light) return drawn
   // A shape marked data-keep (a switch's knob) keeps its colour: it sits on a colour of its own, not on the panel.
   return drawn.replace(/(<[^>]*>)|([^<]+)/g, (part: string, tag?: string) =>
-    tag && tag.includes('data-keep') ? part : part.replace(lightRe, hex => lightHex(hex)))
+    tag && tag.includes('data-keep') ? part : part.replace(lightRe, hex => lightHex(hex)),
+  )
 }
 
 /** The accent as text colour. */
@@ -154,8 +185,17 @@ export function themedSvg<T>(Svg: T): T {
   return wrap as unknown as T
 }
 
-const PAINT = ['color', 'backgroundColor', 'borderColor', 'borderTopColor', 'borderBottomColor', 'borderLeftColor', 'borderRightColor']
-const paint = (v: unknown, role: 'text' | 'surface') => (typeof v === 'string' && /^#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?$/.test(v) ? lightHex(v, role) : v)
+const PAINT = [
+  'color',
+  'backgroundColor',
+  'borderColor',
+  'borderTopColor',
+  'borderBottomColor',
+  'borderLeftColor',
+  'borderRightColor',
+]
+const paint = (v: unknown, role: 'text' | 'surface') =>
+  typeof v === 'string' && /^#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?$/.test(v) ? lightHex(v, role) : v
 /** A props object with its hex colours (and those of its hover) turned for a light app. */
 export function lightProps(props: Record<string, unknown>): Record<string, unknown> {
   let out = props
@@ -183,6 +223,8 @@ const lit = (Part: unknown): unknown => {
 export function themedEls<T extends object>(els: T): T {
   const out: Record<string, unknown> = { ...els }
   if ('Svg' in els) out.Svg = themedSvg((els as { Svg: unknown }).Svg)
-  if (light) for (const part of ['Box', 'Text', 'Button']) if (part in els) out[part] = lit((els as Record<string, unknown>)[part])
+  if (light)
+    for (const part of ['Box', 'Text', 'Button'])
+      if (part in els) out[part] = lit((els as Record<string, unknown>)[part])
   return out as T
 }

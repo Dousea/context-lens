@@ -19,7 +19,11 @@ export const MOVING: ReadonlySet<ArtKind> = new Set(['cold', 'swamp', 'hot', 'do
 type Rgb = readonly [number, number, number]
 
 const hex = (h: string): Rgb => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)]
-const mix = (a: Rgb, b: Rgb, k: number): Rgb => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k]
+const mix = (a: Rgb, b: Rgb, k: number): Rgb => [
+  a[0] + (b[0] - a[0]) * k,
+  a[1] + (b[1] - a[1]) * k,
+  a[2] + (b[2] - a[2]) * k,
+]
 const pack = (c: Rgb) => ((Math.round(c[0]) << 16) | (Math.round(c[1]) << 8) | Math.round(c[2])) >>> 0
 // A fixed pseudo-random number per seed, so particles keep their lanes from frame to frame.
 const rand = (seed: number) => {
@@ -56,7 +60,13 @@ function paletteOf(kind: ArtKind) {
 }
 
 // The done tick, as pixels on the 16 by 4 grid (x, y).
-const TICK: ReadonlyArray<readonly [number, number]> = [[9, 2], [10, 3], [11, 2], [12, 1], [13, 0]]
+const TICK: ReadonlyArray<readonly [number, number]> = [
+  [9, 2],
+  [10, 3],
+  [11, 2],
+  [12, 1],
+  [13, 0],
+]
 
 /** The colour of one pixel of `kind` at frame `t`: x from 0 to columns - 1, y from 0 (top) to rows * 2 - 1. */
 export function artPixel(kind: ArtKind, t: number, x: number, y: number, cols = ART_COLUMNS, rows = ART_ROWS): number {

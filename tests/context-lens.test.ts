@@ -1,16 +1,77 @@
 import { describe, expect, mock, test as baseTest } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
-import { subagentFloor, subagentModelFor, switchWorth, subagentNote, priceOf, namedEffort, hotVisible, tipped, bounded, handoffEvidence, parseHandoffAnswer, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, asSpent, cacheColor, cacheLabel, hoverTips, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, appHintText, renamedSettings, subagentSteerable, bandFit, turnLineFor, flashColor, handoffGlowStep, weighted, handoffLook, claudeCandidates, noClaudeHint, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
+import {
+  subagentFloor,
+  subagentModelFor,
+  switchWorth,
+  subagentNote,
+  priceOf,
+  namedEffort,
+  hotVisible,
+  tipped,
+  bounded,
+  handoffEvidence,
+  parseHandoffAnswer,
+  parseVerdict,
+  capped,
+  resetLabel,
+  HANDOFF_PROMPT,
+  handoffMessage,
+  withAttachments,
+  endsOnQuestion,
+  keepsEffort,
+  benchGrade,
+  benchReport,
+  judgeFailure,
+  contextFrom,
+  readConfig,
+  asSpent,
+  cacheColor,
+  cacheLabel,
+  hoverTips,
+  cacheClock,
+  cacheSafe,
+  cacheTtlOf,
+  mostlyCached,
+  isFollowUp,
+  savedText,
+  forkOutcome,
+  setupNext,
+  setupBack,
+  setupCounter,
+  dashboardLines,
+  appHintText,
+  renamedSettings,
+  subagentSteerable,
+  bandFit,
+  turnLineFor,
+  flashColor,
+  handoffGlowStep,
+  weighted,
+  handoffLook,
+  claudeCandidates,
+  noClaudeHint,
+  compactTranscript,
+  judgeGlowSvg,
+  judgeGlowAt,
+  judgeBrightnessAt,
+  JUDGE_RISE_MS,
+  JUDGE_FADE_MS,
+  JUDGE_STEP_MS,
+  JUDGE_PIECE_MS,
+} from '../hooks/register'
 import { ART_COLUMNS, artFrame, artPixel, MOVING } from '../hooks/art'
 import { isLight, lightHex, lightProps, setLight, setTheme, themedEls, themedSvg, tint, tintHex } from '../hooks/theme'
 import { thinkingSvg } from '../hooks/thinking'
 
-
 // Most tests below were written for the footer's buttons: they run in the minimal look unless they name another.
 // The dashboard's own tests pass { layout: 'default' }.
 type Opts = Parameters<typeof baseTest>[1]
-const minimal = (o?: Record<string, unknown>) => ({ ...(o ?? {}), options: { layout: 'minimal', ...((o?.options as object) ?? {}) } })
+const minimal = (o?: Record<string, unknown>) => ({
+  ...(o ?? {}),
+  options: { layout: 'minimal', ...((o?.options as object) ?? {}) },
+})
 const test = ((name: string, a: unknown, b?: unknown) =>
   b === undefined
     ? baseTest(name, minimal() as Opts, a as never)
@@ -61,7 +122,9 @@ function engine(
   on('ui.status', () => ({ value: undefined }))
   on('session.messages', () => ({ value: said }) as never)
   on('session.model', () => ({ value: sessionModel }))
-  on('command.list', () => ({ value: [{ name: 'model' }, { name: 'effort' }, { name: 'session-handoff', source: 'user' }] as never }))
+  on('command.list', () => ({
+    value: [{ name: 'model' }, { name: 'effort' }, { name: 'session-handoff', source: 'user' }] as never,
+  }))
 }
 
 /** Records the slash commands the mod runs, as the person's own /model and /effort. */
@@ -85,7 +148,11 @@ function recordSteps(on: On) {
 }
 
 /** One main-loop request, the engine sending `effort` as its own setting (high unless /effort set another). */
-async function step($: Engine, effort: 'low' | 'medium' | 'high' | 'xhigh' | 'max' = 'high', model = 'claude-opus-5-5') {
+async function step(
+  $: Engine,
+  effort: 'low' | 'medium' | 'high' | 'xhigh' | 'max' = 'high',
+  model = 'claude-opus-5-5',
+) {
   const stream = $.turn.step({ turnId: 't1', index: 0, model, effort, messageCount: 1 })
   for await (const _ of stream) {
     // drain
@@ -148,7 +215,9 @@ describe('auto', () => {
 
   test('Auto switched off: the app effort goes out, not the pick the judge made while Auto was on', async ($, on) => {
     engine(on)
-    on('model.complete', () => ({ value: { isAnswered: true as const, text: '{"model":"opus","effort":"low","why":"tiny"}', usage: USAGE } }))
+    on('model.complete', () => ({
+      value: { isAnswered: true as const, text: '{"model":"opus","effort":"low","why":"tiny"}', usage: USAGE },
+    }))
     const sent = recordSteps(on)
     await $.prompt.submit({ text: 'rename this one variable for me', wait: false, origin: { kind: 'composer' } })
     await step($, 'xhigh')
@@ -164,9 +233,14 @@ describe('auto', () => {
 
   test('an agent report is judged for its own effort when Auto is on, and runs on the last pick when Auto is off', async ($, on) => {
     engine(on)
-    const said = ['{"model":"opus","effort":"high","why":"design"}', '{"model":"haiku","effort":"low","why":"a short status"}']
+    const said = [
+      '{"model":"opus","effort":"high","why":"design"}',
+      '{"model":"haiku","effort":"low","why":"a short status"}',
+    ]
     let asked = 0
-    on('model.complete', () => ({ value: { isAnswered: true as const, text: said[Math.min(asked++, said.length - 1)], usage: USAGE } }))
+    on('model.complete', () => ({
+      value: { isAnswered: true as const, text: said[Math.min(asked++, said.length - 1)], usage: USAGE },
+    }))
     const sent = recordSteps(on)
     await $.prompt.submit({ text: 'design the whole trainer architecture', wait: false, origin: { kind: 'composer' } })
     await step($, 'xhigh')
@@ -179,15 +253,23 @@ describe('auto', () => {
     // A scheduled firing, a relayed channel message and an auto-continuation are judged the same way.
     await $.prompt.submit({ text: 'Check the deploy.', wait: false, origin: { kind: 'scheduled-trigger' } })
     await $.prompt.submit({ text: 'Is the build green?', wait: false, origin: { kind: 'channel', server: 'slack' } })
-    await $.prompt.submit({ text: 'Now plan the migration to the new schema.', wait: false, origin: { kind: 'auto-continuation' } })
+    await $.prompt.submit({
+      text: 'Now plan the migration to the new schema.',
+      wait: false,
+      origin: { kind: 'auto-continuation' },
+    })
     expect(asked).toBe(5)
     await $.command.run({ command: 'context-lens', args: 'auto' })
-    await $.prompt.submit({ text: 'The background task finished again.', wait: false, origin: { kind: 'task-notification' } })
+    await $.prompt.submit({
+      text: 'The background task finished again.',
+      wait: false,
+      origin: { kind: 'task-notification' },
+    })
     await $.prompt.submit({ text: 'Check the deploy again.', wait: false, origin: { kind: 'scheduled-trigger' } })
     expect(asked).toBe(5)
   })
 
-  test('a subagent in view shows its own effort, never the chat\'s effort or the judge\'s reason for the chat\'s prompt', async ($, on) => {
+  test("a subagent in view shows its own effort, never the chat's effort or the judge's reason for the chat's prompt", async ($, on) => {
     engine(on)
     judgeSays(on, '{"model":"opus","effort":"high","why":"design work"}')
     await $.prompt.submit({ text: 'design the whole trainer architecture', wait: false, origin: { kind: 'composer' } })
@@ -196,14 +278,27 @@ describe('auto', () => {
     const own = await drawn(chat)
     expect(own).toContain('design work')
     await chat.unmount()
-    const agent = await $.ui.mount({ plugin: 'context-lens', surface: 'terminal', ...BAND, props: { ...BAND.props, view: { agentId: 'a1' } } } as never)
+    const agent = await $.ui.mount({
+      plugin: 'context-lens',
+      surface: 'terminal',
+      ...BAND,
+      props: { ...BAND.props, view: { agentId: 'a1' } },
+    } as never)
     const text = await drawn(agent)
     expect(text).not.toContain('design work')
     // No effort lit: the chat's high is not the subagent's, whose own is not known yet.
     expect(text).not.toContain('"label":"high","variant":"primary"')
     await agent.unmount()
     // The dashboard's own line: the subagent's effort alone, none of the chat's Auto state or judge.
-    const base = { auto: true, paused: true, judging: true, effort: undefined, cacheNow: null, contextPercent: null, reason: '' }
+    const base = {
+      auto: true,
+      paused: true,
+      judging: true,
+      effort: undefined,
+      cacheNow: null,
+      contextPercent: null,
+      reason: '',
+    }
     expect(dashboardLines({ ...base, agent: true }).what).toBe('Subagent')
     expect(dashboardLines({ ...base, agent: true, effort: 'low' }).what).toBe('Low')
   })
@@ -220,12 +315,14 @@ describe('auto', () => {
     expect(bandFit(5, { ...all, detailText: true })).toEqual({ detail: true, border: false, effort: true, lens: true })
   })
 
-  test('a typed skill is judged like a prompt (told what it is); the app\'s own commands are not', async ($, on) => {
+  test("a typed skill is judged like a prompt (told what it is); the app's own commands are not", async ($, on) => {
     engine(on)
     const asked: string[] = []
     on('model.complete', (_$, e) => {
       asked.push(String((e as { prompt?: string }).prompt ?? ''))
-      return { value: { isAnswered: true as const, text: '{"model":"haiku","effort":"low","why":"small job"}', usage: USAGE } }
+      return {
+        value: { isAnswered: true as const, text: '{"model":"haiku","effort":"low","why":"small job"}', usage: USAGE },
+      }
     })
     const sent = recordSteps(on)
     // /session-handoff is a user skill (see engine's command list): judged, even though it is short enough to look like a follow-up.
@@ -238,7 +335,7 @@ describe('auto', () => {
     expect(asked.length).toBe(1)
   })
 
-  test('a dearer model than the chat\'s is only offered: declined, the request keeps the chat model', async ($, on) => {
+  test("a dearer model than the chat's is only offered: declined, the request keeps the chat model", async ($, on) => {
     engine(on, {}, 'claude-sonnet-5-5')
     judgeSays(on, '{"model":"opus","effort":"high","why":"hard"}')
     const sent = recordSteps(on)
@@ -249,7 +346,13 @@ describe('auto', () => {
     expect(await ui.find({ key: 'accept' })).toBeDefined()
     await ui.press({ key: 'decline' })
     await sending
-    for await (const _ of $.turn.step({ turnId: 't1', index: 0, model: 'claude-sonnet-5-5', effort: 'high', messageCount: 1 })) {
+    for await (const _ of $.turn.step({
+      turnId: 't1',
+      index: 0,
+      model: 'claude-sonnet-5-5',
+      effort: 'high',
+      messageCount: 1,
+    })) {
       // drain
     }
     expect(sent[0].model).toBe('claude-sonnet-5-5')
@@ -312,7 +415,13 @@ describe('model in use', () => {
     mock.clock(on)
     on('classic.PostModelSwitch', () => ({}) as never)
     const switchTo = (from: string, to: string) =>
-      $.classic.PostModelSwitch({ from_model: from, to_model: to, requested_model: null, source: 'picker', context_tokens: 0 } as never)
+      $.classic.PostModelSwitch({
+        from_model: from,
+        to_model: to,
+        requested_model: null,
+        source: 'picker',
+        context_tokens: 0,
+      } as never)
 
     await switchTo('claude-opus-5-5', 'claude-haiku-5-5')
     await $.prompt.submit({ text: 'ok', wait: false, origin: { kind: 'composer' } })
@@ -409,7 +518,7 @@ describe('model suggestion', () => {
     expect(switchWorth('fable', 'opus', { cold: true })).toBe(null)
   })
 
-  test('a stronger model than the chat\'s is suggested in a new chat', async ($, on) => {
+  test("a stronger model than the chat's is suggested in a new chat", async ($, on) => {
     engine(on, {}, 'claude-sonnet-5-5')
     judgeSays(on, '{"model":"opus","effort":"high","why":"hard problem"}')
     mock.clock(on)
@@ -538,10 +647,17 @@ describe('offer a model first', () => {
   /** The main model answers every request with `tokens` held in its cache; records the model each went out on. */
   const bigChat = (on: On, tokens: number) => {
     const sent: string[] = []
-    on('session.usage', () => ({ value: { context: { tokens, window: 1_000_000, percent: tokens / 10_000 } } }) as never)
+    on(
+      'session.usage',
+      () => ({ value: { context: { tokens, window: 1_000_000, percent: tokens / 10_000 } } }) as never,
+    )
     on('turn.step', async function* (_$, e) {
       sent.push(e.model)
-      const usage = { ...USAGE, cache_read_input_tokens: tokens, cache_creation: { ephemeral_1h_input_tokens: 0, ephemeral_5m_input_tokens: 0 } }
+      const usage = {
+        ...USAGE,
+        cache_read_input_tokens: tokens,
+        cache_creation: { ephemeral_1h_input_tokens: 0, ephemeral_5m_input_tokens: 0 },
+      }
       return { turnId: e.turnId, index: e.index, answer: '', toolUses: [], stopReason: 'end_turn', usage } as never
     })
     return sent
@@ -603,26 +719,30 @@ describe('offer a model first', () => {
     return toasts
   }
 
-  test('model on Manual, hold off: a typed prompt goes on at once and the other model is suggested in a toast', NO_HOLD, async ($, on) => {
-    engine(on)
-    judgeSays(on, '{"model":"haiku","effort":"low","why":"simple question"}')
-    const toasts = toastsOf(on)
-    const sent = recordSteps(on)
-    mock.clock(on)
-    const ui = await $.ui.mount({ plugin: 'context-lens', surface: 'terminal', ...BAND })
+  test(
+    'model on Manual, hold off: a typed prompt goes on at once and the other model is suggested in a toast',
+    NO_HOLD,
+    async ($, on) => {
+      engine(on)
+      judgeSays(on, '{"model":"haiku","effort":"low","why":"simple question"}')
+      const toasts = toastsOf(on)
+      const sent = recordSteps(on)
+      mock.clock(on)
+      const ui = await $.ui.mount({ plugin: 'context-lens', surface: 'terminal', ...BAND })
 
-    const { through, sending } = await sendHeld($, on)
-    await sending
-    await settle(ui)
+      const { through, sending } = await sendHeld($, on)
+      await sending
+      await settle(ui)
 
-    expect(through).toEqual(['vad heter mappen?'])
-    expect(toasts.join(' ')).toContain('Suggestion: switch to Haiku?')
-    expect((await ui.find({ key: 'accept' }))?.props.hotkey).toBeUndefined()
-    expect(await ui.find({ key: 'never' })).toBeUndefined()
-    await step($)
-    expect(sent[0].model).toBe('claude-opus-5-5')
-    await ui.unmount()
-  })
+      expect(through).toEqual(['vad heter mappen?'])
+      expect(toasts.join(' ')).toContain('Suggestion: switch to Haiku?')
+      expect((await ui.find({ key: 'accept' }))?.props.hotkey).toBeUndefined()
+      expect(await ui.find({ key: 'never' })).toBeUndefined()
+      await step($)
+      expect(sent[0].model).toBe('claude-opus-5-5')
+      await ui.unmount()
+    },
+  )
 
   test('model on Manual, hold off: a hand-off is not suggested once the prompt has gone', NO_HOLD, async ($, on) => {
     engine(on)
@@ -688,7 +808,10 @@ describe('offer a model first', () => {
 
   test("Don't ask again sends the prompt as it is and turns the hold off: the next offer is a toast", async ($, on) => {
     engine(on)
-    const says = ['{"model":"haiku","effort":"low","why":"simple"}', '{"model":"sonnet","effort":"medium","why":"normal work"}']
+    const says = [
+      '{"model":"haiku","effort":"low","why":"simple"}',
+      '{"model":"sonnet","effort":"medium","why":"normal work"}',
+    ]
     on('model.complete', () => ({ value: { isAnswered: true as const, text: says.shift() ?? '', usage: USAGE } }))
     const toasts = toastsOf(on)
     mock.clock(on)
@@ -842,7 +965,9 @@ describe('footer text', () => {
     // Hovering the level puts a grey box behind it.
     expect(text).toContain('"hover":{"scope":"effort","backgroundColor":"#2b2b2f"}')
     // No background at rest: the only ones are in the hover styles and the hidden hover cards (display none).
-    expect(text.replaceAll('"backgroundColor":"#2b2b2f"}', '').replaceAll('"backgroundColor":"#221c3a"', '')).not.toContain('backgroundColor')
+    expect(
+      text.replaceAll('"backgroundColor":"#2b2b2f"}', '').replaceAll('"backgroundColor":"#221c3a"', ''),
+    ).not.toContain('backgroundColor')
     await footer.unmount()
   })
 
@@ -924,7 +1049,12 @@ describe('footer text', () => {
     const sent = recordSteps(on)
 
     await $.prompt.submit({ text: 'hej', wait: false, origin: { kind: 'composer' } })
-    for await (const _ of $.turn.step({ turnId: 't1', index: 0, model: 'claude-haiku-4-5-20251001', messageCount: 1 })) {
+    for await (const _ of $.turn.step({
+      turnId: 't1',
+      index: 0,
+      model: 'claude-haiku-4-5-20251001',
+      messageCount: 1,
+    })) {
       // drain
     }
 
@@ -936,9 +1066,19 @@ describe('footer text', () => {
     let system = ''
     on('model.complete', (_$, e) => {
       system = String(e.system)
-      return { value: { isAnswered: true as const, text: '{"model":"opus","effort":"high","why":"stor uppgift"}', usage: USAGE } } as never
+      return {
+        value: {
+          isAnswered: true as const,
+          text: '{"model":"opus","effort":"high","why":"stor uppgift"}',
+          usage: USAGE,
+        },
+      } as never
     })
-    await $.prompt.submit({ text: 'go through my whole google drive and clean it up', wait: false, origin: { kind: 'composer' } })
+    await $.prompt.submit({
+      text: 'go through my whole google drive and clean it up',
+      wait: false,
+      origin: { kind: 'composer' },
+    })
     expect(system).toContain('SCOPE')
     expect(system).toContain('whole drive')
     expect(system).toContain('never low')
@@ -950,7 +1090,9 @@ describe('footer text', () => {
     // The judge takes half a second to answer.
     on('model.complete', async () => {
       await mocked.sleep(500)
-      return { value: { isAnswered: true as const, text: '{"model":"opus","effort":"high","why":"x"}', usage: USAGE } } as never
+      return {
+        value: { isAnswered: true as const, text: '{"model":"opus","effort":"high","why":"x"}', usage: USAGE },
+      } as never
     })
     const footer = await $.ui.mount(FOOTER)
     expect(await drawn(footer)).not.toContain('Deciding')
@@ -999,7 +1141,13 @@ describe('footer text', () => {
         answer: '',
         toolUses: [],
         stopReason: 'end_turn',
-        usage: { input_tokens: 100, output_tokens: 600, cache_read_input_tokens: 10000, cache_creation_input_tokens: 800, model: 'claude-opus-5-5' },
+        usage: {
+          input_tokens: 100,
+          output_tokens: 600,
+          cache_read_input_tokens: 10000,
+          cache_creation_input_tokens: 800,
+          model: 'claude-opus-5-5',
+        },
       } as never
     })
     expect(await asked($)).toContain('nothing measured yet')
@@ -1058,7 +1206,6 @@ describe('subagents', () => {
     expect(cacheSafe('claude-opus-4-8')).toBe(false)
     expect(cacheSafe('claude-opus-5')).toBe(false)
   })
-
 })
 
 describe('follow-ups', () => {
@@ -1094,20 +1241,28 @@ describe('named level', () => {
     expect(namedEffort('a high effort job: migrate everything')).toBe('high')
   })
 
-  test('a prompt that names a level runs at it without asking the judge, past Max', { options: { effortCeiling: 'high' } } as never, async ($, on) => {
-    engine(on)
-    const asked = judgeSays(on, '{"model":"opus","effort":"low","why":"small"}')
-    const sent = recordSteps(on)
-    await $.prompt.submit({ text: 'max effort: find why the relay drops messages', wait: false, origin: { kind: 'composer' } })
-    await step($, 'medium')
-    expect(asked.length).toBe(0)
-    expect(sent[0].effort).toBe('max')
-    // The next prompt without a level goes back to the judge, within Max.
-    await $.prompt.submit({ text: 'now rename the subagent in utils', wait: false, origin: { kind: 'composer' } })
-    await step($, 'medium')
-    expect(asked.length).toBe(1)
-    expect(sent[1].effort).toBe('low')
-  })
+  test(
+    'a prompt that names a level runs at it without asking the judge, past Max',
+    { options: { effortCeiling: 'high' } } as never,
+    async ($, on) => {
+      engine(on)
+      const asked = judgeSays(on, '{"model":"opus","effort":"low","why":"small"}')
+      const sent = recordSteps(on)
+      await $.prompt.submit({
+        text: 'max effort: find why the relay drops messages',
+        wait: false,
+        origin: { kind: 'composer' },
+      })
+      await step($, 'medium')
+      expect(asked.length).toBe(0)
+      expect(sent[0].effort).toBe('max')
+      // The next prompt without a level goes back to the judge, within Max.
+      await $.prompt.submit({ text: 'now rename the subagent in utils', wait: false, origin: { kind: 'composer' } })
+      await step($, 'medium')
+      expect(asked.length).toBe(1)
+      expect(sent[1].effort).toBe('low')
+    },
+  )
 })
 
 describe('state from an older version', () => {
@@ -1125,7 +1280,10 @@ describe('state from an older version', () => {
   })
 
   test('renamedSettings: an old name is carried to the new one unless the new one is saved already', () => {
-    expect(renamedSettings({ helpers: 'on', helperModel: 'on', theme: 'rose' })).toEqual({ subagents: 'on', subagentModel: 'on' })
+    expect(renamedSettings({ helpers: 'on', helperModel: 'on', theme: 'rose' })).toEqual({
+      subagents: 'on',
+      subagentModel: 'on',
+    })
     expect(renamedSettings({ helpers: 'on', subagents: 'off' })).toEqual({})
     expect(renamedSettings({})).toEqual({})
   })
@@ -1133,7 +1291,10 @@ describe('state from an older version', () => {
   test('settings saved under their old names are used at once and saved under the new ones', async ($, on) => {
     engine(on, {}, 'claude-opus-5-5', [], { savedSettings: { helperModel: 'on', theme: 'rose' }, setupDone: true })
     const mocked = mock.clock(on)
-    on('settings.read', () => ({ value: { pluginConfigs: { 'context-lens@context-lens': { options: { helpers: 'on' } } } } }) as never)
+    on(
+      'settings.read',
+      () => ({ value: { pluginConfigs: { 'context-lens@context-lens': { options: { helpers: 'on' } } } } }) as never,
+    )
     const set: { key: string; value: unknown }[] = []
     on('config.set', (_$, e) => {
       set.push({ key: e.key, value: e.value })
@@ -1177,11 +1338,20 @@ describe('cache countdown', () => {
   const shows = (text: string) => `"children":["${text}"]`
 
   test('the cache hover tip says there is no cache yet, not that it is cold, before the first reply', () => {
-    const before = { auto: true, current: null, pausedNow: false, modelNow: 'sonnet', shownByApp: null, cacheNow: null } as never
+    const before = {
+      auto: true,
+      current: null,
+      pausedNow: false,
+      modelNow: 'sonnet',
+      shownByApp: null,
+      cacheNow: null,
+    } as never
     expect(hoverTips(before).cache).toContain('No prompt cache yet')
     expect(hoverTips(before).cache).not.toContain('Cold')
     expect(hoverTips({ ...(before as object), cacheNow: 0 } as never).cache).toContain('cold')
-    expect(hoverTips({ ...(before as object), cacheNow: 42 } as never).cache).toContain(`warm for ${cacheLabel(42)} more`)
+    expect(hoverTips({ ...(before as object), cacheNow: 42 } as never).cache).toContain(
+      `warm for ${cacheLabel(42)} more`,
+    )
   })
 
   test('cacheTtlOf and cacheLabel', () => {
@@ -1519,7 +1689,9 @@ describe('review fixes', () => {
     engine(on)
     // Haiku is offered first; on Haiku, the next prompt is offered Opus back.
     const says = ['{"model":"haiku","effort":"low","why":"simple"}', '{"model":"opus","effort":"high","why":"hard"}']
-    on('model.complete', () => ({ value: { isAnswered: true as const, text: says.length > 1 ? says.shift()! : says[0], usage: USAGE } }))
+    on('model.complete', () => ({
+      value: { isAnswered: true as const, text: says.length > 1 ? says.shift()! : says[0], usage: USAGE },
+    }))
     const ran = recordCommands(on)
     const mocked = mock.clock(on)
     const ui = await $.ui.mount({ plugin: 'context-lens', surface: 'terminal', ...BAND })
@@ -1531,7 +1703,11 @@ describe('review fixes', () => {
     expect(String(result.text)).toContain('haiku')
     expect(ran).toEqual([])
 
-    const second = $.prompt.submit({ text: 'a new question about something else', wait: false, origin: { kind: 'composer' } })
+    const second = $.prompt.submit({
+      text: 'a new question about something else',
+      wait: false,
+      origin: { kind: 'composer' },
+    })
     for (let i = 0; i < 5; i++) await ui.redraw()
     const kept = await $.command.run({ command: 'context-lens', args: 'keep' })
     await second
@@ -1543,7 +1719,6 @@ describe('review fixes', () => {
 describe('judge choice (plugin settings)', () => {
   const chat = (content: string) =>
     JSON.stringify({ choices: [{ message: { content } }], usage: { prompt_tokens: 300, completion_tokens: 20 } })
-
 })
 
 describe('context for the judge', () => {
@@ -1567,16 +1742,22 @@ describe('context for the judge', () => {
     on('prompt.submit', (_$, e) => ({ text: e.text }))
     on('ui.status', () => ({ value: undefined }))
     on('session.model', () => ({ value: 'claude-opus-5-5' }))
-    on('session.messages', () => ({
-      value: [
-        { role: 'user', text: 'make me a new section' },
-        { role: 'assistant', text: 'Which one: A (simple) or B (a complicated multi-step layout)?' },
-      ],
-    }) as never)
+    on(
+      'session.messages',
+      () =>
+        ({
+          value: [
+            { role: 'user', text: 'make me a new section' },
+            { role: 'assistant', text: 'Which one: A (simple) or B (a complicated multi-step layout)?' },
+          ],
+        }) as never,
+    )
     const seen: { system?: string; prompt: string }[] = []
     on('model.complete', (_$, e) => {
       seen.push({ system: e.system, prompt: e.prompt })
-      return { value: { isAnswered: true as const, text: '{"model":"opus","effort":"high","why":"B is big"}', usage: USAGE } }
+      return {
+        value: { isAnswered: true as const, text: '{"model":"opus","effort":"high","why":"B is big"}', usage: USAGE },
+      }
     })
     await $.prompt.submit({ text: 'B', wait: false, origin: { kind: 'composer' } })
     expect(seen[0].prompt).toContain('B (a complicated multi-step layout)')
@@ -1592,17 +1773,17 @@ describe('model-aware effort', () => {
     const seen: { system?: string; prompt: string }[] = []
     on('model.complete', (_$, e) => {
       seen.push({ system: e.system, prompt: e.prompt })
-      return { value: { isAnswered: true as const, text: '{"model":"sonnet","effort":"high","why":"x"}', usage: USAGE } }
+      return {
+        value: { isAnswered: true as const, text: '{"model":"sonnet","effort":"high","why":"x"}', usage: USAGE },
+      }
     })
     await $.prompt.submit({ text: 'refactor the parser', wait: false, origin: { kind: 'composer' } })
     expect(seen[0].prompt).toContain('Current: sonnet')
     expect(seen[0].system).toContain('Opus at medium does about what Sonnet does at high')
   })
-
 })
 
-describe('keys', () => {
-})
+describe('keys', () => {})
 
 describe('setup guide', () => {
   const DESK = { plugin: 'context-lens', surface: 'desktop', ...BAND } as never
@@ -1631,7 +1812,10 @@ describe('setup guide', () => {
   test('an app with no /config row for the plugin: the choices are kept in the store and come back next session', async ($, on) => {
     engine(on)
     const mocked = mock.clock(on)
-    on('config.set', () => ({ deny: 'no /config row with key context-lens.effortBias ($.config.list names them)' }) as never)
+    on(
+      'config.set',
+      () => ({ deny: 'no /config row with key context-lens.effortBias ($.config.list names them)' }) as never,
+    )
     const said = toasts(on)
     await start($, on)
     const band = await $.ui.mount(DESK)
@@ -1733,7 +1917,6 @@ describe('setup guide', () => {
     expect(await again.find({ key: 'setup-bias2' })).toBeDefined()
     await again.unmount()
   })
-
 })
 
 describe('judge failures are said', () => {
@@ -1743,7 +1926,6 @@ describe('judge failures are said', () => {
     expect(judgeFailure('Haiku', 401)).toContain('was refused')
     expect(judgeFailure('Haiku', 'timeout')).toContain('did not answer')
   })
-
 })
 
 describe('judge benchmark', () => {
@@ -1772,7 +1954,10 @@ describe('judge benchmark', () => {
     mock.clock(on)
     const asked = judgeSays(on, '{"model":"sonnet","effort":"low","why":"x"}')
     const cases = { cases: [c('a', ['low'], 'rename foo to bar in utils.ts'), c('f', ['medium'], 'go')] }
-    on('fs.read', (_$, e) => ({ value: String(e.path).endsWith('judge-cases.json') ? JSON.stringify(cases) : '' }) as never)
+    on(
+      'fs.read',
+      (_$, e) => ({ value: String(e.path).endsWith('judge-cases.json') ? JSON.stringify(cases) : '' }) as never,
+    )
     const written: Record<string, string> = {}
     on('fs.write', (_$, e) => {
       written[String(e.path)] = String(e.text)
@@ -1811,12 +1996,13 @@ describe('short answers to a question', () => {
     await $.prompt.submit({ text: 'yes', wait: false, origin: { kind: 'composer' } })
     expect(asked.length).toBe(2)
   })
-
 })
 
 describe('images', () => {
   test('the judge is told what the message carries', () => {
-    expect(withAttachments('fix this', [{ type: 'image' }, { type: 'image' }])).toContain('[The message comes with 2 images to look at.]')
+    expect(withAttachments('fix this', [{ type: 'image' }, { type: 'image' }])).toContain(
+      '[The message comes with 2 images to look at.]',
+    )
     expect(withAttachments('fix this')).toBe('fix this')
   })
 
@@ -1825,7 +2011,12 @@ describe('images', () => {
     mock.clock(on)
     const asked = judgeSays(on, '{"model":"sonnet","effort":"medium","why":"x"}')
     await $.prompt.submit({ text: 'refactor the sync engine end to end', wait: false, origin: { kind: 'composer' } })
-    await $.prompt.submit({ text: 'fix this', wait: false, origin: { kind: 'composer' }, attachments: [{ type: 'image', mediaType: 'image/png' }] } as never)
+    await $.prompt.submit({
+      text: 'fix this',
+      wait: false,
+      origin: { kind: 'composer' },
+      attachments: [{ type: 'image', mediaType: 'image/png' }],
+    } as never)
     expect(asked.length).toBe(2)
     expect(asked[1]).toContain('1 image')
   })
@@ -1835,7 +2026,11 @@ describe('compaction by Haiku', () => {
   const SUMMARY = '1. Primary request: rename userId across the app. ' + 'Details. '.repeat(40)
   const said = [
     { role: 'user', text: 'rename this variable to userId', toolUses: [] },
-    { role: 'assistant', text: 'Renamed in 4 files.', toolUses: [{ tool_use_id: 't1', tool: 'Edit', input: { file_path: 'a.ts' }, text: 'x'.repeat(5000) }] },
+    {
+      role: 'assistant',
+      text: 'Renamed in 4 files.',
+      toolUses: [{ tool_use_id: 't1', tool: 'Edit', input: { file_path: 'a.ts' }, text: 'x'.repeat(5000) }],
+    },
   ]
   /** Claude Code's own compaction beneath the mod, and whether it ran. */
   const core = (on: On) => {
@@ -1849,7 +2044,11 @@ describe('compaction by Haiku', () => {
 
   test('the last messages reach Haiku nearly whole: the code just written is not cut to 400 characters', () => {
     const code = 'x'.repeat(5000)
-    const old = Array.from({ length: 10 }, (_, i) => ({ role: i % 2 ? 'assistant' : 'user', text: `turn ${i}`, toolUses: [{ tool: 'Edit', input: { new_string: code }, text: code }] }))
+    const old = Array.from({ length: 10 }, (_, i) => ({
+      role: i % 2 ? 'assistant' : 'user',
+      text: `turn ${i}`,
+      toolUses: [{ tool: 'Edit', input: { new_string: code }, text: code }],
+    }))
     const text = compactTranscript(old as never)
     // The first message is cut, the last one is whole.
     expect(text.split('turn 0')[1].split('turn 1')[0]).toContain('more characters')
@@ -1872,7 +2071,9 @@ describe('compaction by Haiku', () => {
       asked.push({ model: e.model, prompt: e.prompt })
       return { value: { isAnswered: true as const, text: SUMMARY, usage: USAGE } }
     })
-    const out = (await $.session.compact({ instructions: 'keep the API decisions' })) as { messages?: { text: string }[] }
+    const out = (await $.session.compact({ instructions: 'keep the API decisions' })) as {
+      messages?: { text: string }[]
+    }
     expect(ran.core).toBe(0)
     expect(asked[0].model).toBe('claude-haiku-5-5')
     expect(asked[0].prompt).toContain('keep the API decisions')
@@ -1893,18 +2094,22 @@ describe('compaction by Haiku', () => {
     expect(toasts.join(' ')).toContain('Haiku could not compact')
   })
 
-  test("set to the chat's model, Claude Code compacts and Haiku is never asked", { options: { compactWith: 'session' } } as never, async ($, on) => {
-    engine(on)
-    const ran = core(on)
-    let asked = 0
-    on('model.complete', () => {
-      asked++
-      return { value: { isAnswered: true as const, text: SUMMARY, usage: USAGE } }
-    })
-    await $.session.compact({})
-    expect(ran.core).toBe(1)
-    expect(asked).toBe(0)
-  })
+  test(
+    "set to the chat's model, Claude Code compacts and Haiku is never asked",
+    { options: { compactWith: 'session' } } as never,
+    async ($, on) => {
+      engine(on)
+      const ran = core(on)
+      let asked = 0
+      on('model.complete', () => {
+        asked++
+        return { value: { isAnswered: true as const, text: SUMMARY, usage: USAGE } }
+      })
+      await $.session.compact({})
+      expect(ran.core).toBe(1)
+      expect(asked).toBe(0)
+    },
+  )
 })
 
 describe('deciding glow', () => {
@@ -1936,7 +2141,9 @@ describe('deciding glow', () => {
       // Starts on the curve, only goes down, and ends where the curve is at the end of the piece.
       expect(Math.abs(p[0] - judgeBrightnessAt('fade', t))).toBeLessThan(0.001)
       for (let k = 1; k < 5; k++) expect(p[k]).toBeLessThanOrEqual(p[k - 1])
-      expect(Math.abs(p[4] - judgeBrightnessAt('fade', Math.min(JUDGE_FADE_MS, t + JUDGE_PIECE_MS)))).toBeLessThan(0.001)
+      expect(Math.abs(p[4] - judgeBrightnessAt('fade', Math.min(JUDGE_FADE_MS, t + JUDGE_PIECE_MS)))).toBeLessThan(
+        0.001,
+      )
     }
     expect(JUDGE_PIECE_MS).toBeGreaterThan(120)
     expect(pts(judgeGlowSvg('fade', JUDGE_FADE_MS - 10))[4]).toBe(0)
@@ -1988,7 +2195,12 @@ describe('handoff', () => {
   })
 
   /** Presses ⇥ in the footer, makes the choices in the handoff bar, and presses Go. */
-  async function handOff($: Engine, footer: { press: (at: { key: string }) => Promise<unknown> }, keys: string[] = [], after?: string) {
+  async function handOff(
+    $: Engine,
+    footer: { press: (at: { key: string }) => Promise<unknown> },
+    keys: string[] = [],
+    after?: string,
+  ) {
     await footer.press({ key: 'handoff' })
     const bar = await $.ui.mount(DESK_BAND)
     for (const key of keys) await bar.press({ key })
@@ -2048,7 +2260,10 @@ describe('handoff', () => {
   })
 
   test('on a cold cache, Quick is written by Haiku from the transcript, not a fork that rereads the chat', async ($, on) => {
-    const { forked, submitted } = handoffEngine(on, [{ role: 'user', text: 'build the thing' }, { role: 'assistant', text: 'built it' }])
+    const { forked, submitted } = handoffEngine(on, [
+      { role: 'user', text: 'build the thing' },
+      { role: 'assistant', text: 'built it' },
+    ])
     const asked: string[] = []
     on('model.complete', (_$, e) => {
       asked.push(String(e.model))
@@ -2076,43 +2291,63 @@ describe('handoff', () => {
     expect(hotVisible({ ...heat, resetsAt: '2026-10-11T01:00:00Z' }, closed)).toBe(true)
   })
 
-  test('with a skill set, Quick forks and Full runs the skill', { options: { handoffSkill: 'session-handoff' } } as never, async ($, on) => {
-    const { forked, ran, submitted } = handoffEngine(on)
-    const mocked = mock.clock(on)
-    await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
-    const footer = await $.ui.mount(FOOTER)
-    await handOff($, footer, ['handoff-quick'])
-    await mocked.advance(2500)
-    expect(forked).toEqual([HANDOFF_PROMPT])
-    expect(ran).not.toContain('session-handoff')
-    expect(ran).toContain('clear')
-    await handOff($, footer, ['handoff-full'])
-    await mocked.advance(1000)
-    expect(ran).toContain('session-handoff')
-    expect(forked).toHaveLength(1)
-    // The skill's last words only say it saved the handoff: the new chat is told to read what it saved.
-    await $.turn.complete({ turnId: 't2', answer: "I've saved the handoff.", durationMs: 1, isAborted: false, reason: 'answer' } as never)
-    await mocked.advance(2500)
-    expect(submitted.at(-1)).toContain('First read the handoff /session-handoff saved')
-    await footer.unmount()
-  })
+  test(
+    'with a skill set, Quick forks and Full runs the skill',
+    { options: { handoffSkill: 'session-handoff' } } as never,
+    async ($, on) => {
+      const { forked, ran, submitted } = handoffEngine(on)
+      const mocked = mock.clock(on)
+      await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
+      const footer = await $.ui.mount(FOOTER)
+      await handOff($, footer, ['handoff-quick'])
+      await mocked.advance(2500)
+      expect(forked).toEqual([HANDOFF_PROMPT])
+      expect(ran).not.toContain('session-handoff')
+      expect(ran).toContain('clear')
+      await handOff($, footer, ['handoff-full'])
+      await mocked.advance(1000)
+      expect(ran).toContain('session-handoff')
+      expect(forked).toHaveLength(1)
+      // The skill's last words only say it saved the handoff: the new chat is told to read what it saved.
+      await $.turn.complete({
+        turnId: 't2',
+        answer: "I've saved the handoff.",
+        durationMs: 1,
+        isAborted: false,
+        reason: 'answer',
+      } as never)
+      await mocked.advance(2500)
+      expect(submitted.at(-1)).toContain('First read the handoff /session-handoff saved')
+      await footer.unmount()
+    },
+  )
 
-  test('the bar opens on the choice made last', { options: { handoffSkill: 'session-handoff' } } as never, async ($, on) => {
-    handoffEngine(on)
-    const mocked = mock.clock(on)
-    await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
-    const footer = await $.ui.mount(FOOTER)
-    await handOff($, footer, ['handoff-full'], 'confirm')
-    await mocked.advance(1000)
-    await $.turn.complete({ turnId: 't1', answer: 'Goal: full.', durationMs: 1, isAborted: false, reason: 'answer' } as never)
-    await mocked.advance(1500)
-    await footer.press({ key: 'handoff' })
-    const bar = await $.ui.mount(DESK_BAND)
-    expect(await drawn(bar)).toContain('"/session-handoff"')
-    expect(await drawn(bar)).toContain('"value":"confirm"')
-    await bar.unmount()
-    await footer.unmount()
-  })
+  test(
+    'the bar opens on the choice made last',
+    { options: { handoffSkill: 'session-handoff' } } as never,
+    async ($, on) => {
+      handoffEngine(on)
+      const mocked = mock.clock(on)
+      await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
+      const footer = await $.ui.mount(FOOTER)
+      await handOff($, footer, ['handoff-full'], 'confirm')
+      await mocked.advance(1000)
+      await $.turn.complete({
+        turnId: 't1',
+        answer: 'Goal: full.',
+        durationMs: 1,
+        isAborted: false,
+        reason: 'answer',
+      } as never)
+      await mocked.advance(1500)
+      await footer.press({ key: 'handoff' })
+      const bar = await $.ui.mount(DESK_BAND)
+      expect(await drawn(bar)).toContain('"/session-handoff"')
+      expect(await drawn(bar)).toContain('"value":"confirm"')
+      await bar.unmount()
+      await footer.unmount()
+    },
+  )
 
   test("without a skill, Full is context-lens's own: a turn that checks git and saves HANDOFF.md, no fork", async ($, on) => {
     const { forked, submitted } = handoffEngine(on)
@@ -2161,8 +2396,19 @@ describe('handoff', () => {
     const mocked = mock.clock(on)
     await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
     const reply = (text: string) =>
-      ({ plugin: 'context-lens', surface: 'desktop', component: 'AssistantMessage', props: { text, isFirstOfReply: true } }) as never
-    await $.turn.complete({ turnId: 't1', answer: 'Last reply.', durationMs: 1, isAborted: false, reason: 'answer' } as never)
+      ({
+        plugin: 'context-lens',
+        surface: 'desktop',
+        component: 'AssistantMessage',
+        props: { text, isFirstOfReply: true },
+      }) as never
+    await $.turn.complete({
+      turnId: 't1',
+      answer: 'Last reply.',
+      durationMs: 1,
+      isAborted: false,
+      reason: 'answer',
+    } as never)
     const footer = await $.ui.mount(FOOTER)
     await footer.press({ key: 'handoff' })
     const bar = await $.ui.mount(DESK_BAND)
@@ -2185,7 +2431,13 @@ describe('handoff', () => {
     expect(await landed.find({ key: 'card-close' })).toBeDefined()
     await landed.unmount()
     await $.prompt.submit({ text: 'next', wait: false, origin: { kind: 'composer' } })
-    await $.turn.complete({ turnId: 't2', answer: 'Next reply.', durationMs: 1, isAborted: false, reason: 'answer' } as never)
+    await $.turn.complete({
+      turnId: 't2',
+      answer: 'Next reply.',
+      durationMs: 1,
+      isAborted: false,
+      reason: 'answer',
+    } as never)
     // The card is gone: the band draws whatever else it has, or nothing.
     const after = await $.ui.mount(DESK_BAND).catch(() => null)
     expect(after ? await after.find({ key: 'reply-handoff' }) : undefined).toBeUndefined()
@@ -2276,7 +2528,13 @@ describe('handoff', () => {
     await handOff($, footer)
     await mocked.advance(1000)
     expect(submitted.at(-1)).toBe(HANDOFF_PROMPT)
-    await $.turn.complete({ turnId: 't9', answer: 'Goal: ship it. Next: tests.', durationMs: 1, isAborted: false, reason: 'answer' } as never)
+    await $.turn.complete({
+      turnId: 't9',
+      answer: 'Goal: ship it. Next: tests.',
+      durationMs: 1,
+      isAborted: false,
+      reason: 'answer',
+    } as never)
     await mocked.advance(1500)
     expect(ran).toContain('clear')
     expect(submitted.at(-1)).toContain('Goal: ship it. Next: tests.')
@@ -2293,7 +2551,13 @@ describe('handoff', () => {
     on('command.list', () => ({ value: [{ name: 'model' }, { name: 'effort' }] as never }))
     on('session.start', (_$, e) => ({ cwd: e.cwd }) as never)
     on('command.register', () => ({ value: undefined }) as never)
-    on('model.fork', () => ({ value: { isAnswered: false, reason: 'api-error', status: 529, error: 'overloaded', usage: USAGE } }) as never)
+    on(
+      'model.fork',
+      () =>
+        ({
+          value: { isAnswered: false, reason: 'api-error', status: 529, error: 'overloaded', usage: USAGE },
+        }) as never,
+    )
     on('command.run', () => ({ text: 'ok' }))
     const submitted: string[] = []
     on('prompt.submit', (_$, e) => {
@@ -2320,7 +2584,9 @@ describe('handoff', () => {
   test('the fork outcome names the reason, or what an answer cost', () => {
     expect(forkOutcome({ isAnswered: false, reason: 'nothing-to-fork' }, 0)).toBe('nothing-to-fork (0.0s)')
     expect(forkOutcome({ isAnswered: false, reason: 'aborted', usage: USAGE }, 2500)).toBe('aborted (2.5s)')
-    expect(forkOutcome({ isAnswered: false, reason: 'api-error', status: null, error: 'unknown', usage: USAGE }, 0)).toBe('api-error no response unknown (0.0s)')
+    expect(
+      forkOutcome({ isAnswered: false, reason: 'api-error', status: null, error: 'unknown', usage: USAGE }, 0),
+    ).toBe('api-error no response unknown (0.0s)')
     expect(forkOutcome(new Error('refused from a timer'), 100)).toBe('threw: refused from a timer (0.1s)')
     const usage = { input_tokens: 10, output_tokens: 700, cache_read_input_tokens: 90, cache_creation_input_tokens: 0 }
     expect(forkOutcome({ isAnswered: true, text: 'Goal', usage }, 4000)).toBe('answered, 700 out, 90% cached (4.0s)')
@@ -2364,22 +2630,29 @@ describe('swamp band and setup entry', () => {
     await band.unmount()
   })
 
-  test('a reload with no session start still runs the timers: the first draw starts them', { options: { swampAt: '20' } } as never, async ($, on) => {
-    engine(on)
-    const mocked = mock.clock(on)
-    let tokens = 208_000
-    on('session.usage', () => ({ value: { context: { tokens, window: 1_000_000, percent: tokens / 10_000 } } }) as never)
-    const first = await $.ui.mount({ plugin: 'context-lens', surface: 'terminal', ...BAND })
-    await mocked.advance(100)
-    const swamped = await $.ui.mount(DESK_BAND)
-    expect(await drawn(swamped)).toContain('Chat is getting swamped')
-    await swamped.unmount()
-    // Only the ticker reads the usage again: the band drops away once the next tick sees a smaller context.
-    tokens = 50_000
-    await mocked.advance(15_000)
-    await first.unmount()
-    await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
-  })
+  test(
+    'a reload with no session start still runs the timers: the first draw starts them',
+    { options: { swampAt: '20' } } as never,
+    async ($, on) => {
+      engine(on)
+      const mocked = mock.clock(on)
+      let tokens = 208_000
+      on(
+        'session.usage',
+        () => ({ value: { context: { tokens, window: 1_000_000, percent: tokens / 10_000 } } }) as never,
+      )
+      const first = await $.ui.mount({ plugin: 'context-lens', surface: 'terminal', ...BAND })
+      await mocked.advance(100)
+      const swamped = await $.ui.mount(DESK_BAND)
+      expect(await drawn(swamped)).toContain('Chat is getting swamped')
+      await swamped.unmount()
+      // Only the ticker reads the usage again: the band drops away once the next tick sees a smaller context.
+      tokens = 50_000
+      await mocked.advance(15_000)
+      await first.unmount()
+      await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
+    },
+  )
 
   test('a session start after a draw-only load does not double the tickers', async ($, on) => {
     engine(on)
@@ -2401,26 +2674,33 @@ describe('swamp band and setup entry', () => {
     await first.unmount()
   })
 
-  test('the swamp band shows the context percent rounded when the app leaves it out', { options: { swampAt: '20' } } as never, async ($, on) => {
-    engine(on)
-    const mocked = mock.clock(on)
-    on('session.usage', () => ({ value: { context: { tokens: 208_000, window: 1_000_000 } } }) as never)
-    await start($, on)
-    const guide = await $.ui.mount(DESK_BAND)
-    await guide.press({ key: 'setup-close' })
-    await guide.unmount()
-    await mocked.advance(16_000)
-    const band = await $.ui.mount(DESK_BAND)
-    expect(await drawn(band)).toContain('21% of context')
-    expect(await drawn(band)).not.toContain('20.8')
-    await band.unmount()
-  })
+  test(
+    'the swamp band shows the context percent rounded when the app leaves it out',
+    { options: { swampAt: '20' } } as never,
+    async ($, on) => {
+      engine(on)
+      const mocked = mock.clock(on)
+      on('session.usage', () => ({ value: { context: { tokens: 208_000, window: 1_000_000 } } }) as never)
+      await start($, on)
+      const guide = await $.ui.mount(DESK_BAND)
+      await guide.press({ key: 'setup-close' })
+      await guide.unmount()
+      await mocked.advance(16_000)
+      const band = await $.ui.mount(DESK_BAND)
+      expect(await drawn(band)).toContain('21% of context')
+      expect(await drawn(band)).not.toContain('20.8')
+      await band.unmount()
+    },
+  )
 
   test('a swamped context shows Compact and Handoff above the prompt; closing hides it until the context grows', async ($, on) => {
     engine(on)
     const mocked = mock.clock(on)
     let tokens = 180_000
-    on('session.usage', () => ({ value: { context: { tokens, window: 250_000, percent: Math.round(tokens / 2_500) } } }) as never)
+    on(
+      'session.usage',
+      () => ({ value: { context: { tokens, window: 250_000, percent: Math.round(tokens / 2_500) } } }) as never,
+    )
     await start($, on)
     const guide = await $.ui.mount(DESK_BAND)
     await guide.press({ key: 'setup-close' })
@@ -2511,8 +2791,20 @@ describe('swamp band and setup entry', () => {
     await guide.press({ key: 'setup-close' })
     await guide.unmount()
     await mocked.advance(16_000)
-    await $.turn.complete({ turnId: 't1', answer: 'Last reply.', durationMs: 1, isAborted: false, reason: 'answer' } as never)
-    const reply = () => $.ui.mount({ plugin: 'context-lens', surface: 'desktop', component: 'AssistantMessage', props: { text: 'Last reply.', isFirstOfReply: true } } as never)
+    await $.turn.complete({
+      turnId: 't1',
+      answer: 'Last reply.',
+      durationMs: 1,
+      isAborted: false,
+      reason: 'answer',
+    } as never)
+    const reply = () =>
+      $.ui.mount({
+        plugin: 'context-lens',
+        surface: 'desktop',
+        component: 'AssistantMessage',
+        props: { text: 'Last reply.', isFirstOfReply: true },
+      } as never)
     const band = await $.ui.mount(DESK_BAND)
     await band.press({ key: 'swamp-compact' })
     const pressed = band.press({ key: 'compact-go' })
@@ -2527,7 +2819,13 @@ describe('swamp band and setup entry', () => {
     expect(await drawn(band)).toContain('Compact complete')
     await band.unmount()
     // The first reply after it takes it away.
-    await $.turn.complete({ turnId: 't2', answer: 'Next reply.', durationMs: 1, isAborted: false, reason: 'answer' } as never)
+    await $.turn.complete({
+      turnId: 't2',
+      answer: 'Next reply.',
+      durationMs: 1,
+      isAborted: false,
+      reason: 'answer',
+    } as never)
     const later = await $.ui.mount(DESK_BAND)
     expect(await drawn(later)).not.toContain('Compact complete')
     await later.unmount()
@@ -2548,8 +2846,19 @@ describe('swamp band and setup entry', () => {
     await guide.press({ key: 'setup-close' })
     await guide.unmount()
     await mocked.advance(16_000)
-    await $.turn.complete({ turnId: 't1', answer: 'First answer.', durationMs: 1, isAborted: false, reason: 'answer' } as never)
-    const reply = await $.ui.mount({ plugin: 'context-lens', surface: 'desktop', component: 'AssistantMessage', props: { text: 'First answer.', isFirstOfReply: true } } as never)
+    await $.turn.complete({
+      turnId: 't1',
+      answer: 'First answer.',
+      durationMs: 1,
+      isAborted: false,
+      reason: 'answer',
+    } as never)
+    const reply = await $.ui.mount({
+      plugin: 'context-lens',
+      surface: 'desktop',
+      component: 'AssistantMessage',
+      props: { text: 'First answer.', isFirstOfReply: true },
+    } as never)
     expect(await reply.find({ key: 'reply-warn' })).toBeUndefined()
     expect(await drawn(reply)).not.toContain('swamped')
     await reply.unmount()
@@ -2627,10 +2936,19 @@ describe('running hot and judge down', () => {
   test('a limit past 80% shows the running-hot band; save mode can be switched on', async ($, on) => {
     engine(on)
     const mocked = mock.clock(on)
-    on('session.usage', () => ({ value: { context: { tokens: 1000, window: 200_000, percent: 1 }, rateLimits: [
-      { kind: 'five_hour', percentUsed: 84, resetsAt: '2026-10-06T14:20:00Z' },
-      { kind: 'seven_day', percentUsed: 40 },
-    ] } }) as never)
+    on(
+      'session.usage',
+      () =>
+        ({
+          value: {
+            context: { tokens: 1000, window: 200_000, percent: 1 },
+            rateLimits: [
+              { kind: 'five_hour', percentUsed: 84, resetsAt: '2026-10-06T14:20:00Z' },
+              { kind: 'seven_day', percentUsed: 40 },
+            ],
+          },
+        }) as never,
+    )
     const said: string[] = []
     on('ui.toast', (_$, e) => {
       said.push(String((e as { text?: string }).text ?? e))
@@ -2653,9 +2971,15 @@ describe('running hot and judge down', () => {
     engine(on)
     mock.clock(on)
     let answered = false
-    on('model.complete', () => ({ value: answered
-      ? { isAnswered: true as const, text: '{"model":"opus","effort":"high","why":"x"}', usage: USAGE }
-      : { isAnswered: false as const, reason: 'api-error', status: 402, error: 'billing_error', usage: USAGE } }) as never)
+    on(
+      'model.complete',
+      () =>
+        ({
+          value: answered
+            ? { isAnswered: true as const, text: '{"model":"opus","effort":"high","why":"x"}', usage: USAGE }
+            : { isAnswered: false as const, reason: 'api-error', status: 402, error: 'billing_error', usage: USAGE },
+        }) as never,
+    )
     on('ui.toast', () => ({ value: undefined }) as never)
     await start($, on)
     const guide = await $.ui.mount(DESK_BAND)
@@ -2795,23 +3119,27 @@ describe('switching parts off', () => {
     expect(readConfig({ hide: 'swamp, handoff,bogus,down,progress,sounds' }).hide).toEqual(['swamp', 'handoff'])
   })
 
-  test('a hidden handoff button is not in the footer; a switched-off context alert does not show', { options: { hide: 'handoff,swamp' } } as never, async ($, on) => {
-    on('session.start', (_$, e) => ({ cwd: e.cwd }) as never)
-    on('command.register', () => ({ value: undefined }) as never)
-    engine(on)
-    const mocked = mock.clock(on)
-    on('session.usage', () => ({ value: { context: { tokens: 600_000, window: 1_000_000, percent: 60 } } }) as never)
-    await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
-    const guide = await $.ui.mount(DESK_BAND)
-    await guide.press({ key: 'setup-close' })
-    await guide.unmount()
-    await mocked.advance(16_000)
-    // Nothing above the prompt: the swamp band was the only thing to draw.
-    await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
-    const footer = await $.ui.mount(FOOTER)
-    expect(await footer.find({ key: 'handoff' })).toBeUndefined()
-    await footer.unmount()
-  })
+  test(
+    'a hidden handoff button is not in the footer; a switched-off context alert does not show',
+    { options: { hide: 'handoff,swamp' } } as never,
+    async ($, on) => {
+      on('session.start', (_$, e) => ({ cwd: e.cwd }) as never)
+      on('command.register', () => ({ value: undefined }) as never)
+      engine(on)
+      const mocked = mock.clock(on)
+      on('session.usage', () => ({ value: { context: { tokens: 600_000, window: 1_000_000, percent: 60 } } }) as never)
+      await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
+      const guide = await $.ui.mount(DESK_BAND)
+      await guide.press({ key: 'setup-close' })
+      await guide.unmount()
+      await mocked.advance(16_000)
+      // Nothing above the prompt: the swamp band was the only thing to draw.
+      await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
+      const footer = await $.ui.mount(FOOTER)
+      expect(await footer.find({ key: 'handoff' })).toBeUndefined()
+      await footer.unmount()
+    },
+  )
 })
 
 describe('the command file', () => {
@@ -2824,7 +3152,7 @@ describe('the command file', () => {
 })
 
 describe('thinking dots', () => {
-  test('three dots, in the theme\'s accent', () => {
+  test("three dots, in the theme's accent", () => {
     expect(thinkingSvg().match(/<circle/g)).toHaveLength(3)
     try {
       setTheme('orange')
@@ -2846,7 +3174,8 @@ describe('terminal art', () => {
   })
 
   test('moving kinds change over time; still ones do not', () => {
-    const frames = (kind: Parameters<typeof artFrame>[0]) => new Set(Array.from({ length: 30 }, (_, t) => artFrame(kind, t))).size
+    const frames = (kind: Parameters<typeof artFrame>[0]) =>
+      new Set(Array.from({ length: 30 }, (_, t) => artFrame(kind, t))).size
     for (const kind of MOVING) expect(frames(kind)).toBeGreaterThan(1)
     expect(frames('brand')).toBe(1)
     expect(frames('calm')).toBe(1)
@@ -2872,7 +3201,12 @@ describe('terminal bands', () => {
     await $.session.start({ cwd: '.', surface: 'terminal', isInteractive: true } as never)
   }
   const at = (columns: number) =>
-    ({ plugin: 'context-lens', surface: 'terminal', ...BAND, props: { ...BAND.props, bodyColumns: columns, maxRows: 14 } }) as never
+    ({
+      plugin: 'context-lens',
+      surface: 'terminal',
+      ...BAND,
+      props: { ...BAND.props, bodyColumns: columns, maxRows: 14 },
+    }) as never
 
   for (const kind of ['swamp', 'cold', 'hot', 'down'] as const) {
     test(`${kind}: art on the right when wide, none at 80 columns; the effort row stays under it`, async ($, on) => {
@@ -2952,8 +3286,23 @@ describe('dashboard', () => {
       const pale = lightHex(dark, 'surface')
       expect(lum(pale)).toBeGreaterThan(0.6)
     }
-    const surfaces = ['#141416', '#15121f', '#0e1820', '#111710', '#1a110c', '#0f1c15', '#12141b'].map(h => lightHex(h, 'surface'))
-    for (const text of ['#d4d4d8', '#8b8b93', '#a79cf7', '#7c6cf0', '#7cc4ff', '#a7c98f', '#f08a3c', '#7fe0a4', '#ffffff', '#6b6b73', '#e0a33a', '#e5534b'])
+    const surfaces = ['#141416', '#15121f', '#0e1820', '#111710', '#1a110c', '#0f1c15', '#12141b'].map(h =>
+      lightHex(h, 'surface'),
+    )
+    for (const text of [
+      '#d4d4d8',
+      '#8b8b93',
+      '#a79cf7',
+      '#7c6cf0',
+      '#7cc4ff',
+      '#a7c98f',
+      '#f08a3c',
+      '#7fe0a4',
+      '#ffffff',
+      '#6b6b73',
+      '#e0a33a',
+      '#e5534b',
+    ])
       for (const bg of surfaces) expect(contrast(lightHex(text, 'text'), bg)).toBeGreaterThanOrEqual(4.5)
     // Main text stays darker than dim text, and a colour stays its hue.
     expect(lum(lightHex('#d4d4d8', 'text'))).toBeLessThan(lum(lightHex('#8b8b93', 'text')))
@@ -2974,14 +3323,21 @@ describe('dashboard', () => {
       setLight(true)
       const lit = themedEls(els) as typeof els
       expect(lit.Box).not.toBe(Box)
-      const box = lit.Box({ backgroundColor: '#141416', borderColor: '#2a2a2f', hover: { backgroundColor: '#1c1c20' }, flexDirection: 'row' })
+      const box = lit.Box({
+        backgroundColor: '#141416',
+        borderColor: '#2a2a2f',
+        hover: { backgroundColor: '#1c1c20' },
+        flexDirection: 'row',
+      })
       expect(box.backgroundColor).toBe(lightHex('#141416', 'surface'))
       expect(box.borderColor).toBe(lightHex('#2a2a2f', 'surface'))
       expect((box.hover as { backgroundColor: string }).backgroundColor).toBe(lightHex('#1c1c20', 'surface'))
       expect(box.flexDirection).toBe('row')
       expect(lit.Text({ color: '#d4d4d8', bold: true }).color).toBe(lightHex('#d4d4d8', 'text'))
       expect(lit.Text({ color: 'red' }).color).toBe('red')
-      expect(lit.Button({ hover: { backgroundColor: '#00000000' } }).hover).toEqual({ backgroundColor: lightHex('#00000000', 'surface') })
+      expect(lit.Button({ hover: { backgroundColor: '#00000000' } }).hover).toEqual({
+        backgroundColor: lightHex('#00000000', 'surface'),
+      })
       expect(lightProps({ color: '#fff' }).color).toBe('#fff')
     } finally {
       setLight(false)
@@ -2990,7 +3346,8 @@ describe('dashboard', () => {
   })
 
   test('light appearance: drawn art turns pale, with the sparkles still petals in rose', () => {
-    const art = '<svg><style>.sp{fill:#fff}</style><rect fill="#15121f" width="9" height="9"/><rect fill="#7c6cf0" width="9" height="9"/><path class="sp" style="transform-origin:168px 8px;animation-duration:4.2s;animation-delay:0.3s" d="M168 6.4 L168.34 7.66 Z"/></svg>'
+    const art =
+      '<svg><style>.sp{fill:#fff}</style><rect fill="#15121f" width="9" height="9"/><rect fill="#7c6cf0" width="9" height="9"/><path class="sp" style="transform-origin:168px 8px;animation-duration:4.2s;animation-delay:0.3s" d="M168 6.4 L168.34 7.66 Z"/></svg>'
     try {
       setLight(true)
       const violet = tint(art)
@@ -3007,42 +3364,65 @@ describe('dashboard', () => {
     }
   })
 
-  test('light appearance, set in the settings: the band is drawn pale', { options: { layout: 'default', appearance: 'light' } } as never, async ($, on) => {
-    engine(on)
-    mock.clock(on)
-    await start($, on)
-    await closeSetup($, DESK_BAND)
-    const band = await $.ui.mount(DESK_BAND)
-    const text = await drawn(band)
-    expect(text).toContain(lightHex('#141416', 'surface'))
-    expect(text).not.toContain('"backgroundColor":"#141416"')
-    await band.unmount()
-  })
+  test(
+    'light appearance, set in the settings: the band is drawn pale',
+    { options: { layout: 'default', appearance: 'light' } } as never,
+    async ($, on) => {
+      engine(on)
+      mock.clock(on)
+      await start($, on)
+      await closeSetup($, DESK_BAND)
+      const band = await $.ui.mount(DESK_BAND)
+      const text = await drawn(band)
+      expect(text).toContain(lightHex('#141416', 'surface'))
+      expect(text).not.toContain('"backgroundColor":"#141416"')
+      await band.unmount()
+    },
+  )
 
-  test("auto appearance follows Claude Code's own theme row: light turns it pale, dark turns it back", { options: { layout: 'default' } } as never, async ($, on) => {
-    engine(on)
-    const mocked = mock.clock(on)
-    let claudeTheme = 'light'
-    on('config.list', () => ({ value: [{ key: 'theme', label: 'Theme', kind: 'choice', value: claudeTheme, provider: { kind: 'engine' }, isLocked: false }] }) as never)
-    await start($, on)
-    await closeSetup($, DESK_BAND)
-    // The first draw reads the row; the redraw it asks for is pale.
-    let band = await $.ui.mount(DESK_BAND)
-    await band.unmount()
-    await mocked.advance(100)
-    band = await $.ui.mount(DESK_BAND)
-    expect(await drawn(band)).toContain(lightHex('#141416', 'surface'))
-    await band.unmount()
-    // Claude Code goes dark: within a few seconds the panels follow.
-    claudeTheme = 'dark'
-    await mocked.advance(5000)
-    band = await $.ui.mount(DESK_BAND)
-    await band.unmount()
-    await mocked.advance(100)
-    band = await $.ui.mount(DESK_BAND)
-    expect(await drawn(band)).toContain('"backgroundColor":"#141416"')
-    await band.unmount()
-  })
+  test(
+    "auto appearance follows Claude Code's own theme row: light turns it pale, dark turns it back",
+    { options: { layout: 'default' } } as never,
+    async ($, on) => {
+      engine(on)
+      const mocked = mock.clock(on)
+      let claudeTheme = 'light'
+      on(
+        'config.list',
+        () =>
+          ({
+            value: [
+              {
+                key: 'theme',
+                label: 'Theme',
+                kind: 'choice',
+                value: claudeTheme,
+                provider: { kind: 'engine' },
+                isLocked: false,
+              },
+            ],
+          }) as never,
+      )
+      await start($, on)
+      await closeSetup($, DESK_BAND)
+      // The first draw reads the row; the redraw it asks for is pale.
+      let band = await $.ui.mount(DESK_BAND)
+      await band.unmount()
+      await mocked.advance(100)
+      band = await $.ui.mount(DESK_BAND)
+      expect(await drawn(band)).toContain(lightHex('#141416', 'surface'))
+      await band.unmount()
+      // Claude Code goes dark: within a few seconds the panels follow.
+      claudeTheme = 'dark'
+      await mocked.advance(5000)
+      band = await $.ui.mount(DESK_BAND)
+      await band.unmount()
+      await mocked.advance(100)
+      band = await $.ui.mount(DESK_BAND)
+      expect(await drawn(band)).toContain('"backgroundColor":"#141416"')
+      await band.unmount()
+    },
+  )
 
   test('a new chat: Low picked by hand in another chat does not beat the effort the app is on when the first prompt goes', async ($, on) => {
     engine(on)
@@ -3086,16 +3466,36 @@ describe('dashboard', () => {
     await $.command.run({ command: 'context-lens', args: 'auto' })
     await step($, 'xhigh')
     expect(sent.at(-1)!.effort).toBe('xhigh')
-    expect(await debug()).toContain('last request: app asked claude-opus-5-5 at xhigh, sent claude-opus-5-5 at xhigh (unchanged)')
+    expect(await debug()).toContain(
+      'last request: app asked claude-opus-5-5 at xhigh, sent claude-opus-5-5 at xhigh (unchanged)',
+    )
     // The model that ran is also on a line of its own.
     expect((await debug()).split(String.fromCharCode(10)).at(-1)).toBe('model used: claude-opus-5-5 at xhigh')
   })
 
   test('the bench report says whether low confidence predicts a miss, and which models the judges picked', () => {
     const cases = [
-      { id: 'a', kind: 'k', current: { model: 'sonnet', effort: 'medium', why: '', by: 'manual' }, message: 'x', ok: ['low'] },
-      { id: 'b', kind: 'k', current: { model: 'sonnet', effort: 'medium', why: '', by: 'manual' }, message: 'y', ok: ['high'] },
-      { id: 'c', kind: 'k', current: { model: 'sonnet', effort: 'medium', why: '', by: 'manual' }, message: 'z', ok: ['medium'] },
+      {
+        id: 'a',
+        kind: 'k',
+        current: { model: 'sonnet', effort: 'medium', why: '', by: 'manual' },
+        message: 'x',
+        ok: ['low'],
+      },
+      {
+        id: 'b',
+        kind: 'k',
+        current: { model: 'sonnet', effort: 'medium', why: '', by: 'manual' },
+        message: 'y',
+        ok: ['high'],
+      },
+      {
+        id: 'c',
+        kind: 'k',
+        current: { model: 'sonnet', effort: 'medium', why: '', by: 'manual' },
+        message: 'z',
+        ok: ['medium'],
+      },
     ] as never
     const report = benchReport(cases, [
       { id: 'a', judge: 'haiku', effort: 'low', sure: 0.95, model: 'haiku', ms: 1, tokens: 1 },
@@ -3107,21 +3507,35 @@ describe('dashboard', () => {
   })
 
   test("its lines: the effort, cache and context; the judge's reason", () => {
-    const base = { auto: true, paused: false, judging: false, effort: 'medium' as const, cacheNow: 42, contextPercent: 18, reason: 'Why: a small fix' }
+    const base = {
+      auto: true,
+      paused: false,
+      judging: false,
+      effort: 'medium' as const,
+      cacheNow: 42,
+      contextPercent: 18,
+      reason: 'Why: a small fix',
+    }
     expect(dashboardLines(base).head).toBe(`✦ Medium · cache ${cacheLabel(42)} · 18% context`)
     expect(dashboardLines(base).detail).toBe('Why: a small fix')
     // The app's own model and effort, only while either differs from what goes out.
     expect(appHintText({ model: 'opus', effort: 'medium' }, { model: 'opus', effort: 'medium' })).toBe('')
-    expect(appHintText({ model: 'opus', effort: 'medium' }, { model: 'opus', effort: 'high' })).toBe('App: Opus 5.5 · Medium')
+    expect(appHintText({ model: 'opus', effort: 'medium' }, { model: 'opus', effort: 'high' })).toBe(
+      'App: Opus 5.5 · Medium',
+    )
     expect(appHintText({ model: 'opus', effort: 'medium' }, { model: 'sonnet' })).toBe('App: Opus 5.5 · Medium')
     expect(appHintText({ model: 'opus', effort: null }, { model: 'opus', effort: 'high' })).toBe('')
     expect(appHintText({ model: 'opus', effort: null }, { model: 'haiku', effort: 'high' })).toBe('App: Opus 5.5')
-    expect(dashboardLines({ ...base, model: 'Opus 5.5' }).head).toBe(`✦ Opus 5.5 · Medium · cache ${cacheLabel(42)} · 18% context`)
+    expect(dashboardLines({ ...base, model: 'Opus 5.5' }).head).toBe(
+      `✦ Opus 5.5 · Medium · cache ${cacheLabel(42)} · 18% context`,
+    )
     expect(dashboardLines({ ...base, model: 'Opus 5.5' }).pair).toBe('Opus 5.5 · Medium')
     expect(dashboardLines({ ...base, model: 'Opus 5.5' }).rest).toBe(` · cache ${cacheLabel(42)} · 18% context`)
     expect(dashboardLines({ ...base, auto: false }).head).toBe(`✦ Off · cache ${cacheLabel(42)} · 18% context`)
     expect(dashboardLines({ ...base, cacheNow: null, contextPercent: null }).head).toBe('✦ Medium')
-    expect(weighted({ input_tokens: 10, output_tokens: 2, cache_read_input_tokens: 1000, cache_creation_input_tokens: 4 })).toBe(10 + 10 + 100 + 5)
+    expect(
+      weighted({ input_tokens: 10, output_tokens: 2, cache_read_input_tokens: 1000, cache_creation_input_tokens: 4 }),
+    ).toBe(10 + 10 + 100 + 5)
     // A write to the 1-hour cache costs 2x, one to the 5-minute cache 1.25x; a reply's three requests, measured on a real session.
     const hour = (w: number) => ({ cache_creation_input_tokens: w, cache_creation: { ephemeral_1h_input_tokens: w } })
     const reply = [
@@ -3130,7 +3544,13 @@ describe('dashboard', () => {
       { input_tokens: 2, output_tokens: 1006, cache_read_input_tokens: 100_882, ...hour(2_946) },
     ]
     expect(Math.round(reply.reduce((n, u) => n + weighted(u), 0) * 10) / 10).toBe(79_470.6)
-    expect(weighted({ output_tokens: 0, cache_creation_input_tokens: 100, cache_creation: { ephemeral_1h_input_tokens: 40 } })).toBe(40 * 2 + 60 * 1.25)
+    expect(
+      weighted({
+        output_tokens: 0,
+        cache_creation_input_tokens: 100,
+        cache_creation: { ephemeral_1h_input_tokens: 40 },
+      }),
+    ).toBe(40 * 2 + 60 * 1.25)
     expect(turnLineFor({ '1000': 'a', '5000': 'b' }, 1400)).toBe('a')
     expect(turnLineFor({ '1000': 'a', '5000': 'b' }, 3000)).toBeUndefined()
   })
@@ -3153,11 +3573,22 @@ describe('dashboard', () => {
     await rows.press({ key: 'e-high' })
     await rows.unmount()
     const footer = (ms: number) =>
-      $.ui.mount({ plugin: 'context-lens', surface: 'desktop', component: 'TurnDuration', props: { word: 'Baked', durationMs: ms } } as never)
+      $.ui.mount({
+        plugin: 'context-lens',
+        surface: 'desktop',
+        component: 'TurnDuration',
+        props: { word: 'Baked', durationMs: ms },
+      } as never)
     const early = await footer(17_000)
     expect((await early.find({ key: 'turn-line' }))?.text).toContain('✦ Opus 5.5 · Low')
     await early.unmount()
-    await $.turn.complete({ turnId: 't1', answer: 'Done.', durationMs: 17_000, isAborted: false, reason: 'answer' } as never)
+    await $.turn.complete({
+      turnId: 't1',
+      answer: 'Done.',
+      durationMs: 17_000,
+      isAborted: false,
+      reason: 'answer',
+    } as never)
     await step($, 'high')
     const late = await footer(17_000)
     expect((await late.find({ key: 'turn-line' }))?.text).toContain('Low')
@@ -3165,11 +3596,18 @@ describe('dashboard', () => {
   })
 
   test('a resumed chat draws each footer from the store, and a footer nothing knows shows no effort or model', async ($, on) => {
-    engine(on, {}, 'claude-opus-5-5', [], { turnLines: { s1: { '17000': { effort: 'low', model: 'opus', cost: 1200 } } } })
+    engine(on, {}, 'claude-opus-5-5', [], {
+      turnLines: { s1: { '17000': { effort: 'low', model: 'opus', cost: 1200 } } },
+    })
     mock.clock(on)
     on('session.id', () => ({ value: 's1' }) as never)
     const footer = (ms: number) =>
-      $.ui.mount({ plugin: 'context-lens', surface: 'desktop', component: 'TurnDuration', props: { word: 'Baked', durationMs: ms } } as never)
+      $.ui.mount({
+        plugin: 'context-lens',
+        surface: 'desktop',
+        component: 'TurnDuration',
+        props: { word: 'Baked', durationMs: ms },
+      } as never)
 
     const saved = await footer(17_000)
     expect((await saved.find({ key: 'turn-line' }))?.text).toContain('✦ Opus 5.5 · Low')
@@ -3195,14 +3633,28 @@ describe('dashboard', () => {
     on('session.id', () => ({ value: 's1' }) as never)
     on('turn.complete', () => ({ text: '' }))
     await step($, 'low')
-    await $.turn.complete({ turnId: 't1', answer: 'Done.', durationMs: 9_000, isAborted: false, reason: 'answer' } as never)
+    await $.turn.complete({
+      turnId: 't1',
+      answer: 'Done.',
+      durationMs: 9_000,
+      isAborted: false,
+      reason: 'answer',
+    } as never)
 
     const all = writes.turnLines as Record<string, Record<string, { effort?: string; model?: string }>>
     expect(all.s1['9000']).toMatchObject({ effort: 'low', model: 'opus' })
   })
 
   test('the effort word and the figures after it are drawn apart, so the figures can be cut and the word stays whole', () => {
-    const base = { auto: true, paused: false, judging: false, effort: 'low' as const, cacheNow: 42, contextPercent: null, reason: '' }
+    const base = {
+      auto: true,
+      paused: false,
+      judging: false,
+      effort: 'low' as const,
+      cacheNow: 42,
+      contextPercent: null,
+      reason: '',
+    }
     expect(dashboardLines(base).what).toBe('Low')
     expect(dashboardLines(base).rest).toBe(` · cache ${cacheLabel(42)}`)
     expect(dashboardLines({ ...base, cacheNow: null }).rest).toBe('')
@@ -3236,56 +3688,64 @@ describe('dashboard', () => {
     await band.unmount()
   })
 
-  test("desktop: the band above the prompt at rest, with Auto, Handoff and settings; the footer is the app's own", DASH, async ($, on) => {
-    engine(on)
-    const mocked = mock.clock(on)
-    on('session.usage', () => ({ value: { context: { tokens: 180_000, window: 1_000_000, percent: 18 } } }) as never)
-    await start($, on)
-    await closeSetup($, DESK_BAND)
-    await mocked.advance(16_000)
-    const band = await $.ui.mount(DESK_BAND)
-    // The context as a ring and a figure, as the swamp band shows it.
-    expect(await band.find({ key: 'dash-ring' })).toBeDefined()
-    expect(await drawn(band)).toContain('"children":["18%"]')
-    expect(await band.find({ key: 'dash-auto' })).toBeDefined()
-    expect(await band.find({ key: 'dash-settings' })).toBeDefined()
-    // A drawn icon on desktop, not the word.
-    expect(await band.find({ key: 'dash-settings-icon' })).toBeDefined()
-    expect(await drawn(band)).not.toContain('"label":"Settings"')
-    // The mark stands in for the ✦ on desktop.
-    expect(await band.find({ key: 'dash-mark' })).toBeDefined()
-    await band.press({ key: 'dash-auto' })
-    expect(await drawn(band)).toContain('Auto effort off')
-    expect(await drawn(band)).toContain('Auto model off')
-    await band.press({ key: 'dash-auto-model' })
-    expect(await drawn(band)).toContain('Auto model on')
-    // One button: Compact on a fresh chat. It opens the compact card, which can switch to Handoff.
-    await band.press({ key: 'dash-handoff' })
-    expect(await drawn(band)).toContain('compact-bar')
-    await band.press({ key: 'compact-to-handoff' })
-    expect(await drawn(band)).toContain('⇥ Handoff')
-    await band.unmount()
-    await expect($.ui.mount(FOOTER)).rejects.toThrow()
-  })
+  test(
+    "desktop: the band above the prompt at rest, with Auto, Handoff and settings; the footer is the app's own",
+    DASH,
+    async ($, on) => {
+      engine(on)
+      const mocked = mock.clock(on)
+      on('session.usage', () => ({ value: { context: { tokens: 180_000, window: 1_000_000, percent: 18 } } }) as never)
+      await start($, on)
+      await closeSetup($, DESK_BAND)
+      await mocked.advance(16_000)
+      const band = await $.ui.mount(DESK_BAND)
+      // The context as a ring and a figure, as the swamp band shows it.
+      expect(await band.find({ key: 'dash-ring' })).toBeDefined()
+      expect(await drawn(band)).toContain('"children":["18%"]')
+      expect(await band.find({ key: 'dash-auto' })).toBeDefined()
+      expect(await band.find({ key: 'dash-settings' })).toBeDefined()
+      // A drawn icon on desktop, not the word.
+      expect(await band.find({ key: 'dash-settings-icon' })).toBeDefined()
+      expect(await drawn(band)).not.toContain('"label":"Settings"')
+      // The mark stands in for the ✦ on desktop.
+      expect(await band.find({ key: 'dash-mark' })).toBeDefined()
+      await band.press({ key: 'dash-auto' })
+      expect(await drawn(band)).toContain('Auto effort off')
+      expect(await drawn(band)).toContain('Auto model off')
+      await band.press({ key: 'dash-auto-model' })
+      expect(await drawn(band)).toContain('Auto model on')
+      // One button: Compact on a fresh chat. It opens the compact card, which can switch to Handoff.
+      await band.press({ key: 'dash-handoff' })
+      expect(await drawn(band)).toContain('compact-bar')
+      await band.press({ key: 'compact-to-handoff' })
+      expect(await drawn(band)).toContain('⇥ Handoff')
+      await band.unmount()
+      await expect($.ui.mount(FOOTER)).rejects.toThrow()
+    },
+  )
 
-  test('Handoff button set to always: Handoff from the start, calm, no glow, with Compact beside it', { options: { layout: 'default', handoffButton: 'always' } } as never, async ($, on) => {
-    engine(on)
-    recordSteps(on)
-    const mocked = mock.clock(on)
-    on('session.usage', () => ({ value: { context: { tokens: 100_000, window: 1_000_000, percent: 10 } } }) as never)
-    await start($, on)
-    await closeSetup($, DESK_BAND)
-    await mocked.advance(16_000)
-    const band = await $.ui.mount(DESK_BAND)
-    expect(await band.find({ key: 'dash-handoff' })).toBeDefined()
-    expect(await band.find({ key: 'dash-glow' })).toBeUndefined()
-    expect(await band.find({ key: 'dash-handoff-h' })).toBeUndefined()
-    const text = await drawn(band)
-    expect(text).toContain('Handoff')
-    // Compact stays beside it as quiet text, so both are a press away.
-    expect(await band.find({ key: 'dash-compact' })).toBeDefined()
-    await band.unmount()
-  })
+  test(
+    'Handoff button set to always: Handoff from the start, calm, no glow, with Compact beside it',
+    { options: { layout: 'default', handoffButton: 'always' } } as never,
+    async ($, on) => {
+      engine(on)
+      recordSteps(on)
+      const mocked = mock.clock(on)
+      on('session.usage', () => ({ value: { context: { tokens: 100_000, window: 1_000_000, percent: 10 } } }) as never)
+      await start($, on)
+      await closeSetup($, DESK_BAND)
+      await mocked.advance(16_000)
+      const band = await $.ui.mount(DESK_BAND)
+      expect(await band.find({ key: 'dash-handoff' })).toBeDefined()
+      expect(await band.find({ key: 'dash-glow' })).toBeUndefined()
+      expect(await band.find({ key: 'dash-handoff-h' })).toBeUndefined()
+      const text = await drawn(band)
+      expect(text).toContain('Handoff')
+      // Compact stays beside it as quiet text, so both are a press away.
+      expect(await band.find({ key: 'dash-compact' })).toBeDefined()
+      await band.unmount()
+    },
+  )
 
   test('readConfig keeps handoffButton to advised or always', () => {
     expect(readConfig({}).handoffButton).toBe('advised')
@@ -3293,53 +3753,75 @@ describe('dashboard', () => {
     expect(readConfig({ handoffButton: 'sometimes' }).handoffButton).toBe('advised')
   })
 
-  test('one button: Compact until the Haiku check says a handoff would suit; then Handoff, lit, with the reason', DASH, async ($, on) => {
-    engine(on)
-    recordSteps(on)
-    const mocked = mock.clock(on)
-    on('session.usage', () => ({ value: { context: { tokens: 400_000, window: 1_000_000, percent: 40 } } }) as never)
-    let handoff: string | null = null
-    const systems: string[] = []
-    on('model.complete', (_$, e) => {
-      systems.push(String((e as { system?: string }).system ?? '').slice(0, 30))
-      const text = String((e as { system?: string }).system ?? '').includes('decide whether the person should hand off')
-        ? JSON.stringify({ handoff })
-        : '{"model":"opus","effort":"high","why":"big refactor"}'
-      return { value: { isAnswered: true as const, text, usage: USAGE } }
-    })
-    await start($, on)
-    await closeSetup($, DESK_BAND)
-    await mocked.advance(16_000)
-    // A fairly full chat, no advice: no glow, no H key, one button, and it says Compact.
-    let band = await $.ui.mount(DESK_BAND)
-    expect(await band.find({ key: 'dash-handoff' })).toBeDefined()
-    expect(await band.find({ key: 'dash-compact' })).toBeUndefined()
-    expect(await band.find({ key: 'dash-handoff-h' })).toBeUndefined()
-    expect(await band.find({ key: 'dash-glow' })).toBeUndefined()
-    expect(await drawn(band)).toContain('Compact')
-    await band.unmount()
-    // The check runs every second message from 30%. Haiku says a handoff would suit.
-    handoff = 'Task done, new topic'
-    await $.prompt.submit({ text: 'completely different: help me plan a trip to Lisbon', wait: false, origin: { kind: 'composer' } })
-    await step($)
-    await $.prompt.submit({ text: 'and which neighbourhood should I stay in for the first night', wait: false, origin: { kind: 'composer' } })
-    await step($)
-    band = await $.ui.mount(DESK_BAND)
-    expect((await band.find({ key: 'dash-handoff-h' }))?.props).toMatchObject({ hotkey: 'h' })
-    expect(await band.find({ key: 'dash-glow' })).toBeDefined()
-    expect(await drawn(band)).toContain('Handoff would suit: Task done, new topic')
-    await band.unmount()
-    // A later check that says no clears it again.
-    handoff = null
-    await $.prompt.submit({ text: 'now make the Lisbon plan a three day one with a budget', wait: false, origin: { kind: 'composer' } })
-    await step($)
-    await $.prompt.submit({ text: 'add the cost of the tram tickets to the budget as well', wait: false, origin: { kind: 'composer' } })
-    await step($)
-    band = await $.ui.mount(DESK_BAND)
-    expect(await band.find({ key: 'dash-glow' })).toBeUndefined()
-    expect(await drawn(band)).not.toContain('Handoff would suit')
-    await band.unmount()
-  })
+  test(
+    'one button: Compact until the Haiku check says a handoff would suit; then Handoff, lit, with the reason',
+    DASH,
+    async ($, on) => {
+      engine(on)
+      recordSteps(on)
+      const mocked = mock.clock(on)
+      on('session.usage', () => ({ value: { context: { tokens: 400_000, window: 1_000_000, percent: 40 } } }) as never)
+      let handoff: string | null = null
+      const systems: string[] = []
+      on('model.complete', (_$, e) => {
+        systems.push(String((e as { system?: string }).system ?? '').slice(0, 30))
+        const text = String((e as { system?: string }).system ?? '').includes(
+          'decide whether the person should hand off',
+        )
+          ? JSON.stringify({ handoff })
+          : '{"model":"opus","effort":"high","why":"big refactor"}'
+        return { value: { isAnswered: true as const, text, usage: USAGE } }
+      })
+      await start($, on)
+      await closeSetup($, DESK_BAND)
+      await mocked.advance(16_000)
+      // A fairly full chat, no advice: no glow, no H key, one button, and it says Compact.
+      let band = await $.ui.mount(DESK_BAND)
+      expect(await band.find({ key: 'dash-handoff' })).toBeDefined()
+      expect(await band.find({ key: 'dash-compact' })).toBeUndefined()
+      expect(await band.find({ key: 'dash-handoff-h' })).toBeUndefined()
+      expect(await band.find({ key: 'dash-glow' })).toBeUndefined()
+      expect(await drawn(band)).toContain('Compact')
+      await band.unmount()
+      // The check runs every second message from 30%. Haiku says a handoff would suit.
+      handoff = 'Task done, new topic'
+      await $.prompt.submit({
+        text: 'completely different: help me plan a trip to Lisbon',
+        wait: false,
+        origin: { kind: 'composer' },
+      })
+      await step($)
+      await $.prompt.submit({
+        text: 'and which neighbourhood should I stay in for the first night',
+        wait: false,
+        origin: { kind: 'composer' },
+      })
+      await step($)
+      band = await $.ui.mount(DESK_BAND)
+      expect((await band.find({ key: 'dash-handoff-h' }))?.props).toMatchObject({ hotkey: 'h' })
+      expect(await band.find({ key: 'dash-glow' })).toBeDefined()
+      expect(await drawn(band)).toContain('Handoff would suit: Task done, new topic')
+      await band.unmount()
+      // A later check that says no clears it again.
+      handoff = null
+      await $.prompt.submit({
+        text: 'now make the Lisbon plan a three day one with a budget',
+        wait: false,
+        origin: { kind: 'composer' },
+      })
+      await step($)
+      await $.prompt.submit({
+        text: 'add the cost of the tram tickets to the budget as well',
+        wait: false,
+        origin: { kind: 'composer' },
+      })
+      await step($)
+      band = await $.ui.mount(DESK_BAND)
+      expect(await band.find({ key: 'dash-glow' })).toBeUndefined()
+      expect(await drawn(band)).not.toContain('Handoff would suit')
+      await band.unmount()
+    },
+  )
 
   test('the handoff check reads the purpose, the trail, the last reply, the fill and the cache; an unclear answer is no', () => {
     const messages = [
@@ -3390,7 +3872,12 @@ describe('dashboard', () => {
     engine(on)
     mock.clock(on)
     await start($, on, 'terminal')
-    const at = { plugin: 'context-lens', surface: 'terminal', ...BAND, props: { ...BAND.props, bodyColumns: 120, maxRows: 14 } } as never
+    const at = {
+      plugin: 'context-lens',
+      surface: 'terminal',
+      ...BAND,
+      props: { ...BAND.props, bodyColumns: 120, maxRows: 14 },
+    } as never
     await closeSetup($, at)
     const band = await $.ui.mount(at)
     const text = await drawn(band)
@@ -3407,16 +3894,20 @@ describe('dashboard', () => {
     await band.unmount()
   })
 
-  test("the minimal look draws no band and keeps the footer's buttons", { options: { layout: 'minimal' } } as never, async ($, on) => {
-    engine(on)
-    mock.clock(on)
-    await start($, on)
-    await closeSetup($, DESK_BAND)
-    await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
-    const footer = await $.ui.mount(FOOTER)
-    expect(await footer.find({ key: 'auto' })).toBeDefined()
-    await footer.unmount()
-  })
+  test(
+    "the minimal look draws no band and keeps the footer's buttons",
+    { options: { layout: 'minimal' } } as never,
+    async ($, on) => {
+      engine(on)
+      mock.clock(on)
+      await start($, on)
+      await closeSetup($, DESK_BAND)
+      await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
+      const footer = await $.ui.mount(FOOTER)
+      expect(await footer.find({ key: 'auto' })).toBeDefined()
+      await footer.unmount()
+    },
+  )
 })
 
 describe('a chat opened again', () => {
@@ -3438,7 +3929,11 @@ describe('a chat opened again', () => {
     mock.clock(on)
     await start($, on)
     await closeSetup($)
-    await $.classic.SessionStart({ source: 'resume', seconds_since_last_response: 7200, prompt_cache_likely_expired: true } as never)
+    await $.classic.SessionStart({
+      source: 'resume',
+      seconds_since_last_response: 7200,
+      prompt_cache_likely_expired: true,
+    } as never)
     const band = await $.ui.mount(DESK_BAND)
     expect(await drawn(band)).toContain('Chat went cold')
     await band.unmount()
@@ -3450,7 +3945,11 @@ describe('a chat opened again', () => {
     on('session.usage', () => ({ value: { context: { tokens: 30_000, window: 1_000_000, percent: 3 } } }) as never)
     await start($, on)
     await closeSetup($)
-    await $.classic.SessionStart({ source: 'resume', seconds_since_last_response: 7200, prompt_cache_likely_expired: true } as never)
+    await $.classic.SessionStart({
+      source: 'resume',
+      seconds_since_last_response: 7200,
+      prompt_cache_likely_expired: true,
+    } as never)
     await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
   })
 
@@ -3459,7 +3958,11 @@ describe('a chat opened again', () => {
     mock.clock(on)
     await start($, on)
     await closeSetup($)
-    await $.classic.SessionStart({ source: 'resume', seconds_since_last_response: 600, prompt_cache_likely_expired: false } as never)
+    await $.classic.SessionStart({
+      source: 'resume',
+      seconds_since_last_response: 600,
+      prompt_cache_likely_expired: false,
+    } as never)
     await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
     const footer = await $.ui.mount(FOOTER)
     expect(await drawn(footer)).toMatch(/"(49|50)m"/)
@@ -3483,7 +3986,13 @@ describe('a message typed while a turn runs', () => {
     const asked: string[] = []
     on('model.complete', (_$, e) => {
       asked.push(e.prompt)
-      return { value: { isAnswered: true as const, text: `{"model":"opus","effort":"${says.effort}","why":"x"}`, usage: USAGE } }
+      return {
+        value: {
+          isAnswered: true as const,
+          text: `{"model":"opus","effort":"${says.effort}","why":"x"}`,
+          usage: USAGE,
+        },
+      }
     })
     return asked
   }
@@ -3502,10 +4011,19 @@ describe('a message typed while a turn runs', () => {
     mock.clock(on)
     on('turn.complete', () => ({ text: '' }) as never)
 
-    await $.prompt.submit({ text: 'refactor the whole auth module across the app', wait: false, origin: { kind: 'composer' } })
+    await $.prompt.submit({
+      text: 'refactor the whole auth module across the app',
+      wait: false,
+      origin: { kind: 'composer' },
+    })
     await stepOf($, 't1', 0)
     says.effort = 'low'
-    await $.prompt.submit({ text: 'also rename the subagent you made', wait: false, turnId: 't1', origin: { kind: 'composer' } } as never)
+    await $.prompt.submit({
+      text: 'also rename the subagent you made',
+      wait: false,
+      turnId: 't1',
+      origin: { kind: 'composer' },
+    } as never)
     await stepOf($, 't1', 1)
     await $.turn.complete({ turnId: 't1', answer: '', durationMs: 1, isAborted: false, reason: 'completed' } as never)
     await stepOf($, 't2', 0)
@@ -3525,7 +4043,12 @@ describe('a message typed while a turn runs', () => {
     await $.prompt.submit({ text: 'fix the typo in the readme', wait: false, origin: { kind: 'composer' } })
     await stepOf($, 't1', 0)
     says.effort = 'high'
-    await $.prompt.submit({ text: 'actually go through every doc and fix them all', wait: false, turnId: 't1', origin: { kind: 'composer' } } as never)
+    await $.prompt.submit({
+      text: 'actually go through every doc and fix them all',
+      wait: false,
+      turnId: 't1',
+      origin: { kind: 'composer' },
+    } as never)
     await stepOf($, 't1', 1)
 
     expect(sent.map(s => s.effort)).toEqual(['low', 'high'])
@@ -3538,7 +4061,11 @@ describe('a message typed while a turn runs', () => {
     const sent = recordSteps(on)
     const auto = () => $.command.run({ command: 'context-lens', args: 'auto' })
 
-    await $.prompt.submit({ text: 'refactor the whole auth module across the app', wait: false, origin: { kind: 'composer' } })
+    await $.prompt.submit({
+      text: 'refactor the whole auth module across the app',
+      wait: false,
+      origin: { kind: 'composer' },
+    })
     await stepOf($, 't1', 0)
     expect(String((await auto()).text)).toContain('Auto off')
     await stepOf($, 't1', 1)
@@ -3552,31 +4079,59 @@ describe('a message typed while a turn runs', () => {
 describe('updates', () => {
   const DESK = { options: { layout: 'default' } } as never
   /** A session with `installed` on disk and `latest` on main; records what the mod runs. */
-  function world(on: On, v: { installed: string; latest: string; fails?: string; git?: string; installPath?: string; noCli?: (bin: string) => boolean; env?: Record<string, string> }) {
+  function world(
+    on: On,
+    v: {
+      installed: string
+      latest: string
+      fails?: string
+      git?: string
+      installPath?: string
+      noCli?: (bin: string) => boolean
+      env?: Record<string, string>
+    },
+  ) {
     engine(on, v.env)
     const clock = mock.clock(on)
     on('session.start', (_$, e) => ({ cwd: e.cwd }) as never)
     on('fs.read', (_$, e) => {
-      if (String(e.path).replaceAll('\\', '/').endsWith('.claude-plugin/plugin.json')) return { value: JSON.stringify({ version: v.installed }) } as never
-      if (v.installPath && String(e.path).replaceAll('\\', '/').endsWith('installed_plugins.json')) return { value: JSON.stringify({ plugins: { 'context-lens@context-lens': [{ installPath: v.installPath }] } }) } as never
-      if (String(e.path).replaceAll('\\', '/').endsWith('marketplaces/context-lens/public.json')) return { value: JSON.stringify([{ version: v.latest, note: 'Quick and Full as one switch.' }]) } as never
+      if (String(e.path).replaceAll('\\', '/').endsWith('.claude-plugin/plugin.json'))
+        return { value: JSON.stringify({ version: v.installed }) } as never
+      if (v.installPath && String(e.path).replaceAll('\\', '/').endsWith('installed_plugins.json'))
+        return {
+          value: JSON.stringify({ plugins: { 'context-lens@context-lens': [{ installPath: v.installPath }] } }),
+        } as never
+      if (String(e.path).replaceAll('\\', '/').endsWith('marketplaces/context-lens/public.json'))
+        return { value: JSON.stringify([{ version: v.latest, note: 'Quick and Full as one switch.' }]) } as never
       return { value: '' } as never
     })
     on('http.fetch', (_$, e) => {
       if (String(e.url).includes('public.json'))
-        return { value: { status: 200, ok: true, headers: {}, text: JSON.stringify([{ version: v.latest, date: '2026-10-07', note: 'Quick and Full as one switch.' }]) } } as never
+        return {
+          value: {
+            status: 200,
+            ok: true,
+            headers: {},
+            text: JSON.stringify([{ version: v.latest, date: '2026-10-07', note: 'Quick and Full as one switch.' }]),
+          },
+        } as never
       return { value: { status: 404, ok: false, headers: {}, text: '' } } as never
     })
     const ran: string[] = []
     const envs: (Record<string, string> | undefined)[] = []
     on('process.run', (_$, e) => {
       // No claude where the app looks: the engine refuses to start it, as it does for a desktop-only user.
-      if (v.noCli?.(e.argv[0])) return { deny: `$.process.run(${e.argv[0]}) failed to start: ENOENT: Command '${e.argv[0]}' not found or is in an unsafe location (current directory)` } as never
+      if (v.noCli?.(e.argv[0]))
+        return {
+          deny: `$.process.run(${e.argv[0]}) failed to start: ENOENT: Command '${e.argv[0]}' not found or is in an unsafe location (current directory)`,
+        } as never
       ran.push(e.argv.join(' '))
       envs.push(e.init?.env)
       // git show answers with public.json as it is on stable, when the test gives one.
       const stdout = e.argv[0] === 'git' && e.argv.includes('show') ? (v.git ?? '') : ''
-      return { value: v.fails ? { exitCode: 1, stdout: '', stderr: v.fails } : { exitCode: 0, stdout, stderr: '' } } as never
+      return {
+        value: v.fails ? { exitCode: 1, stdout: '', stderr: v.fails } : { exitCode: 0, stdout, stderr: '' },
+      } as never
     })
     const commands: string[] = []
     const commandArgs: string[] = []
@@ -3594,9 +4149,11 @@ describe('updates', () => {
   }
   const settle = () => new Promise(resolve => setTimeout(resolve, 30))
   /** Through the setup guide a first session opens, which takes the band before any card. */
-  async function pastSetup(ui: { find: (q: { key: string }) => Promise<unknown>; press: (q: { key: string }) => Promise<unknown> }) {
-    for (let i = 0; i < 6 && (await ui.find({ key: 'setup-close' })); i++)
-      await ui.press({ key: 'setup-close' })
+  async function pastSetup(ui: {
+    find: (q: { key: string }) => Promise<unknown>
+    press: (q: { key: string }) => Promise<unknown>
+  }) {
+    for (let i = 0; i < 6 && (await ui.find({ key: 'setup-close' })); i++) await ui.press({ key: 'setup-close' })
   }
   const start = ($: Engine) => $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
 
@@ -3614,7 +4171,12 @@ describe('updates', () => {
     await wide.press({ key: 'compact-close' })
     await settle()
     await wide.unmount()
-    const narrow = await $.ui.mount({ plugin: 'context-lens', surface: 'desktop', component: 'AbovePrompt', props: { ...BAND.props, bodyColumns: 60 } } as never)
+    const narrow = await $.ui.mount({
+      plugin: 'context-lens',
+      surface: 'desktop',
+      component: 'AbovePrompt',
+      props: { ...BAND.props, bodyColumns: 60 },
+    } as never)
     await pastSetup(narrow)
     expect(await narrow.find({ key: 'dash-handoff' })).toBeDefined()
     await narrow.unmount()
@@ -3645,11 +4207,15 @@ describe('updates', () => {
     expect(claudeCandidates('C:/Users/friend')).toEqual(['claude', 'C:/Users/friend/.local/bin/claude.exe'])
     expect(claudeCandidates('/Users/friend')).toEqual(['claude', '/Users/friend/.local/bin/claude'])
     expect(claudeCandidates(undefined)).toEqual(['claude'])
-    expect(noClaudeHint("$.process.run(claude) failed to start: ENOENT: Command 'claude' not found or is in an unsafe location (current directory)", 'C:/Users/friend')).toContain('install.ps1')
+    expect(
+      noClaudeHint(
+        "$.process.run(claude) failed to start: ENOENT: Command 'claude' not found or is in an unsafe location (current directory)",
+        'C:/Users/friend',
+      ),
+    ).toContain('install.ps1')
     expect(noClaudeHint('spawn claude ENOENT', '/Users/friend')).toContain('install.sh')
     expect(noClaudeHint('network down', '/Users/friend')).toBeUndefined()
   })
-
 })
 
 describe('subagent effort', () => {
@@ -3663,22 +4229,37 @@ describe('subagent effort', () => {
     await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
   }
 
-  test('with Subagents on, the judge picks a subagent\'s effort at its spawn and every request of it runs at that', { options: { subagents: 'on' } } as never, async ($, on) => {
-    const asked = judgeSays(on, '{"model":"opus","effort":"low","why":"quick search"}')
-    on('agent.spawn', () => ({ agentId: 'h1', model: 'claude-opus-5-5' }) as never)
-    on('turn.complete', () => ({ text: '' }))
-    const sent = recordSteps(on)
-    await start($, on)
-    await $.agent.spawn({ prompt: 'list the files under hooks', description: 'find files', subagentType: 'Explore' } as never)
-    expect(asked.some(p => p.includes('Explore subagent'))).toBe(true)
-    for (const index of [0, 1]) {
-      for await (const _ of $.turn.step({ turnId: 't1', index, model: 'claude-opus-5-5', effort: 'high', messageCount: 1, agentId: 'h1' } as never)) {
-        // drain
+  test(
+    "with Subagents on, the judge picks a subagent's effort at its spawn and every request of it runs at that",
+    { options: { subagents: 'on' } } as never,
+    async ($, on) => {
+      const asked = judgeSays(on, '{"model":"opus","effort":"low","why":"quick search"}')
+      on('agent.spawn', () => ({ agentId: 'h1', model: 'claude-opus-5-5' }) as never)
+      on('turn.complete', () => ({ text: '' }))
+      const sent = recordSteps(on)
+      await start($, on)
+      await $.agent.spawn({
+        prompt: 'list the files under hooks',
+        description: 'find files',
+        subagentType: 'Explore',
+      } as never)
+      expect(asked.some(p => p.includes('Explore subagent'))).toBe(true)
+      for (const index of [0, 1]) {
+        for await (const _ of $.turn.step({
+          turnId: 't1',
+          index,
+          model: 'claude-opus-5-5',
+          effort: 'high',
+          messageCount: 1,
+          agentId: 'h1',
+        } as never)) {
+          // drain
+        }
       }
-    }
-    // Subagents start at medium: a low verdict comes up to it.
-    expect(sent.map(s => s.effort)).toEqual(['medium', 'medium'])
-  })
+      // Subagents start at medium: a low verdict comes up to it.
+      expect(sent.map(s => s.effort)).toEqual(['medium', 'medium'])
+    },
+  )
 
   const subagentRun = async ($: Engine, on: On, verdict: string, given: string, opts?: { agentId?: string }) => {
     judgeSays(on, verdict)
@@ -3686,105 +4267,233 @@ describe('subagent effort', () => {
     on('turn.complete', () => ({ text: '' }))
     const sent = recordSteps(on)
     await start($, on)
-    await $.agent.spawn({ prompt: 'list the files under hooks', description: 'find files', subagentType: 'Explore' } as never)
-    for await (const _ of $.turn.step({ turnId: 't1', index: 0, model: given, effort: 'high', messageCount: 1, agentId: opts?.agentId ?? 'h1' } as never)) {
+    await $.agent.spawn({
+      prompt: 'list the files under hooks',
+      description: 'find files',
+      subagentType: 'Explore',
+    } as never)
+    for await (const _ of $.turn.step({
+      turnId: 't1',
+      index: 0,
+      model: given,
+      effort: 'high',
+      messageCount: 1,
+      agentId: opts?.agentId ?? 'h1',
+    } as never)) {
       // drain
     }
     return sent
   }
 
-  test('subagent model: a subagent the judge is sure is simple runs on a cheaper model than it was given', { options: { subagents: 'on', subagentModel: 'on' } } as never, async ($, on) => {
-    const sent = await subagentRun($, on, '{"model":"haiku","effort":"low","sure":0.9,"why":"quick search"}', 'claude-opus-5-5')
-    expect(sent[0].model).toBe('claude-haiku-5-5')
-  })
+  test(
+    'subagent model: a subagent the judge is sure is simple runs on a cheaper model than it was given',
+    { options: { subagents: 'on', subagentModel: 'on' } } as never,
+    async ($, on) => {
+      const sent = await subagentRun(
+        $,
+        on,
+        '{"model":"haiku","effort":"low","sure":0.9,"why":"quick search"}',
+        'claude-opus-5-5',
+      )
+      expect(sent[0].model).toBe('claude-haiku-5-5')
+    },
+  )
 
-  test('subagent model: never above the model it was given, and an unsure verdict leaves it alone', { options: { subagents: 'on', subagentModel: 'on' } } as never, async ($, on) => {
-    // The judge names Opus for a Sonnet subagent: it keeps Sonnet.
-    const up = await subagentRun($, on, '{"model":"opus","effort":"high","sure":0.95,"why":"hard"}', 'claude-sonnet-5-5')
-    expect(up[0].model).toBe('claude-sonnet-5-5')
-  })
+  test(
+    'subagent model: never above the model it was given, and an unsure verdict leaves it alone',
+    { options: { subagents: 'on', subagentModel: 'on' } } as never,
+    async ($, on) => {
+      // The judge names Opus for a Sonnet subagent: it keeps Sonnet.
+      const up = await subagentRun(
+        $,
+        on,
+        '{"model":"opus","effort":"high","sure":0.95,"why":"hard"}',
+        'claude-sonnet-5-5',
+      )
+      expect(up[0].model).toBe('claude-sonnet-5-5')
+    },
+  )
 
-  test('subagent model: unsure, it keeps the model it was given', { options: { subagents: 'on', subagentModel: 'on' } } as never, async ($, on) => {
-    const sent = await subagentRun($, on, '{"model":"haiku","effort":"low","sure":0.4,"why":"maybe small"}', 'claude-opus-5-5')
-    expect(sent[0].model).toBe('claude-opus-5-5')
-  })
+  test(
+    'subagent model: unsure, it keeps the model it was given',
+    { options: { subagents: 'on', subagentModel: 'on' } } as never,
+    async ($, on) => {
+      const sent = await subagentRun(
+        $,
+        on,
+        '{"model":"haiku","effort":"low","sure":0.4,"why":"maybe small"}',
+        'claude-opus-5-5',
+      )
+      expect(sent[0].model).toBe('claude-opus-5-5')
+    },
+  )
 
-  test('subagent model: with its switch off the effort is picked and the model stays', { options: { subagents: 'on' } } as never, async ($, on) => {
-    const sent = await subagentRun($, on, '{"model":"haiku","effort":"low","sure":0.9,"why":"quick search"}', 'claude-opus-5-5')
-    expect(sent[0].model).toBe('claude-opus-5-5')
-    expect(sent[0].effort).toBe('medium')
-  })
+  test(
+    'subagent model: with its switch off the effort is picked and the model stays',
+    { options: { subagents: 'on' } } as never,
+    async ($, on) => {
+      const sent = await subagentRun(
+        $,
+        on,
+        '{"model":"haiku","effort":"low","sure":0.9,"why":"quick search"}',
+        'claude-opus-5-5',
+      )
+      expect(sent[0].model).toBe('claude-opus-5-5')
+      expect(sent[0].effort).toBe('medium')
+    },
+  )
 
   test('subagentSteerable: what a subagent inherits may change; its definition only with Override on; its call never', () => {
     const chat = { model: 'opus' as const, effort: 'medium' }
     // Inherited: the parent's model and the chat's effort.
-    expect(subagentSteerable({ model: 'opus', effort: 'medium' }, chat, undefined, false)).toEqual({ model: true, effort: true })
+    expect(subagentSteerable({ model: 'opus', effort: 'medium' }, chat, undefined, false)).toEqual({
+      model: true,
+      effort: true,
+    })
     // Set by its definition: kept, unless Override definitions is on.
-    expect(subagentSteerable({ model: 'sonnet', effort: 'high' }, chat, undefined, false)).toEqual({ model: false, effort: false })
-    expect(subagentSteerable({ model: 'sonnet', effort: 'high' }, chat, undefined, true)).toEqual({ model: true, effort: true })
+    expect(subagentSteerable({ model: 'sonnet', effort: 'high' }, chat, undefined, false)).toEqual({
+      model: false,
+      effort: false,
+    })
+    expect(subagentSteerable({ model: 'sonnet', effort: 'high' }, chat, undefined, true)).toEqual({
+      model: true,
+      effort: true,
+    })
     // Named by its Agent call: kept even then.
-    expect(subagentSteerable({ model: 'sonnet', effort: 'high' }, chat, { model: true, effort: true }, true)).toEqual({ model: false, effort: false })
+    expect(subagentSteerable({ model: 'sonnet', effort: 'high' }, chat, { model: true, effort: true }, true)).toEqual({
+      model: false,
+      effort: false,
+    })
     // The chat's effort not seen yet: taken as inherited.
-    expect(subagentSteerable({ model: 'opus', effort: 'high' }, { model: 'opus' }, undefined, false)).toEqual({ model: true, effort: true })
+    expect(subagentSteerable({ model: 'opus', effort: 'high' }, { model: 'opus' }, undefined, false)).toEqual({
+      model: true,
+      effort: true,
+    })
   })
 
   // A main request first, so the chat's own effort is known; then a subagent's first request as its definition sets it.
-  const definedRun = async ($: Engine, on: On, request: { model: string; effort: string }, spawn: Record<string, unknown> = {}, call?: Record<string, unknown>) => {
+  const definedRun = async (
+    $: Engine,
+    on: On,
+    request: { model: string; effort: string },
+    spawn: Record<string, unknown> = {},
+    call?: Record<string, unknown>,
+  ) => {
     judgeSays(on, '{"model":"haiku","effort":"low","sure":0.9,"why":"quick search"}')
     on('agent.spawn', () => ({ agentId: 'd1', model: request.model }) as never)
     on('turn.complete', () => ({ text: '' }))
     const sent = recordSteps(on)
     if (call) on('tool.call', () => ({ result: {} }) as never)
     await start($, on)
-    for await (const _ of $.turn.step({ turnId: 't0', index: 0, model: 'claude-opus-5-5', effort: 'medium', messageCount: 1 } as never)) {
+    for await (const _ of $.turn.step({
+      turnId: 't0',
+      index: 0,
+      model: 'claude-opus-5-5',
+      effort: 'medium',
+      messageCount: 1,
+    } as never)) {
       // drain
     }
     if (call) await $.tool.call({ tool: 'Agent', description: 'review', prompt: 'review the diff', ...call } as never)
-    await $.agent.spawn({ prompt: 'review the diff', description: 'review', subagentType: 'reviewer', parentModel: 'claude-opus-5-5', ...spawn } as never)
-    for await (const _ of $.turn.step({ turnId: 't1', index: 0, ...request, messageCount: 1, agentId: 'd1' } as never)) {
+    await $.agent.spawn({
+      prompt: 'review the diff',
+      description: 'review',
+      subagentType: 'reviewer',
+      parentModel: 'claude-opus-5-5',
+      ...spawn,
+    } as never)
+    for await (const _ of $.turn.step({
+      turnId: 't1',
+      index: 0,
+      ...request,
+      messageCount: 1,
+      agentId: 'd1',
+    } as never)) {
       // drain
     }
     return sent.slice(1)
   }
   const ALL_ON = { subagents: 'on', subagentModel: 'on' }
 
-  test("a subagent keeps the model and effort its definition sets", { options: ALL_ON } as never, async ($, on) => {
+  test('a subagent keeps the model and effort its definition sets', { options: ALL_ON } as never, async ($, on) => {
     const sent = await definedRun($, on, { model: 'claude-sonnet-5-5', effort: 'high' })
     expect(sent[0]).toEqual({ model: 'claude-sonnet-5-5', effort: 'high' })
   })
 
-  test("with Override definitions on, the judge's picks replace a definition's model and effort", { options: { ...ALL_ON, overrideDefinitions: 'on' } } as never, async ($, on) => {
-    const sent = await definedRun($, on, { model: 'claude-sonnet-5-5', effort: 'high' })
-    expect(sent[0]).toEqual({ model: 'claude-haiku-5-5', effort: 'medium' })
-  })
+  test(
+    "with Override definitions on, the judge's picks replace a definition's model and effort",
+    { options: { ...ALL_ON, overrideDefinitions: 'on' } } as never,
+    async ($, on) => {
+      const sent = await definedRun($, on, { model: 'claude-sonnet-5-5', effort: 'high' })
+      expect(sent[0]).toEqual({ model: 'claude-haiku-5-5', effort: 'medium' })
+    },
+  )
 
-  test("a subagent that inherits the chat's model and effort is still steered", { options: ALL_ON } as never, async ($, on) => {
-    const sent = await definedRun($, on, { model: 'claude-opus-5-5', effort: 'medium' })
-    expect(sent[0]).toEqual({ model: 'claude-haiku-5-5', effort: 'medium' })
-  })
+  test(
+    "a subagent that inherits the chat's model and effort is still steered",
+    { options: ALL_ON } as never,
+    async ($, on) => {
+      const sent = await definedRun($, on, { model: 'claude-opus-5-5', effort: 'medium' })
+      expect(sent[0]).toEqual({ model: 'claude-haiku-5-5', effort: 'medium' })
+    },
+  )
 
-  test("a model the Agent call names stays, even with Override definitions on", { options: { ...ALL_ON, overrideDefinitions: 'on' } } as never, async ($, on) => {
-    const sent = await definedRun($, on, { model: 'claude-sonnet-5-5', effort: 'medium' }, { model: 'sonnet' })
-    expect(sent[0]).toEqual({ model: 'claude-sonnet-5-5', effort: 'medium' })
-  })
+  test(
+    'a model the Agent call names stays, even with Override definitions on',
+    { options: { ...ALL_ON, overrideDefinitions: 'on' } } as never,
+    async ($, on) => {
+      const sent = await definedRun($, on, { model: 'claude-sonnet-5-5', effort: 'medium' }, { model: 'sonnet' })
+      expect(sent[0]).toEqual({ model: 'claude-sonnet-5-5', effort: 'medium' })
+    },
+  )
 
-  test("an effort the Agent call names stays, even with Override definitions on", { options: { ...ALL_ON, overrideDefinitions: 'on' } } as never, async ($, on) => {
-    const sent = await definedRun($, on, { model: 'claude-opus-5-5', effort: 'high' }, { tool_use_id: 'tu1' }, { tool_use_id: 'tu1', effort: 'high' })
-    // The model is inherited and may change; the effort the call named goes out as it is.
-    expect(sent[0]).toEqual({ model: 'claude-haiku-5-5', effort: 'high' })
-  })
+  test(
+    'an effort the Agent call names stays, even with Override definitions on',
+    { options: { ...ALL_ON, overrideDefinitions: 'on' } } as never,
+    async ($, on) => {
+      const sent = await definedRun(
+        $,
+        on,
+        { model: 'claude-opus-5-5', effort: 'high' },
+        { tool_use_id: 'tu1' },
+        { tool_use_id: 'tu1', effort: 'high' },
+      )
+      // The model is inherited and may change; the effort the call named goes out as it is.
+      expect(sent[0]).toEqual({ model: 'claude-haiku-5-5', effort: 'high' })
+    },
+  )
 
-  test("with Subagents off, a subagent of a judged turn keeps the effort its definition sets", async ($, on) => {
+  test('with Subagents off, a subagent of a judged turn keeps the effort its definition sets', async ($, on) => {
     engine(on)
-    on('model.complete', () => ({ value: { isAnswered: true as const, text: '{"model":"opus","effort":"xhigh","why":"hard"}', usage: USAGE } }))
+    on('model.complete', () => ({
+      value: { isAnswered: true as const, text: '{"model":"opus","effort":"xhigh","why":"hard"}', usage: USAGE },
+    }))
     on('agent.spawn', () => ({ agentId: 'd2', model: 'claude-opus-5-5' }) as never)
     const sent = recordSteps(on)
     await $.prompt.submit({ text: 'find why the relay drops messages', wait: false, origin: { kind: 'composer' } })
-    for await (const _ of $.turn.step({ turnId: 't0', index: 0, model: 'claude-opus-5-5', effort: 'medium', messageCount: 1 } as never)) {
+    for await (const _ of $.turn.step({
+      turnId: 't0',
+      index: 0,
+      model: 'claude-opus-5-5',
+      effort: 'medium',
+      messageCount: 1,
+    } as never)) {
       // drain
     }
-    await $.agent.spawn({ prompt: 'read relay/worker.js', description: 'read relay', subagentType: 'scout', parentModel: 'claude-opus-5-5' } as never)
-    for await (const _ of $.turn.step({ turnId: 't0', index: 0, model: 'claude-opus-5-5', effort: 'low', messageCount: 1, agentId: 'd2' } as never)) {
+    await $.agent.spawn({
+      prompt: 'read relay/worker.js',
+      description: 'read relay',
+      subagentType: 'scout',
+      parentModel: 'claude-opus-5-5',
+    } as never)
+    for await (const _ of $.turn.step({
+      turnId: 't0',
+      index: 0,
+      model: 'claude-opus-5-5',
+      effort: 'low',
+      messageCount: 1,
+      agentId: 'd2',
+    } as never)) {
       // drain
     }
     // The main request runs at the turn's xhigh; the subagent keeps the low its definition set.
@@ -3800,25 +4509,43 @@ describe('subagent effort', () => {
     expect(subagentModelFor(undefined, 'opus')).toBeNull()
   })
 
-  test('a subagent\'s first request before its spawn resolves still gets the picked effort', { options: { subagents: 'on' } } as never, async ($, on) => {
-    judgeSays(on, '{"model":"opus","effort":"low","why":"quick search"}')
-    const sent = recordSteps(on)
-    on('agent.list', () => ({ value: [{ id: 'h2', description: 'find files', type: 'Explore', status: 'running' }] }) as never)
-    // The engine's own spawn: the subagent's first request goes out before the spawn answers with its id.
-    let early: Promise<void> | null = null
-    on('agent.spawn', async () => {
-      early = (async () => {
-        for await (const _ of $.turn.step({ turnId: 't1', index: 0, model: 'claude-opus-5-5', effort: 'high', messageCount: 1, agentId: 'h2' } as never)) {
-          // drain
-        }
-      })()
-      await early
-      return { agentId: 'h2', model: 'claude-opus-5-5' } as never
-    })
-    await start($, on)
-    await $.agent.spawn({ prompt: 'list the files under hooks', description: 'find files', subagentType: 'Explore' } as never)
-    expect(sent.map(s => s.effort)).toEqual(['medium'])
-  })
+  test(
+    "a subagent's first request before its spawn resolves still gets the picked effort",
+    { options: { subagents: 'on' } } as never,
+    async ($, on) => {
+      judgeSays(on, '{"model":"opus","effort":"low","why":"quick search"}')
+      const sent = recordSteps(on)
+      on(
+        'agent.list',
+        () => ({ value: [{ id: 'h2', description: 'find files', type: 'Explore', status: 'running' }] }) as never,
+      )
+      // The engine's own spawn: the subagent's first request goes out before the spawn answers with its id.
+      let early: Promise<void> | null = null
+      on('agent.spawn', async () => {
+        early = (async () => {
+          for await (const _ of $.turn.step({
+            turnId: 't1',
+            index: 0,
+            model: 'claude-opus-5-5',
+            effort: 'high',
+            messageCount: 1,
+            agentId: 'h2',
+          } as never)) {
+            // drain
+          }
+        })()
+        await early
+        return { agentId: 'h2', model: 'claude-opus-5-5' } as never
+      })
+      await start($, on)
+      await $.agent.spawn({
+        prompt: 'list the files under hooks',
+        description: 'find files',
+        subagentType: 'Explore',
+      } as never)
+      expect(sent.map(s => s.effort)).toEqual(['medium'])
+    },
+  )
 
   test("subagentFloor: medium, the person's Min when higher, never above their Max", () => {
     expect(subagentFloor('low', 'max')).toBe('medium')
@@ -3826,20 +4553,27 @@ describe('subagent effort', () => {
     expect(subagentFloor('low', 'low')).toBe('low')
   })
 
-  test('with Subagents off, a subagent runs at the chat\'s effort and the judge is not asked', async ($, on) => {
+  test("with Subagents off, a subagent runs at the chat's effort and the judge is not asked", async ($, on) => {
     const asked = judgeSays(on, '{"model":"opus","effort":"low","why":"quick search"}')
     on('agent.spawn', () => ({ agentId: 'h3', model: 'claude-opus-5-5' }) as never)
     const sent = recordSteps(on)
     await start($, on)
     await $.agent.spawn({ prompt: 'list the files', description: 'find files', subagentType: 'Explore' } as never)
-    for await (const _ of $.turn.step({ turnId: 't1', index: 0, model: 'claude-opus-5-5', effort: 'high', messageCount: 1, agentId: 'h3' } as never)) {
+    for await (const _ of $.turn.step({
+      turnId: 't1',
+      index: 0,
+      model: 'claude-opus-5-5',
+      effort: 'high',
+      messageCount: 1,
+      agentId: 'h3',
+    } as never)) {
       // drain
     }
     expect(asked.some(p => p.includes('subagent'))).toBe(false)
     expect(sent.map(s => s.effort)).toEqual(['high'])
   })
 
-  test('with Subagents off, a subagent of a judged turn runs at the turn\'s effort, never below medium', async ($, on) => {
+  test("with Subagents off, a subagent of a judged turn runs at the turn's effort, never below medium", async ($, on) => {
     engine(on)
     let verdict = '{"model":"opus","effort":"xhigh","why":"hard"}'
     const asked: string[] = []
@@ -3850,7 +4584,14 @@ describe('subagent effort', () => {
     on('agent.spawn', () => ({ agentId: 'h4', model: 'claude-opus-5-5' }) as never)
     const sent = recordSteps(on)
     const sub = async () => {
-      for await (const _ of $.turn.step({ turnId: 't1', index: 0, model: 'claude-opus-5-5', effort: 'medium', messageCount: 1, agentId: 'h4' } as never)) {
+      for await (const _ of $.turn.step({
+        turnId: 't1',
+        index: 0,
+        model: 'claude-opus-5-5',
+        effort: 'medium',
+        messageCount: 1,
+        agentId: 'h4',
+      } as never)) {
         // drain
       }
     }
@@ -3864,7 +4605,6 @@ describe('subagent effort', () => {
     expect(asked.some(p => p.includes('subagent'))).toBe(false)
     expect(sent.map(s => s.effort)).toEqual(['xhigh', 'medium'])
   })
-
 })
 
 describe('theme', () => {
@@ -3881,15 +4621,30 @@ describe('theme', () => {
       const hue = (hex: string) => {
         const n = parseInt(hex.slice(1), 16)
         const [r, g, b] = [(n >> 16) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255]
-        const max = Math.max(r, g, b), d = max - Math.min(r, g, b)
+        const max = Math.max(r, g, b),
+          d = max - Math.min(r, g, b)
         const h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4
         return (h * 60 + 360) % 360
       }
       for (const violet of ['#a79cf7', '#b9a7ff', '#7c6cf0', '#4a3f80', '#15121f', '#9b7bff', '#e4dfff'])
         expect(Math.abs(hue(tintHex(violet)) - 15) < 4).toBe(true)
-      for (const same of ['#ffffff', '#000000', '#141416', '#d4d4d8', '#8b8b93', '#2c2c31', '#7fe0a4', '#e0a33a', '#7cc4ff', '#e5534b', '#5d6a86'])
+      for (const same of [
+        '#ffffff',
+        '#000000',
+        '#141416',
+        '#d4d4d8',
+        '#8b8b93',
+        '#2c2c31',
+        '#7fe0a4',
+        '#e0a33a',
+        '#7cc4ff',
+        '#e5534b',
+        '#5d6a86',
+      ])
         expect(tintHex(same)).toBe(same)
-      expect(tint('<stop stop-color="#a79cf7"/><path fill="#ffffff"/>')).toBe(`<stop stop-color="${tintHex('#a79cf7')}"/><path fill="#ffffff"/>`)
+      expect(tint('<stop stop-color="#a79cf7"/><path fill="#ffffff"/>')).toBe(
+        `<stop stop-color="${tintHex('#a79cf7')}"/><path fill="#ffffff"/>`,
+      )
     } finally {
       setTheme('violet')
     }
@@ -3902,7 +4657,8 @@ describe('theme', () => {
       const hue = (hex: string) => {
         const n = parseInt(hex.slice(1), 16)
         const [r, g, b] = [(n >> 16) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255]
-        const max = Math.max(r, g, b), d = max - Math.min(r, g, b)
+        const max = Math.max(r, g, b),
+          d = max - Math.min(r, g, b)
         const h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4
         return (h * 60 + 360) % 360
       }
@@ -3910,14 +4666,16 @@ describe('theme', () => {
         expect(Math.abs(hue(tintHex(violet)) - 340) < 4).toBe(true)
       for (const same of ['#ffffff', '#141416', '#7fe0a4', '#e0a33a', '#7cc4ff', '#e5534b'])
         expect(tintHex(same)).toBe(same)
-      const art = '<svg><style>.sp{fill:#fff}</style><rect fill="#7c6cf0" width="9" height="9"/><path class="sp" style="transform-origin:168px 8px;animation-duration:4.2s;animation-delay:0.3s" d="M168 6.4 L168.34 7.66 Z"/></svg>'
+      const art =
+        '<svg><style>.sp{fill:#fff}</style><rect fill="#7c6cf0" width="9" height="9"/><path class="sp" style="transform-origin:168px 8px;animation-duration:4.2s;animation-delay:0.3s" d="M168 6.4 L168.34 7.66 Z"/></svg>'
       const petals = tint(art)
       expect(petals).toContain('class="pt"')
       expect(petals).toContain('<g transform="translate(168 0)">')
       expect(petals).toContain('@keyframes fall')
       expect(petals).not.toContain('class="sp"')
       // Art with no violet in it (the green Done card) keeps its sparkles.
-      const green = '<svg><style>.sp{fill:#fff}</style><rect fill="#2fae62" width="9" height="9"/><path class="sp" style="transform-origin:168px 8px;animation-duration:4.2s;animation-delay:0.3s" d="M168 6.4 L168.34 7.66 Z"/></svg>'
+      const green =
+        '<svg><style>.sp{fill:#fff}</style><rect fill="#2fae62" width="9" height="9"/><path class="sp" style="transform-origin:168px 8px;animation-duration:4.2s;animation-delay:0.3s" d="M168 6.4 L168.34 7.66 Z"/></svg>'
       expect(tint(green)).toContain('class="sp"')
       expect(tint(green)).not.toContain('class="pt"')
       // Orange keeps the sparkles.

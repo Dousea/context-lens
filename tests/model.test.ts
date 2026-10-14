@@ -99,7 +99,9 @@ describe('the context bar', () => {
   })
 
   test('categories scale to the tokens the API counted', () => {
-    const cells = stackedBar(view, 120_000, 20).filter(s => s.kind === 'used').map(s => s.cells)
+    const cells = stackedBar(view, 120_000, 20)
+      .filter(s => s.kind === 'used')
+      .map(s => s.cells)
     expect(cells).toEqual([4, 8])
   })
 

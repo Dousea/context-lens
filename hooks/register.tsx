@@ -1,7 +1,18 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, ModelForkResult, ModelUsage, Register, RenderInput } from 'claude-code'
 
-import type { AgentCache, CacheTtl, Effort, HandoffAfter, HandoffChoice, HotClosed, ModelKey, Pick, SettingsDraft, Spent } from '../types'
+import type {
+  AgentCache,
+  CacheTtl,
+  Effort,
+  HandoffAfter,
+  HandoffChoice,
+  HotClosed,
+  ModelKey,
+  Pick,
+  SettingsDraft,
+  Spent,
+} from '../types'
 import { ART_COLUMNS, ART_FRAME_MS, ART_MIN_WIDTH, ART_ROWS, type ArtKind, artFrame, MOVING } from './art'
 import { MARK_SVG } from './brand-mark'
 import {
@@ -98,7 +109,18 @@ const EFFORT_LABELS: Record<Effort, string> = { low: 'Low', medium: 'Medium', hi
 // Auto is two switches. `isAuto` is effort (the name stays: it is what the store and state hold);
 // `isAutoModel` lets the judge suggest another model and starts off.
 const isAuto = atom({ plugin: 'context-lens', key: 'isAuto' } as const, true)
-const EMPTY_SPENT: Spent = { prompts: 0, requests: 0, input: 0, write: 0, writeHour: 0, read: 0, out: 0, byEffort: {}, judge: { haiku: 0, ms: 0, tokens: 0 }, subagents: { runs: {}, requests: 0, cost: 0 } }
+const EMPTY_SPENT: Spent = {
+  prompts: 0,
+  requests: 0,
+  input: 0,
+  write: 0,
+  writeHour: 0,
+  read: 0,
+  out: 0,
+  byEffort: {},
+  judge: { haiku: 0, ms: 0, tokens: 0 },
+  subagents: { runs: {}, requests: 0, cost: 0 },
+}
 const SWITCHED_MS = 2500
 // The prompt cache lives this long after the last request read or wrote it. A response may say which lifetime its
 // cache writes got (usage.cache_creation: ephemeral_1h / ephemeral_5m); until one does, 1 hour is assumed: 99% of
@@ -148,7 +170,10 @@ let compactOpenedAt = 0
 const COMPACT_FADE_MS = 450
 /** The swamped band's colours over the compact bar, fading to nothing: the band seems to turn from green to violet. */
 function compactFadeSvg(elapsedMs: number): string {
-  return inPhase(`<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="240" viewBox="0 0 1600 240" preserveAspectRatio="none"><style>.f{animation:f ${COMPACT_FADE_MS / 1000}s ease-out forwards}@keyframes f{from{opacity:1}to{opacity:0}}</style><rect class="f" width="1600" height="240" fill="${BOG_BG}"/></svg>`, elapsedMs)
+  return inPhase(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="240" viewBox="0 0 1600 240" preserveAspectRatio="none"><style>.f{animation:f ${COMPACT_FADE_MS / 1000}s ease-out forwards}@keyframes f{from{opacity:1}to{opacity:0}}</style><rect class="f" width="1600" height="240" fill="${BOG_BG}"/></svg>`,
+    elapsedMs,
+  )
 }
 // Where a handoff is: null idle, writing (the handoff turn runs), clearing (clear and resend).
 const handoffStage = atom({ plugin: 'context-lens', key: 'handoffStage' } as const, null)
@@ -160,7 +185,12 @@ const swamped = atom({ plugin: 'context-lens', key: 'swamped' } as const, null)
 const handoffAdvice = atom({ plugin: 'context-lens', key: 'handoffAdvice' } as const, null)
 // The handoff card above the prompt: shown from the start of a handoff, and once it lands ('done' in the
 // cleared chat, 'copied'). It goes with the next message, its ✕, or HANDOFF_CARD_MS after it was set.
-type HandoffCard = { kind: 'writing' | 'done' | 'copied' | 'compacting' | 'compacted'; full: boolean; at: number; seen: boolean }
+type HandoffCard = {
+  kind: 'writing' | 'done' | 'copied' | 'compacting' | 'compacted'
+  full: boolean
+  at: number
+  seen: boolean
+}
 // Kinds still under way: they stay until they land, with moving art. Compacting shares the card with the handoff.
 const cardRunning = (kind: HandoffCard['kind']) => kind === 'writing' || kind === 'compacting'
 // Kinds that landed well: the card turns green with a checkmark.
@@ -195,7 +225,12 @@ const TURN_LINES_SESSIONS = 30
 let storedTurnLines: { session: string; lines: Record<string, TurnLine> } | null = null
 
 const withTurnLine = (lines: Record<string, TurnLine>, key: string, line: TurnLine) =>
-  Object.fromEntries([...Object.entries(lines).filter(([k]) => k !== key).slice(1 - TURN_LINES_KEPT), [key, line]])
+  Object.fromEntries([
+    ...Object.entries(lines)
+      .filter(([k]) => k !== key)
+      .slice(1 - TURN_LINES_KEPT),
+    [key, line],
+  ])
 
 async function storedLinesOf($: EngineInterface): Promise<Record<string, TurnLine>> {
   const session = await $.session.id().catch(() => '')
@@ -243,9 +278,17 @@ type SettingsCard = 'auto' | 'subagents' | 'context' | 'look'
 const settingsCard = atom({ plugin: 'context-lens', key: 'settingsCard' } as const, null)
 /** The settings panel's parts: a card each on the overview, and what the part is for, said once it is open. */
 const CARDS: readonly { id: SettingsCard; title: string; about: string }[] = [
-  { id: 'auto', title: 'Auto', about: "How Auto picks. The slider tips the judge's close calls; Never below and Never above bound every pick." },
+  {
+    id: 'auto',
+    title: 'Auto',
+    about: "How Auto picks. The slider tips the judge's close calls; Never below and Never above bound every pick.",
+  },
   { id: 'subagents', title: 'Subagents', about: 'What the subagents the chat sends off run on.' },
-  { id: 'context', title: 'Context', about: 'What happens as the chat fills up: the alert, compacting and the handoff.' },
+  {
+    id: 'context',
+    title: 'Context',
+    about: 'What happens as the chat fills up: the alert, compacting and the handoff.',
+  },
   { id: 'look', title: 'Look', about: 'How context-lens looks and which parts of it show. Uninstall removes it.' },
 ]
 const BIAS_WORDS = ['Cheapest', 'Cheaper', 'Balanced', 'Smarter', 'Smartest'] as const
@@ -284,8 +327,10 @@ const BRAND_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="440" height="6
 
 // The dashboard sits there all the time, so it is grey: purple is kept for the moments that ask for attention. Its
 // art is the brand's, in grey and at 40% of its strength; only the ✦ keeps the accent.
-const DASH_SVG = BRAND_SVG.replace(/stop-opacity="([0-9.]+)"/g, (_m, v: string) => `stop-opacity="${(Number(v) * 0.4).toFixed(3)}"`)
-  .replace(/#(7c6cf0|8f7ff0|b3a6ff|c9bdff|9a86ff)/g, '#9a9aa2')
+const DASH_SVG = BRAND_SVG.replace(
+  /stop-opacity="([0-9.]+)"/g,
+  (_m, v: string) => `stop-opacity="${(Number(v) * 0.4).toFixed(3)}"`,
+).replace(/#(7c6cf0|8f7ff0|b3a6ff|c9bdff|9a86ff)/g, '#9a9aa2')
 let DASH_BG = '#141416'
 let DASH_EDGE = '#2a2a2f'
 /** The settings title's word in the website hero's style: crisp, going soft and grainy at its bottom right (a radial
@@ -306,7 +351,10 @@ let introAt = 0
 /** An animated Svg drawn `elapsedMs` into its animations. Every redraw rebuilds the band and starts its images' CSS
  * animations over; with this, a redraw mid-animation picks it up where it was instead of jumping back. */
 export function inPhase(svg: string, elapsedMs: number): string {
-  return svg.replace('</svg>', `<style>svg *{animation-delay:${(-Math.max(0, elapsedMs) / 1000).toFixed(3)}s !important}</style></svg>`)
+  return svg.replace(
+    '</svg>',
+    `<style>svg *{animation-delay:${(-Math.max(0, elapsedMs) / 1000).toFixed(3)}s !important}</style></svg>`,
+  )
 }
 // How far the entrance on screen is, for introLayer.
 let introElapsed = 0
@@ -328,26 +376,61 @@ async function introShows($: EngineInterface, kind: string): Promise<boolean> {
 const TITLE_MARK_SIZE = 16
 
 /** A card's title with the context-lens mark where the ✦ stood; the ✦ stays where the surface draws no images. */
-function markTitle(els: { Box: unknown; Text: unknown; Svg?: unknown }, key: string, color: string, title: string, mark = MARK_SVG) {
-  const { Box: B, Text: T, Svg: S } = els as unknown as { Box: (p: Record<string, unknown>) => unknown; Text: (p: Record<string, unknown>) => unknown; Svg?: (p: Record<string, unknown>) => unknown }
-  if (!S) return <T key={key} color={color} bold wrap="truncate">{title}</T>
+function markTitle(
+  els: { Box: unknown; Text: unknown; Svg?: unknown },
+  key: string,
+  color: string,
+  title: string,
+  mark = MARK_SVG,
+) {
+  const {
+    Box: B,
+    Text: T,
+    Svg: S,
+  } = els as unknown as {
+    Box: (p: Record<string, unknown>) => unknown
+    Text: (p: Record<string, unknown>) => unknown
+    Svg?: (p: Record<string, unknown>) => unknown
+  }
+  if (!S)
+    return (
+      <T key={key} color={color} bold wrap="truncate">
+        {title}
+      </T>
+    )
   return (
     <B key={key} flexDirection="row" alignItems="center" flexShrink={1} minWidth={0}>
       <B flexShrink={0} marginRight={1} alignItems="center">
         <S source={mark} alt="context-lens" width={TITLE_MARK_SIZE} height={TITLE_MARK_SIZE} />
       </B>
-      <T color={color} bold wrap="truncate">{title.replace(/^✦ /, '')}</T>
+      <T color={color} bold wrap="truncate">
+        {title.replace(/^✦ /, '')}
+      </T>
     </B>
   )
 }
 
 /** The entrance layer (INTRO_SVG) in a band's own colours, or nothing once the entrance is over. */
-function introLayer(els: { Box: unknown; Svg?: unknown }, key: string, show: boolean, wash = '#8b6cff', light = '#b9a7ff') {
+function introLayer(
+  els: { Box: unknown; Svg?: unknown },
+  key: string,
+  show: boolean,
+  wash = '#8b6cff',
+  light = '#b9a7ff',
+) {
   if (!els.Svg || !show) return null
-  const { Box: B, Svg: S } = els as unknown as { Box: (p: Record<string, unknown>) => unknown; Svg: (p: Record<string, unknown>) => unknown }
+  const { Box: B, Svg: S } = els as unknown as {
+    Box: (p: Record<string, unknown>) => unknown
+    Svg: (p: Record<string, unknown>) => unknown
+  }
   return (
     <B key={`${key}-intro`} position="absolute" top={-1} left={0} right={0} bottom={-1}>
-      <S source={inPhase(INTRO_SVG.replace('#8b6cff', wash).replace('#b9a7ff', light), introElapsed)} alt="" width={1600} height={240} />
+      <S
+        source={inPhase(INTRO_SVG.replace('#8b6cff', wash).replace('#b9a7ff', light), introElapsed)}
+        alt=""
+        width={1600}
+        height={240}
+      />
     </B>
   )
 }
@@ -360,15 +443,22 @@ const DASH_DIM = '#8b8b93'
 let CARD_HOVER = '#1c1c20'
 let CARD_HOVER_EDGE = '#3b3b42'
 // The handoff card once it has landed: the brand's art in green, with a big dark checkmark on the right.
-const DONE_SVG = BRAND_SVG
-  .replace(/#7c6cf0/g, '#2fae62').replace(/#8f7ff0/g, '#3cc472').replace(/#b3a6ff/g, '#7fe0a4')
-  .replace(/#c9bdff/g, '#b4f0c8').replace(/#9a86ff/g, '#4fd486')
-  .replace('</g></svg>', '<path d="M323 15.5 L330 22 L345 7.5" fill="none" stroke="#0c3a20" stroke-opacity=".8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></g></svg>')
+const DONE_SVG = BRAND_SVG.replace(/#7c6cf0/g, '#2fae62')
+  .replace(/#8f7ff0/g, '#3cc472')
+  .replace(/#b3a6ff/g, '#7fe0a4')
+  .replace(/#c9bdff/g, '#b4f0c8')
+  .replace(/#9a86ff/g, '#4fd486')
+  .replace(
+    '</g></svg>',
+    '<path d="M323 15.5 L330 22 L345 7.5" fill="none" stroke="#0c3a20" stroke-opacity=".8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></g></svg>',
+  )
 const DONE_ACCENT = '#7fe0a4'
 const DONE_BG = '#0f1c15'
 const DONE_EDGE = '#2f7a4c'
 // The mark in the done green, for the titles of cards that have landed.
-const DONE_MARK_SVG = MARK_SVG.replace(/#7566d8/g, '#2f9a5e').replace(/#a79cf7/g, '#7fe0a4').replace(/#cfc7ff/g, '#c8f4d8')
+const DONE_MARK_SVG = MARK_SVG.replace(/#7566d8/g, '#2f9a5e')
+  .replace(/#a79cf7/g, '#7fe0a4')
+  .replace(/#cfc7ff/g, '#c8f4d8')
 
 const JUDGE_SYSTEM = `You choose which Claude model and reasoning effort an agentic assistant (it reads files, runs tools and edits things, not only code) should use for the user's next message. Pick the cheapest pair that will still do the job well.
 
@@ -395,7 +485,9 @@ If the message is a short follow-up to ongoing work ("yes", "go", "ok", "continu
 Reply with JSON only: {"model":"haiku|sonnet|opus|fable","effort":"low|medium|high|xhigh|max","sure":0.0-1.0 how sure you are of the effort,"why":"at most 6 words, in the user's language"}`
 
 /** Reads `{ model, effort, why }` out of a reply, or nothing when it doesn't hold one. */
-export function parseVerdict(text: string): { model: ModelKey; effort: Effort; why: string; sure?: number; handoff?: string } | undefined {
+export function parseVerdict(
+  text: string,
+): { model: ModelKey; effort: Effort; why: string; sure?: number; handoff?: string } | undefined {
   const match = text.match(/\{[\s\S]*\}/)
   if (!match) return undefined
   let raw: unknown
@@ -412,7 +504,13 @@ export function parseVerdict(text: string): { model: ModelKey; effort: Effort; w
   const how = typeof sure === 'number' && sure >= 0 && sure <= 1 ? { sure } : {}
   // Only a reason counts: "handoff":"" or false is no advice.
   const advice = typeof handoff === 'string' && handoff.trim() ? { handoff: handoff.trim().slice(0, 70) } : {}
-  return { model: found.key, effort: effort as Effort, why: typeof why === 'string' ? why.slice(0, 60) : '', ...how, ...advice }
+  return {
+    model: found.key,
+    effort: effort as Effort,
+    why: typeof why === 'string' ? why.slice(0, 60) : '',
+    ...how,
+    ...advice,
+  }
 }
 
 /**
@@ -428,7 +526,10 @@ async function recentContext($: EngineInterface): Promise<string> {
 export function contextFrom(messages: readonly { role: string; text: string }[]): string {
   const lastUser = [...messages].reverse().find(m => m.role === 'user')
   const lastAssistant = lastAssistantText(messages)
-  return [lastUser ? `user: ${lastUser.text.slice(0, 400)}` : '', lastAssistant ? `assistant: ${lastAssistant.slice(-2000)}` : '']
+  return [
+    lastUser ? `user: ${lastUser.text.slice(0, 400)}` : '',
+    lastAssistant ? `assistant: ${lastAssistant.slice(-2000)}` : '',
+  ]
     .filter(Boolean)
     .join('\n')
 }
@@ -439,7 +540,10 @@ function lastAssistantText(messages: readonly { role: string; text: string }[]):
 }
 
 /** The skill or custom command a typed "/name args" runs, or nothing for the app's own commands and context-lens's. */
-async function typedSkill($: EngineInterface, text: string): Promise<{ name: string; description: string } | undefined> {
+async function typedSkill(
+  $: EngineInterface,
+  text: string,
+): Promise<{ name: string; description: string } | undefined> {
   const name = text.trim().slice(1).split(/\s+/)[0]
   if (!name) return undefined
   const found = (await $.command.list().catch(() => [])).find(c => c.name === name)
@@ -448,8 +552,21 @@ async function typedSkill($: EngineInterface, text: string): Promise<{ name: str
 }
 
 const LEVEL_WORD = '(low|medium|high|xhigh|x-high|extra[- ]high|max|maximum)'
-const NAMED_LEVEL = new RegExp(`\\b${LEVEL_WORD}\\s+effort\\b|\\beffort(?:\\s+level)?\\s*(?:[:=]|to|at|of|on)?\\s*${LEVEL_WORD}\\b|\\bxhigh\\b`, 'gi')
-const LEVEL_OF: Record<string, Effort> = { low: 'low', medium: 'medium', high: 'high', xhigh: 'xhigh', 'x-high': 'xhigh', 'extra high': 'xhigh', 'extra-high': 'xhigh', max: 'max', maximum: 'max' }
+const NAMED_LEVEL = new RegExp(
+  `\\b${LEVEL_WORD}\\s+effort\\b|\\beffort(?:\\s+level)?\\s*(?:[:=]|to|at|of|on)?\\s*${LEVEL_WORD}\\b|\\bxhigh\\b`,
+  'gi',
+)
+const LEVEL_OF: Record<string, Effort> = {
+  low: 'low',
+  medium: 'medium',
+  high: 'high',
+  xhigh: 'xhigh',
+  'x-high': 'xhigh',
+  'extra high': 'xhigh',
+  'extra-high': 'xhigh',
+  max: 'max',
+  maximum: 'max',
+}
 
 /**
  * The level a prompt asks for by name ("max effort", "effort: high", "xhigh"), or nothing. The word effort must sit
@@ -641,21 +758,32 @@ async function judge($: EngineInterface, prompt: string, current: Pick | null): 
  * Haiku 5.5 by name: Claude Code builds that predate it map the plain alias to Haiku 4.5, at ten times the price.
  * Where 5.5 does not answer, the alias stands in.
  */
-async function completeWithHaiku($: EngineInterface, request: Omit<Parameters<EngineInterface['model']['complete']>[0], 'model'>) {
+async function completeWithHaiku(
+  $: EngineInterface,
+  request: Omit<Parameters<EngineInterface['model']['complete']>[0], 'model'>,
+) {
   const named = await $.model.complete({ ...request, model: COMPACT_MODEL })
   return named.isAnswered ? named : $.model.complete({ ...request, model: 'haiku' })
 }
 
 /** Haiku through the session's own login: the judge, and it needs no key. */
 async function askHaiku($: EngineInterface, prompt: string, current: Pick | null, context: string): Promise<Judged> {
-  const used = lastContext && lastContext.window ? `Context used: ${Math.round(lastContext.percent)}% of the window` : ''
+  const used =
+    lastContext && lastContext.window ? `Context used: ${Math.round(lastContext.percent)}% of the window` : ''
   const asked = [judgeQuestion(prompt, current, context), used].filter(Boolean).join('\n\n')
-  const r = await completeWithHaiku($, { system: JUDGE_SYSTEM, prompt: asked, maxTokens: 160, effort: 'low', timeoutMs: 6000 })
+  const r = await completeWithHaiku($, {
+    system: JUDGE_SYSTEM,
+    prompt: asked,
+    maxTokens: 160,
+    effort: 'low',
+    timeoutMs: 6000,
+  })
   const verdict = r.isAnswered ? parseVerdict(r.text) : undefined
   const tokens = r.isAnswered && r.usage ? r.usage.input_tokens + r.usage.output_tokens : 0
   // The API refused or could not be reached (a login problem, no credits, a rate limit): say so once, in the
   // judge-down band. An abort (Esc, the timeout) or an empty reply is no failure of the judge. An answer takes the band away.
-  if (!r.isAnswered && r.reason === 'api-error') warnJudge($, r.status === null ? 'Haiku could not be reached' : judgeFailure('Haiku', r.status))
+  if (!r.isAnswered && r.reason === 'api-error')
+    warnJudge($, r.status === null ? 'Haiku could not be reached' : judgeFailure('Haiku', r.status))
   else if (r.isAnswered && verdict && (await read($, judgeDown))) await update($, judgeDown, () => null)
   return { verdict: verdict && { ...verdict, by: 'haiku' }, tokens }
 }
@@ -672,7 +800,12 @@ Say yes only for a clear reason: the task just finished and the next message is 
 Reply with JSON only: {"handoff":"reason of at most 8 words, in the person's language"} for yes, or {"handoff":null} for no.`
 
 /** What the handoff check reads: the chat's purpose, a trail of the person's messages, the last reply's end. */
-export function handoffEvidence(messages: readonly { role: string; text: string }[], next: string, percent: number, cold: boolean): string {
+export function handoffEvidence(
+  messages: readonly { role: string; text: string }[],
+  next: string,
+  percent: number,
+  cold: boolean,
+): string {
   const asked = messages.filter(m => m.role === 'user' && m.text.trim())
   const first = asked[0]?.text.slice(0, 500) ?? ''
   const trail = asked.slice(-8, -1).map(m => `- ${m.text.slice(0, 160).replace(/\s+/g, ' ')}`)
@@ -716,8 +849,19 @@ async function checkHandoff($: EngineInterface, next: string) {
   if (promptsSinceHandoffCheck < HANDOFF_CHECK_EVERY) return
   promptsSinceHandoffCheck = 0
   try {
-    const evidence = handoffEvidence(await $.session.messages(), next, percent, (await cacheMinutes($)) === 0 && cacheExpires > 0)
-    const r = await completeWithHaiku($, { system: HANDOFF_SYSTEM, prompt: evidence, maxTokens: 60, effort: 'low', timeoutMs: 8000 })
+    const evidence = handoffEvidence(
+      await $.session.messages(),
+      next,
+      percent,
+      (await cacheMinutes($)) === 0 && cacheExpires > 0,
+    )
+    const r = await completeWithHaiku($, {
+      system: HANDOFF_SYSTEM,
+      prompt: evidence,
+      maxTokens: 60,
+      effort: 'low',
+      timeoutMs: 8000,
+    })
     if (!r.isAnswered) return
     const reason = parseHandoffAnswer(r.text)
     void proof($, `handoff check at ${Math.round(percent)}%: ${reason ?? 'no'}`)
@@ -732,8 +876,26 @@ async function checkHandoff($: EngineInterface, next: string) {
 
 // The judge benchmark (/context-lens bench): labelled prompts in bench/judge-cases.json, each run through the same
 // pipeline a real prompt takes (a short follow-up keeps the current effort, anything else goes to a judge).
-export type BenchCase = { id: string; kind: string; holdout?: boolean; current: Pick; context?: string; message: string; ok: Effort[] }
-export type BenchAnswer = { id: string; judge: string; effort?: Effort; by?: string; why?: string; sure?: number; model?: ModelKey; ms: number; tokens: number }
+export type BenchCase = {
+  id: string
+  kind: string
+  holdout?: boolean
+  current: Pick
+  context?: string
+  message: string
+  ok: Effort[]
+}
+export type BenchAnswer = {
+  id: string
+  judge: string
+  effort?: Effort
+  by?: string
+  why?: string
+  sure?: number
+  model?: ModelKey
+  ms: number
+  tokens: number
+}
 
 /** Where an answer lands against the labels: right, too low (risks quality), too high (wastes), or no answer. */
 export function benchGrade(c: BenchCase, effort: Effort | undefined): 'hit' | 'under' | 'over' | 'none' {
@@ -753,13 +915,18 @@ export function benchReport(cases: BenchCase[], answers: BenchAnswer[]): string 
     const s = [...xs].sort((a, b) => a - b)
     return s.length ? s[Math.floor(s.length / 2)] : 0
   }
-  const lines = ['| Judge | Right | Too low | Too high | No answer | Median ms |', '| --- | --- | --- | --- | --- | --- |']
+  const lines = [
+    '| Judge | Right | Too low | Too high | No answer | Median ms |',
+    '| --- | --- | --- | --- | --- | --- |',
+  ]
   for (const j of judges) {
     const mine = answers.filter(a => a.judge === j)
     const g = mine.map(a => benchGrade(byId.get(a.id)!, a.effort))
     const n = (k: string) => g.filter(x => x === k).length
     const asked = mine.filter(a => a.ms > 0).map(a => a.ms)
-    lines.push(`| ${j} | ${pct(n('hit'), g.length)} | ${n('under')} | ${n('over')} | ${n('none')} | ${asked.length ? median(asked) : '-'} |`)
+    lines.push(
+      `| ${j} | ${pct(n('hit'), g.length)} | ${n('under')} | ${n('over')} | ${n('none')} | ${asked.length ? median(asked) : '-'} |`,
+    )
   }
   // The held-out cases were never tuned against: the honest score. The rest shaped the judge prompts.
   const sets = [
@@ -787,27 +954,39 @@ export function benchReport(cases: BenchCase[], answers: BenchAnswer[]): string 
   }
   // Does "unsure" predict a miss? The Smarter lean acts on it, so it is measured here.
   const judged = judges.filter(j => !j.startsWith('always'))
-  const sureLines = ['', '| Judge | Sure when right | Sure when wrong | Misses under 65% sure | Misses under 85% sure | Answers under 65% | Answers under 85% |', '| --- | --- | --- | --- | --- | --- | --- |']
+  const sureLines = [
+    '',
+    '| Judge | Sure when right | Sure when wrong | Misses under 65% sure | Misses under 85% sure | Answers under 65% | Answers under 85% |',
+    '| --- | --- | --- | --- | --- | --- | --- |',
+  ]
   for (const j of judged) {
     const mine = answers.filter(a => a.judge === j && a.effort && typeof a.sure === 'number')
     if (!mine.length) continue
     const wrong = mine.filter(a => benchGrade(byId.get(a.id)!, a.effort) !== 'hit')
     const right = mine.filter(a => benchGrade(byId.get(a.id)!, a.effort) === 'hit')
-    const avg = (xs: BenchAnswer[]) => (xs.length ? `${Math.round((xs.reduce((t, a) => t + a.sure!, 0) / xs.length) * 100)}%` : '-')
+    const avg = (xs: BenchAnswer[]) =>
+      xs.length ? `${Math.round((xs.reduce((t, a) => t + a.sure!, 0) / xs.length) * 100)}%` : '-'
     const under = (xs: BenchAnswer[], t: number) => xs.filter(a => a.sure! < t).length
-    sureLines.push(`| ${j} (${mine.length} with a score) | ${avg(right)} | ${avg(wrong)} | ${under(wrong, 0.65)} of ${wrong.length} | ${under(wrong, 0.85)} of ${wrong.length} | ${under(mine, 0.65)} | ${under(mine, 0.85)} |`)
+    sureLines.push(
+      `| ${j} (${mine.length} with a score) | ${avg(right)} | ${avg(wrong)} | ${under(wrong, 0.65)} of ${wrong.length} | ${under(wrong, 0.85)} of ${wrong.length} | ${under(mine, 0.65)} | ${under(mine, 0.85)} |`,
+    )
   }
   const pickLines = ['', '| Judge | Haiku | Sonnet | Opus | Other |', '| --- | --- | --- | --- | --- |']
   for (const j of judged) {
     const mine = answers.filter(a => a.judge === j && a.model)
     if (!mine.length) continue
     const n = (k: string) => mine.filter(a => a.model === k).length
-    pickLines.push(`| ${j} | ${n('haiku')} | ${n('sonnet')} | ${n('opus')} | ${mine.length - n('haiku') - n('sonnet') - n('opus')} |`)
+    pickLines.push(
+      `| ${j} | ${n('haiku')} | ${n('sonnet')} | ${n('opus')} | ${mine.length - n('haiku') - n('sonnet') - n('opus')} |`,
+    )
   }
   lines.push(...(sureLines.length > 3 ? sureLines : []), ...(pickLines.length > 3 ? pickLines : []))
   const misses = answers
     .filter(a => !a.judge.startsWith('always') && benchGrade(byId.get(a.id)!, a.effort) !== 'hit')
-    .map(a => `- ${a.judge}${a.by && a.by !== a.judge ? ` (via ${a.by})` : ''} ${a.id}: said ${a.effort ?? 'nothing'}${a.why ? ` (${a.why})` : ''}, wanted ${byId.get(a.id)!.ok.join('/')}: "${byId.get(a.id)!.message.slice(0, 60)}"`)
+    .map(
+      a =>
+        `- ${a.judge}${a.by && a.by !== a.judge ? ` (via ${a.by})` : ''} ${a.id}: said ${a.effort ?? 'nothing'}${a.why ? ` (${a.why})` : ''}, wanted ${byId.get(a.id)!.ok.join('/')}: "${byId.get(a.id)!.message.slice(0, 60)}"`,
+    )
   return [...lines, '', 'Misses:', ...(misses.length ? misses : ['- none'])].join('\n')
 }
 
@@ -832,7 +1011,17 @@ async function runBench($: EngineInterface, cases: BenchCase[]): Promise<BenchAn
       }
       const started = await $.clock.now()
       const got = await ask(c).catch(() => undefined)
-      answers.push({ id: c.id, judge: name, effort: got?.verdict?.effort, by: got?.verdict?.by, why: got?.verdict?.why, sure: got?.verdict?.sure, model: got?.verdict?.model, ms: (await $.clock.now()) - started, tokens: got?.tokens ?? 0 })
+      answers.push({
+        id: c.id,
+        judge: name,
+        effort: got?.verdict?.effort,
+        by: got?.verdict?.by,
+        why: got?.verdict?.why,
+        sure: got?.verdict?.sure,
+        model: got?.verdict?.model,
+        ms: (await $.clock.now()) - started,
+        tokens: got?.tokens ?? 0,
+      })
     }
   }
   await Promise.all([worker(), worker(), worker(), worker()])
@@ -890,7 +1079,8 @@ const envTmpdir = ($: EngineInterface) => (askTmpdir = askTmpdir ?? $.env.get('T
 const envUserProfile = ($: EngineInterface) => (askUserProfile = askUserProfile ?? $.env.get('USERPROFILE'))
 const envHome = ($: EngineInterface) => (askHome = askHome ?? $.env.get('HOME'))
 const envCacheTtl = ($: EngineInterface) => (askCacheTtl = askCacheTtl ?? $.env.get('CLAUDE_CODE_PROMPT_CACHE_TTL'))
-const envAgentCacheTtl = ($: EngineInterface) => (askAgentCacheTtl = askAgentCacheTtl ?? $.env.get('CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL'))
+const envAgentCacheTtl = ($: EngineInterface) =>
+  (askAgentCacheTtl = askAgentCacheTtl ?? $.env.get('CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL'))
 const envForce5m = ($: EngineInterface) => (askForce5m = askForce5m ?? $.env.get('FORCE_PROMPT_CACHING_5M'))
 const envEnable1h = ($: EngineInterface) => (askEnable1h = askEnable1h ?? $.env.get('ENABLE_PROMPT_CACHING_1H'))
 
@@ -915,7 +1105,14 @@ let engineEffort: string | undefined
 // The pick was carried over from the last chat (the store), not made in this one: the app's effort may overrule it.
 let pickCarried = false
 // The last main-chat request, for /context-lens debug: what the app asked for and what the mod sent instead, if anything.
-let lastRequest: { index: number; appModel: string; appEffort: unknown; model: string; effort: unknown; at: number } | null = null
+let lastRequest: {
+  index: number
+  appModel: string
+  appEffort: unknown
+  model: string
+  effort: unknown
+  at: number
+} | null = null
 // The slash command this mod last typed into the prompt box.
 let lastTyped = ''
 // The toast about pressing Enter is shown once; on every click it is only noise.
@@ -1026,7 +1223,8 @@ export function asSpent(t: unknown): Spent {
   const num = (x: unknown) => (typeof x === 'number' && Number.isFinite(x) ? x : 0)
   const judged = (v.judge ?? {}) as Partial<Spent['judge']>
   // Stats from 0.3.0 and earlier hold the subagents' counts under helpers.
-  const ran = (v.subagents ?? (v as { helpers?: Spent['subagents'] }).helpers) as Partial<Spent['subagents']> | undefined
+  const ran = (v.subagents ?? (v as { helpers?: Spent['subagents'] }).helpers) as
+    Partial<Spent['subagents']> | undefined
   return {
     prompts: num(v.prompts),
     requests: num(v.requests),
@@ -1108,7 +1306,13 @@ async function tally(
 }
 
 /** Counts one prompt Auto judged: under its effort, and what the judge took. */
-async function countPrompt($: EngineInterface, effort: Effort | undefined, by: Pick['by'] | undefined, ms: number, judgeTokens: number) {
+async function countPrompt(
+  $: EngineInterface,
+  effort: Effort | undefined,
+  by: Pick['by'] | undefined,
+  ms: number,
+  judgeTokens: number,
+) {
   await update($, saved, old => {
     const t = asSpent(old)
     const judged = {
@@ -1118,14 +1322,20 @@ async function countPrompt($: EngineInterface, effort: Effort | undefined, by: P
     }
     if (!effort) return { ...t, judge: judged }
     const bucket = t.byEffort[effort] ?? { prompts: 0, cost: 0 }
-    return { ...t, judge: judged, prompts: t.prompts + 1, byEffort: { ...t.byEffort, [effort]: { ...bucket, prompts: bucket.prompts + 1 } } }
+    return {
+      ...t,
+      judge: judged,
+      prompts: t.prompts + 1,
+      byEffort: { ...t.byEffort, [effort]: { ...bucket, prompts: bucket.prompts + 1 } },
+    }
   })
 }
 
 /** The cache lifetime a response's writes got, when it says; nothing when it wrote nothing or does not say. */
 export function cacheTtlOf(usage: unknown): keyof typeof CACHE_TTL | undefined {
-  const c = (usage as { cache_creation?: { ephemeral_1h_input_tokens?: number; ephemeral_5m_input_tokens?: number } } | null)
-    ?.cache_creation
+  const c = (
+    usage as { cache_creation?: { ephemeral_1h_input_tokens?: number; ephemeral_5m_input_tokens?: number } } | null
+  )?.cache_creation
   if ((c?.ephemeral_1h_input_tokens ?? 0) > 0) return '1h'
   if ((c?.ephemeral_5m_input_tokens ?? 0) > 0) return '5m'
   return undefined
@@ -1133,7 +1343,11 @@ export function cacheTtlOf(usage: unknown): keyof typeof CACHE_TTL | undefined {
 
 /** Most of the prompt came from the cache: it was still warm. */
 export function mostlyCached(usage: unknown): boolean {
-  const u = (usage ?? {}) as { input_tokens?: number; cache_read_input_tokens?: number; cache_creation_input_tokens?: number }
+  const u = (usage ?? {}) as {
+    input_tokens?: number
+    cache_read_input_tokens?: number
+    cache_creation_input_tokens?: number
+  }
   const read_ = u.cache_read_input_tokens ?? 0
   const all = read_ + (u.input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0)
   return all > 0 && read_ / all > 0.5
@@ -1261,14 +1475,16 @@ async function restoreCache($: EngineInterface) {
   if (!memo || cacheExpires !== 0 || memo.expires <= 0) {
     // Nothing to go on: a "Cold" left in the shared state by the copy before is not this chat's cache.
     // restoreCache runs inside the band's draw, where a state write is denied: the clear waits for a timer, and checks again then.
-    if (cacheExpires === 0 && !coldForced) $.clock.after(0, () => void update($, cacheLeft, l => (l === 0 && cacheExpires === 0 && !coldForced ? null : l)))
+    if (cacheExpires === 0 && !coldForced)
+      $.clock.after(0, () => void update($, cacheLeft, l => (l === 0 && cacheExpires === 0 && !coldForced ? null : l)))
     return
   }
   cacheExpires = memo.expires
   cacheTtl = memo.ttl
   lastResponseAt = memo.last
 }
-const rememberCache = ($: EngineInterface) => update($, cacheMemo, () => ({ expires: cacheExpires, ttl: cacheTtl, last: lastResponseAt }))
+const rememberCache = ($: EngineInterface) =>
+  update($, cacheMemo, () => ({ expires: cacheExpires, ttl: cacheTtl, last: lastResponseAt }))
 // What /context-lens swamp shows as a test: a swamped chat's context.
 const SWAMP_TOKENS = 150_000
 // Closed, the band stays away until the context has grown this much more.
@@ -1285,7 +1501,10 @@ const hotWindow = (heat: { kind: string; resetsAt: string | null }) =>
   `${heat.kind} ${heat.resetsAt ? Math.round(new Date(heat.resetsAt).getTime() / 900_000) : ''}`
 
 /** Whether the running-hot band shows: always until closed; closed, not again in that window unless it passes HOT_FINAL. */
-export function hotVisible(heat: { kind: string; percent: number; resetsAt: string | null }, closed: HotClosed | null): boolean {
+export function hotVisible(
+  heat: { kind: string; percent: number; resetsAt: string | null },
+  closed: HotClosed | null,
+): boolean {
   if (!closed || closed.window !== hotWindow(heat)) return true
   return heat.percent >= HOT_FINAL && closed.percent < HOT_FINAL
 }
@@ -1308,10 +1527,16 @@ async function closeHot($: EngineInterface, heat: { kind: string; percent: numbe
 }
 
 /** The fullest of the 5-hour and weekly windows, once one passes HOT_PERCENT. Save mode ends with its window. */
-async function checkHot($: EngineInterface, limits: readonly { kind: string; percentUsed: number; resetsAt?: string }[]) {
+async function checkHot(
+  $: EngineInterface,
+  limits: readonly { kind: string; percentUsed: number; resetsAt?: string }[],
+) {
   const windows = limits.filter(l => l.kind === 'five_hour' || l.kind === 'seven_day')
   const top = windows.sort((a, b) => b.percentUsed - a.percentUsed)[0]
-  const next = top && top.percentUsed >= HOT_PERCENT ? { kind: top.kind, percent: top.percentUsed, resetsAt: top.resetsAt ?? null } : null
+  const next =
+    top && top.percentUsed >= HOT_PERCENT
+      ? { kind: top.kind, percent: top.percentUsed, resetsAt: top.resetsAt ?? null }
+      : null
   const was = await read($, hot)
   if (JSON.stringify(next) !== JSON.stringify(was)) {
     await update($, hot, () => next)
@@ -1326,7 +1551,9 @@ export function resetLabel(iso: string | null, now: number): string {
   if (!iso) return ''
   const at = new Date(iso)
   const hm = `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`
-  return at.getTime() - now < 20 * 3600_000 ? hm : `${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][at.getDay()]} ${hm}`
+  return at.getTime() - now < 20 * 3600_000
+    ? hm
+    : `${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][at.getDay()]} ${hm}`
 }
 
 /**
@@ -1384,7 +1611,8 @@ async function previewPercent($: EngineInterface): Promise<number | undefined> {
 async function checkSwamp($: EngineInterface) {
   const { context, rateLimits } = await $.session.usage()
   const preview = await previewPercent($)
-  const tokens = preview === undefined ? (context.tokens ?? 0) : Math.round(((context.window || 200_000) * preview) / 100)
+  const tokens =
+    preview === undefined ? (context.tokens ?? 0) : Math.round(((context.window || 200_000) * preview) / 100)
   // The app may leave the percent out (or give 0) while it has the tokens and the window: work it out then.
   const percent = preview ?? (context.percent || (context.window ? (tokens / context.window) * 100 : 0))
   if (preview !== undefined && !context.window) context.window = 200_000
@@ -1454,7 +1682,9 @@ async function cacheTouched($: EngineInterface, usage: unknown) {
     void proof($, `first response usage: ${JSON.stringify(usage)}`)
   }
   // When the response does not say, the cache tells by itself: read back after more than 5 minutes means 1 hour.
-  const ttl = cacheTtlOf(usage) ?? (lastResponseAt !== undefined && now - lastResponseAt > CACHE_TTL['5m'] && mostlyCached(usage) ? '1h' : undefined)
+  const ttl =
+    cacheTtlOf(usage) ??
+    (lastResponseAt !== undefined && now - lastResponseAt > CACHE_TTL['5m'] && mostlyCached(usage) ? '1h' : undefined)
   lastResponseAt = now
   coldForced = false
   // A reply that wrote only a short 5-minute tail still reads the rest from the 1-hour cache: once 1h is seen, a
@@ -1515,7 +1745,7 @@ export const HANDOFF_PROMPT = [
   '- Not done: what is half done, and the concrete blocker (a failed check, a missing approval, an open question).',
   '- Git: local changes, local commits, pushed commits and open PRs, as last seen in this chat. You cannot check now, so say "as of last check".',
   '- Next steps in priority order. Make the first one runnable: a file path, a command or a specific decision. Mark every step that needs the user with "needs user".',
-  '- To resume: the start command, the preview URL, and the limits on what is allowed (what needs the user\'s approval, test vs production).',
+  "- To resume: the start command, the preview URL, and the limits on what is allowed (what needs the user's approval, test vs production).",
   '- Do not redo: decisions made and why, approaches that failed.',
   '',
   'Give only the final state of anything that changed during the chat. Point to specs, plans and files instead of ' +
@@ -1625,13 +1855,18 @@ async function goHandoff($: EngineInterface, choice: HandoffChoice) {
 
 /** What the handoff does, by the choice: who writes it, then what follows. */
 export function handoffWhat(choice: HandoffChoice, skill: string): { by: string; then: string } {
-  const by = choice.kind === 'full' ? (skill ? `/${skill}, slower` : 'Checks git and saves HANDOFF.md, slower') : 'Done in seconds'
+  const by =
+    choice.kind === 'full'
+      ? skill
+        ? `/${skill}, slower`
+        : 'Checks git and saves HANDOFF.md, slower'
+      : 'Done in seconds'
   const then =
     choice.after === 'copy'
       ? 'Copied, chat stays.'
       : choice.after === 'confirm'
-          ? 'Clears chat, then waits.'
-          : 'Clears chat, carries on.'
+        ? 'Clears chat, then waits.'
+        : 'Clears chat, carries on.'
   return { by, then }
 }
 
@@ -1645,7 +1880,9 @@ export function forkOutcome(result: unknown, ms: number): string {
     const u = r.usage
     const input = u.input_tokens + u.cache_read_input_tokens + u.cache_creation_input_tokens
     const cached = input ? Math.round((u.cache_read_input_tokens / input) * 100) : 0
-    return r.text.trim() ? `answered, ${u.output_tokens} out, ${cached}% cached (${took})` : `answered with blank text (${took})`
+    return r.text.trim()
+      ? `answered, ${u.output_tokens} out, ${cached}% cached (${took})`
+      : `answered with blank text (${took})`
   }
   if (r.reason === 'api-error') return `api-error ${r.status ?? 'no response'} ${r.error} (${took})`
   return `${r.reason} (${took})`
@@ -1668,7 +1905,12 @@ async function writeHandoff($: EngineInterface) {
     if ((await read($, cacheLeft)) === 0 || (cacheExpires > 0 && now >= cacheExpires)) {
       const messages = await $.session.messages().catch(() => [])
       const got = messages.length ? await haikuHandoff($, messages).catch(() => null) : null
-      await $.store.set('lastFork', { at: Date.now(), outcome: got ? 'cold cache: written by Haiku' : 'cold cache: Haiku failed, forked' }).catch(() => undefined)
+      await $.store
+        .set('lastFork', {
+          at: Date.now(),
+          outcome: got ? 'cold cache: written by Haiku' : 'cold cache: Haiku failed, forked',
+        })
+        .catch(() => undefined)
       if (got) {
         handoffText = got
         return
@@ -1687,11 +1929,14 @@ async function writeHandoff($: EngineInterface) {
       return
     }
     // Nothing to fork (no reply yet) or the fork failed: write it as a turn instead, and say why.
-    if (!outcome.startsWith('nothing-to-fork')) $.ui.toast(`context-lens: the fork wrote no handoff (${outcome}); writing it as a turn`)
+    if (!outcome.startsWith('nothing-to-fork'))
+      $.ui.toast(`context-lens: the fork wrote no handoff (${outcome}); writing it as a turn`)
     await $.prompt.submit({ text: HANDOFF_PROMPT })
   } catch (error) {
     await update($, handoffStage, () => null)
-    $.ui.toast(`context-lens: handoff failed: ${(error instanceof Error ? error.message : String(error)).slice(0, 140)}`)
+    $.ui.toast(
+      `context-lens: handoff failed: ${(error instanceof Error ? error.message : String(error)).slice(0, 140)}`,
+    )
   }
 }
 
@@ -1724,7 +1969,9 @@ export async function finishHandoff($: EngineInterface) {
     await $.prompt.submit({ text: handoffMessage(text, handoffThen, handoffFull ? config.handoffSkill : undefined) })
   } catch (error) {
     await update($, handoffCard, () => null)
-    $.ui.toast(`context-lens: handoff failed: ${(error instanceof Error ? error.message : String(error)).slice(0, 140)}`)
+    $.ui.toast(
+      `context-lens: handoff failed: ${(error instanceof Error ? error.message : String(error)).slice(0, 140)}`,
+    )
   } finally {
     handoffDriving = false
     await update($, handoffStage, () => null)
@@ -1817,7 +2064,16 @@ const SAVED_CARD_MS = 2500
 function savedCardTree($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
   const { Box, Text } = themedEls($.ui.resolve(e))
   return (
-    <Box key="saved" flexDirection="row" alignItems="center" gap={1} paddingX={1} backgroundColor={DASH_BG} borderStyle="round" borderColor={DASH_EDGE}>
+    <Box
+      key="saved"
+      flexDirection="row"
+      alignItems="center"
+      gap={1}
+      paddingX={1}
+      backgroundColor={DASH_BG}
+      borderStyle="round"
+      borderColor={DASH_EDGE}
+    >
       <Text color={ACCENT}>✓</Text>
       <Text bold>Settings saved</Text>
     </Box>
@@ -1840,17 +2096,35 @@ export function renamedSettings(saved: Record<string, unknown>): Record<string, 
  * from the mod's own store copy and from settings.json directly, since the app passes the mod only the fields its
  * manifest declares.
  */
-async function carryRenamedSettings($: EngineInterface, kept: Record<string, unknown>): Promise<Record<string, string>> {
-  const configs = ((await $.settings.read().catch(() => ({}))) as { pluginConfigs?: Record<string, { options?: Record<string, unknown> }> }).pluginConfigs ?? {}
+async function carryRenamedSettings(
+  $: EngineInterface,
+  kept: Record<string, unknown>,
+): Promise<Record<string, string>> {
+  const configs =
+    (
+      (await $.settings.read().catch(() => ({}))) as {
+        pluginConfigs?: Record<string, { options?: Record<string, unknown> }>
+      }
+    ).pluginConfigs ?? {}
   // A --plugin-dir copy keeps its settings under context-lens@inline, an install under its marketplace's name.
-  const stored = configs[pluginId($)]?.options ?? Object.entries(configs).find(([id]) => id.startsWith('context-lens@'))?.[1]?.options ?? {}
+  const stored =
+    configs[pluginId($)]?.options ??
+    Object.entries(configs).find(([id]) => id.startsWith('context-lens@'))?.[1]?.options ??
+    {}
   // A new name saved in either place wins over an old one in the other, so a later change is never carried back.
   const carried = renamedSettings({ ...stored, ...kept })
   const oldInStore = Object.keys(RENAMED_SETTINGS).filter(old => old in kept)
-  if (oldInStore.length) await $.store.set('savedSettings', Object.fromEntries(Object.entries(kept).filter(([key]) => !oldInStore.includes(key))))
+  if (oldInStore.length)
+    await $.store.set(
+      'savedSettings',
+      Object.fromEntries(Object.entries(kept).filter(([key]) => !oldInStore.includes(key))),
+    )
   if (!Object.keys(carried).length) return carried
 
-  const fields = Object.fromEntries(Object.entries(SETTING_FIELDS).map(([field, option]) => [option, field])) as Record<string, string>
+  const fields = Object.fromEntries(Object.entries(SETTING_FIELDS).map(([field, option]) => [option, field])) as Record<
+    string,
+    string
+  >
   const queue = ((await $.store.get('setupSave').catch(() => null)) ?? {}) as Record<string, string>
   const queued = Object.fromEntries(Object.entries(carried).map(([option, value]) => [fields[option], value]))
   await $.store.set('setupSave', { ...queued, ...queue })
@@ -2005,7 +2279,9 @@ export function savedText(raw: Spent): string {
   const total = input + write + cached + out
   const lines = [
     `${t.prompts} prompts, ${t.requests} requests, cost about ${tokens(Math.round(total))} tokens weighted by price` +
-      (total > 0 ? ` (cache reads ${share(cached, total)}, cache writes ${share(write, total)}, output ${share(out, total)})` : ''),
+      (total > 0
+        ? ` (cache reads ${share(cached, total)}, cache writes ${share(write, total)}, output ${share(out, total)})`
+        : ''),
   ]
   const per = EFFORTS.filter(e => t.byEffort[e]?.prompts).map(e => {
     const b = t.byEffort[e]!
@@ -2014,10 +2290,14 @@ export function savedText(raw: Spent): string {
   if (per.length) lines.push(`Per prompt: ${per.join('; ')}`)
   if (subagentRuns) {
     const per = EFFORTS.filter(e => t.subagents.runs[e]).map(e => `${EFFORT_LABELS[e]} ${t.subagents.runs[e]}`)
-    lines.push(`Subagents: ${subagentRuns} (${per.join(', ')}), ${t.subagents.requests} requests, cost about ${tokens(Math.round(t.subagents.cost))} tokens`)
+    lines.push(
+      `Subagents: ${subagentRuns} (${per.join(', ')}), ${t.subagents.requests} requests, cost about ${tokens(Math.round(t.subagents.cost))} tokens`,
+    )
   }
   if (judged) {
-    lines.push(`Judge: Haiku ${t.judge.haiku}, average ${Math.round(t.judge.ms / judged)} ms, ${tokens(t.judge.tokens)} tokens in all`)
+    lines.push(
+      `Judge: Haiku ${t.judge.haiku}, average ${Math.round(t.judge.ms / judged)} ms, ${tokens(t.judge.tokens)} tokens in all`,
+    )
   }
   return lines.join('\n')
 }
@@ -2081,7 +2361,8 @@ export function settingsSvg(color: string): string {
   const pts: string[] = []
   for (let i = 0; i < 8; i++) {
     const a = i * step
-    const at = (f: number, r: number) => `${(7 + r * Math.cos(a + f * step)).toFixed(2)},${(7 + r * Math.sin(a + f * step)).toFixed(2)}`
+    const at = (f: number, r: number) =>
+      `${(7 + r * Math.cos(a + f * step)).toFixed(2)},${(7 + r * Math.sin(a + f * step)).toFixed(2)}`
     pts.push(at(-0.42, 4.6), at(-0.27, 4.6), at(-0.2, 6.1), at(0.2, 6.1), at(0.27, 4.6), at(0.42, 4.6))
   }
   return `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14"><g fill="none" stroke="${color}" stroke-width="1.3" stroke-linejoin="round" shape-rendering="geometricPrecision"><path d="M${pts.join('L')}Z"/><circle cx="7" cy="7" r="2"/></g></svg>`
@@ -2094,7 +2375,8 @@ export function rowIconSvg(kind: SettingsCard | 'quick' | 'full', color: string)
     // A gauge: an open arc with a needle.
     auto: '<path d="M2.6 10.4A5 5 0 1 1 11.4 10.4"/><path d="M7 8.2L9.6 5.2"/><circle cx="7" cy="8.6" r=".9"/>',
     // Layers: the subagents, stacked.
-    subagents: '<path d="M7 2 12.2 4.7 7 7.4 1.8 4.7Z"/><path d="M1.8 7.3 7 10 12.2 7.3"/><path d="M1.8 9.9 7 12.6 12.2 9.9"/>',
+    subagents:
+      '<path d="M7 2 12.2 4.7 7 7.4 1.8 4.7Z"/><path d="M1.8 7.3 7 10 12.2 7.3"/><path d="M1.8 9.9 7 12.6 12.2 9.9"/>',
     // An arrow into a bar: hand off.
     context: '<path d="M1.8 7H9.4M6.6 4.2L9.4 7L6.6 9.8"/><path d="M11.8 2.6V11.4"/>',
     // A pencil: the look. The tip down left, a line across the ferrule.
@@ -2104,11 +2386,12 @@ export function rowIconSvg(kind: SettingsCard | 'quick' | 'full', color: string)
     full: '',
   }[kind]
   if (kind === 'quick' || kind === 'full') {
-    const solid = kind === 'quick'
-      // A bolt: the quick handoff, done in seconds.
-      ? 'M8.6 1 2.8 8.2H6.6L5.4 13 11.2 5.8H7.4Z'
-      // A pen: the full handoff, written out by your skill.
-      : 'M10.2 1.5 12.5 3.8 5.3 11 2.3 11.7 3 8.7ZM9 2.7 11.3 5'
+    const solid =
+      kind === 'quick'
+        ? // A bolt: the quick handoff, done in seconds.
+          'M8.6 1 2.8 8.2H6.6L5.4 13 11.2 5.8H7.4Z'
+        : // A pen: the full handoff, written out by your skill.
+          'M10.2 1.5 12.5 3.8 5.3 11 2.3 11.7 3 8.7ZM9 2.7 11.3 5'
     return `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14"><path d="${solid}" fill="${color}" stroke="${color}" stroke-width="0.6" stroke-linejoin="round"/></svg>`
   }
   return `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14"><g fill="none" stroke="${color}" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision">${shapes}</g></svg>`
@@ -2127,7 +2410,19 @@ function kTokens(n: number): string {
 
 /** Everything a redraw needs, read together: the reads go out at once instead of one after the other. */
 async function snap($: EngineInterface) {
-  const [auto, autoModel, current, judging, wanted, shownByApp, modelNow, switchedNow, pausedNow, cacheNow, compacting] = await Promise.all([
+  const [
+    auto,
+    autoModel,
+    current,
+    judging,
+    wanted,
+    shownByApp,
+    modelNow,
+    switchedNow,
+    pausedNow,
+    cacheNow,
+    compacting,
+  ] = await Promise.all([
     read($, isAuto),
     read($, isAutoModel),
     read($, pick),
@@ -2140,7 +2435,19 @@ async function snap($: EngineInterface) {
     read($, cacheLeft),
     read($, isCompacting),
   ])
-  return { auto, autoModel, current, judging, wanted, shownByApp, modelNow, switchedNow, pausedNow, cacheNow, compacting }
+  return {
+    auto,
+    autoModel,
+    current,
+    judging,
+    wanted,
+    shownByApp,
+    modelNow,
+    switchedNow,
+    pausedNow,
+    cacheNow,
+    compacting,
+  }
 }
 type Snap = Awaited<ReturnType<typeof snap>>
 
@@ -2152,14 +2459,19 @@ export function hoverTips(v: Snap): { effort: string; cache: string } {
       ? 'Auto waits on this model: an effort change would rewrite its prompt cache.'
       : !effortOf(v)
         ? 'This model runs without an effort level, so Auto has nothing to set.'
-      : [
-          v.current ? `Auto picked ${EFFORT_LABELS[v.current.effort]}${v.current.by !== 'manual' ? ` (${v.current.by})` : ''}` : 'Auto picks the effort for each message',
-          v.current?.why ? `Why: ${v.current.why}` : '',
-          `Lean: ${['much cheaper', 'cheaper', 'as the judge says', 'smarter', 'much smarter'][config.bias + 2]} · range ${config.floor} to ${config.ceiling}`,
-        ]
-          .filter(Boolean)
-          .join(' · ')
-  const ctx = lastContext && lastContext.window ? ` · Context ${Math.round(lastContext.percent)}% · ${kTokens(lastContext.tokens)}/${kTokens(lastContext.window)}` : ''
+        : [
+            v.current
+              ? `Auto picked ${EFFORT_LABELS[v.current.effort]}${v.current.by !== 'manual' ? ` (${v.current.by})` : ''}`
+              : 'Auto picks the effort for each message',
+            v.current?.why ? `Why: ${v.current.why}` : '',
+            `Lean: ${['much cheaper', 'cheaper', 'as the judge says', 'smarter', 'much smarter'][config.bias + 2]} · range ${config.floor} to ${config.ceiling}`,
+          ]
+            .filter(Boolean)
+            .join(' · ')
+  const ctx =
+    lastContext && lastContext.window
+      ? ` · Context ${Math.round(lastContext.percent)}% · ${kTokens(lastContext.tokens)}/${kTokens(lastContext.window)}`
+      : ''
   const cacheTip =
     v.cacheNow === null
       ? `No prompt cache yet: the first message writes it.${ctx}`
@@ -2177,7 +2489,10 @@ function effortOf(v: Snap): Effort | undefined {
 
 /** "App: Opus 5.5 · Medium", the app's own model and effort, while either differs from what the band sends; else empty.
  * The app's status line, /model and /effort show its own, so this says why they disagree with the band. */
-export function appHintText(app: { model?: ModelKey; effort?: unknown }, sent: { model?: ModelKey; effort?: Effort }): string {
+export function appHintText(
+  app: { model?: ModelKey; effort?: unknown },
+  sent: { model?: ModelKey; effort?: Effort },
+): string {
   const appEffortKnown = EFFORTS.includes(app.effort as Effort) ? (app.effort as Effort) : undefined
   const modelDiffers = app.model && sent.model && app.model !== sent.model
   const effortDiffers = appEffortKnown && sent.effort && appEffortKnown !== sent.effort
@@ -2188,7 +2503,10 @@ export function appHintText(app: { model?: ModelKey; effort?: unknown }, sent: {
 
 /** A line with the app hint at the left and `words` at the right end. */
 function hintLine(els: { Box: unknown; Text: unknown }, hint: string, words: string, key: string) {
-  const { Box, Text } = els as unknown as { Box: (p: Record<string, unknown>) => unknown; Text: (p: Record<string, unknown>) => unknown }
+  const { Box, Text } = els as unknown as {
+    Box: (p: Record<string, unknown>) => unknown
+    Text: (p: Record<string, unknown>) => unknown
+  }
   return (
     <Box key={key} flexDirection="row" justifyContent="space-between" columnGap={2}>
       {hint ? (
@@ -2197,7 +2515,9 @@ function hintLine(els: { Box: unknown; Text: unknown }, hint: string, words: str
         </Box>
       ) : null}
       <Box flexShrink={1} minWidth={0}>
-        <Text dimColor wrap="truncate-end">{words}</Text>
+        <Text dimColor wrap="truncate-end">
+          {words}
+        </Text>
       </Box>
     </Box>
   )
@@ -2229,7 +2549,10 @@ async function writeRenderLog($: EngineInterface) {
   renderLogWritten = renderLog.length
   const home = (await envUserProfile($)) ?? (await envHome($))
   // One file per chat: a shared file was overwritten whole by whichever chat drew last.
-  if (home) await $.fs.write(`${home}/.claude/context-lens-render-${loadedSession}.log`, renderLog.slice(-300).join('\n') + '\n').catch(() => undefined)
+  if (home)
+    await $.fs
+      .write(`${home}/.claude/context-lens-render-${loadedSession}.log`, renderLog.slice(-300).join('\n') + '\n')
+      .catch(() => undefined)
 }
 let lastRenderAt = 0
 let loadedSession = '-'
@@ -2294,31 +2617,73 @@ function bandArt($: EngineInterface, e: RenderInput<'AbovePrompt'>, kind: ArtKin
 
 /** A bar on the terminal (setup, handoff): the title and words on the left with the brand's still art beside them,
  * the controls on a row of their own that wraps, so nothing is cut at 80 columns. */
-function terminalPanel($: EngineInterface, e: RenderInput<'AbovePrompt'>, key: string, title: string, words: unknown, controls: unknown[]) {
+function terminalPanel(
+  $: EngineInterface,
+  e: RenderInput<'AbovePrompt'>,
+  key: string,
+  title: string,
+  words: unknown,
+  controls: unknown[],
+) {
   const { Box, Text } = themedEls($.ui.resolve(e))
   return (
-    <Box key={key} flexDirection="column" paddingX={1} backgroundColor={BRAND_BG} borderStyle="round" borderColor={BRAND_EDGE}>
+    <Box
+      key={key}
+      flexDirection="column"
+      paddingX={1}
+      backgroundColor={BRAND_BG}
+      borderStyle="round"
+      borderColor={BRAND_EDGE}
+    >
       <Box flexDirection="row" gap={1} alignItems="center">
         <Box flexDirection="column" flexGrow={1} flexShrink={1} minWidth={0}>
-          <Text color={ACCENT} bold wrap="truncate">{title}</Text>
-          {typeof words === 'string' ? <Text key={`${key}-what`} dimColor wrap="truncate">{words}</Text> : words}
+          <Text color={ACCENT} bold wrap="truncate">
+            {title}
+          </Text>
+          {typeof words === 'string' ? (
+            <Text key={`${key}-what`} dimColor wrap="truncate">
+              {words}
+            </Text>
+          ) : (
+            words
+          )}
         </Box>
         {bandArt($, e, 'brand')}
       </Box>
-      <Box key={`${key}-actions`} flexDirection="row" flexWrap="wrap" justifyContent="flex-end" columnGap={1} alignItems="center">
+      <Box
+        key={`${key}-actions`}
+        flexDirection="row"
+        flexWrap="wrap"
+        justifyContent="flex-end"
+        columnGap={1}
+        alignItems="center"
+      >
         {controls}
       </Box>
     </Box>
   )
 }
 
-type TerminalBand = { key: string; kind: ArtKind; color: string; bg: string; edge: string; title: string; detail: string; hint?: string; buttons: unknown[]; extra?: unknown; word?: { text: string; color: string; rest: string } }
+type TerminalBand = {
+  key: string
+  kind: ArtKind
+  color: string
+  bg: string
+  edge: string
+  title: string
+  detail: string
+  hint?: string
+  buttons: unknown[]
+  extra?: unknown
+  word?: { text: string; color: string; rest: string }
+}
 
 /** What of the band fits in `maxRows` rows. The app scrolls a taller tree in a window and says "n more", so the band gives up,
  * in this order: an empty detail row (one with words is kept), the border and art, the effort row, the lens row. The effort line itself stays. */
 export function bandFit(maxRows: number, parts: { detailText: boolean; lens: boolean; effort: number }) {
   const fit = { detail: true, border: true, effort: parts.effort > 0, lens: parts.lens }
-  const rows = () => 1 + (fit.border ? 2 : 0) + (fit.detail ? 1 : 0) + (fit.lens ? 1 : 0) + (fit.effort ? parts.effort : 0)
+  const rows = () =>
+    1 + (fit.border ? 2 : 0) + (fit.detail ? 1 : 0) + (fit.lens ? 1 : 0) + (fit.effort ? parts.effort : 0)
   if (rows() > maxRows && !parts.detailText) fit.detail = false
   if (rows() > maxRows) fit.border = false
   if (rows() > maxRows) fit.effort = false
@@ -2338,18 +2703,37 @@ async function terminalBand($: EngineInterface, e: RenderInput<'AbovePrompt'>, b
   const rows = fit.effort ? effort : null
   // The lens row stays under every band: the dashboard passes its own; an alert gets one sized to what the art leaves.
   const columns = typeof e.props.bodyColumns === 'number' ? e.props.bodyColumns : 100
-  const extra = !fit.lens ? null : b.extra !== undefined ? b.extra : await lensRow($, e, Math.max(20, columns - 4 - (art ? ART_COLUMNS + 1 : 0))).catch(() => null)
+  const extra = !fit.lens
+    ? null
+    : b.extra !== undefined
+      ? b.extra
+      : await lensRow($, e, Math.max(20, columns - 4 - (art ? ART_COLUMNS + 1 : 0))).catch(() => null)
   return (
     <Box key={`${b.key}-col`} flexDirection="column">
-      <Box key={b.key} flexDirection="row" gap={1} alignItems="center" paddingX={1} backgroundColor={b.bg} borderStyle={fit.border ? 'round' : undefined} borderColor={b.edge}>
+      <Box
+        key={b.key}
+        flexDirection="row"
+        gap={1}
+        alignItems="center"
+        paddingX={1}
+        backgroundColor={b.bg}
+        borderStyle={fit.border ? 'round' : undefined}
+        borderColor={b.edge}
+      >
         <Box flexDirection="column" flexGrow={1} flexShrink={1} minWidth={0}>
           <Box flexDirection="row" gap={1} alignItems="center">
             <Box flexShrink={0}>
               {b.word ? (
                 <Box flexDirection="row">
-                  <Text color={b.color} bold>{'✦ '}</Text>
-                  <Text key={`${b.key}-word`} color={b.word.color} bold>{b.word.text}</Text>
-                  <Text color={b.color} bold>{b.word.rest}</Text>
+                  <Text color={b.color} bold>
+                    {'✦ '}
+                  </Text>
+                  <Text key={`${b.key}-word`} color={b.word.color} bold>
+                    {b.word.text}
+                  </Text>
+                  <Text color={b.color} bold>
+                    {b.word.rest}
+                  </Text>
                 </Box>
               ) : (
                 <Text color={b.color} bold>{`✦ ${b.title}`}</Text>
@@ -2386,7 +2770,17 @@ export function dashboardLines(d: {
 }): { head: string; what: string; pair: string; rest: string; detail: string } {
   const level = d.effort ? EFFORT_LABELS[d.effort] : 'Auto'
   // Auto on or off is the button's to say (and the terminal's effort row's), not the text's.
-  const what = d.agent ? (d.effort ? level : 'Subagent') : d.judging ? 'Deciding…' : !d.auto ? 'Off' : d.paused ? `${level} · Auto paused` : level
+  const what = d.agent
+    ? d.effort
+      ? level
+      : 'Subagent'
+    : d.judging
+      ? 'Deciding…'
+      : !d.auto
+        ? 'Off'
+        : d.paused
+          ? `${level} · Auto paused`
+          : level
   // The model and the effort read as one pair, coloured together.
   const pair = d.model ? `${d.model} · ${what}` : what
   const head = [
@@ -2399,7 +2793,10 @@ export function dashboardLines(d: {
     head: shown.join(' · '),
     what,
     pair,
-    rest: shown.slice(1).map(part => ` · ${part}`).join(''),
+    rest: shown
+      .slice(1)
+      .map(part => ` · ${part}`)
+      .join(''),
     detail: d.reason,
   }
 }
@@ -2409,7 +2806,13 @@ const FLASH_HOLD_MS = 1000
 const FLASH_MS = 1800
 /** The fade's steps, [ms, share of the way to white]: five, so it reads as a fade without a tick. Each step is a redraw,
  * and every redraw rebuilds the band (images restart, buttons under a pointer are swapped), so keep them few. */
-const FLASH_STEPS: readonly (readonly [number, number])[] = [[1000, 0.15], [1160, 0.35], [1320, 0.55], [1480, 0.75], [1640, 0.9]]
+const FLASH_STEPS: readonly (readonly [number, number])[] = [
+  [1000, 0.15],
+  [1160, 0.35],
+  [1320, 0.55],
+  [1480, 0.75],
+  [1640, 0.9],
+]
 /** The glow: a stronger shade than the accent, so a switch is seen at a glance. */
 let FLASH_COLOR = '#9b7bff'
 /** The effort word's colour `ms` after it changed: the glow, held, then easing out to the band's white. */
@@ -2418,7 +2821,13 @@ export function flashColor(ms: number | null): string {
   if (ms < FLASH_HOLD_MS) return FLASH_COLOR
   const k = [...FLASH_STEPS].reverse().find(([at]) => ms >= at)?.[1] ?? 0
   const ch = (hex: string, i: number) => parseInt(hex.slice(1 + i * 2, 3 + i * 2), 16)
-  return `#${[0, 1, 2].map(i => Math.round(ch(FLASH_COLOR, i) + (ch(DASH_TEXT, i) - ch(FLASH_COLOR, i)) * k).toString(16).padStart(2, '0')).join('')}`
+  return `#${[0, 1, 2]
+    .map(i =>
+      Math.round(ch(FLASH_COLOR, i) + (ch(DASH_TEXT, i) - ch(FLASH_COLOR, i)) * k)
+        .toString(16)
+        .padStart(2, '0'),
+    )
+    .join('')}`
 }
 // The word the dashboard last showed and when it last changed, so a new effort glows and fades. Not while the judge
 // decides: the word it lands on is compared with the one before.
@@ -2441,7 +2850,8 @@ async function effortFlash($: EngineInterface, what: string, judging: boolean, e
   const since = flashAt === null ? null : now - flashAt
   if (since === 0) {
     // One redraw at each step of the fade and one at its end, not a tick: see FLASH_STEPS.
-    for (const at of [...FLASH_STEPS.map(([t]) => t), FLASH_MS]) $.clock.after(at + 20, () => $.ui.invalidate('ui.render'))
+    for (const at of [...FLASH_STEPS.map(([t]) => t), FLASH_MS])
+      $.clock.after(at + 20, () => $.ui.invalidate('ui.render'))
   }
   return flashColor(since)
 }
@@ -2471,7 +2881,11 @@ function uninstallButton($: EngineInterface, els: ReturnType<EngineInterface['ui
     }
     uninstalling = true
     $.ui.invalidate('ui.render')
-    const r = await runClaude($, ['plugin', 'uninstall', pluginId($)], { timeoutMs: 120_000 }).catch(error => ({ exitCode: 1, stdout: '', stderr: String(error) }))
+    const r = await runClaude($, ['plugin', 'uninstall', pluginId($)], { timeoutMs: 120_000 }).catch(error => ({
+      exitCode: 1,
+      stdout: '',
+      stderr: String(error),
+    }))
     uninstalling = false
     if (r.exitCode !== 0) {
       const why = (r.stderr || r.stdout).trim().split('\n').pop() ?? ''
@@ -2480,7 +2894,10 @@ function uninstallButton($: EngineInterface, els: ReturnType<EngineInterface['ui
       return
     }
     $.ui.toast('context-lens is uninstalled. Thanks for trying it.')
-    const reloaded = await $.command.run({ command: 'reload-plugins', args: RELOAD_ARGS } as never).then(() => true, () => false)
+    const reloaded = await $.command.run({ command: 'reload-plugins', args: RELOAD_ARGS } as never).then(
+      () => true,
+      () => false,
+    )
     if (!reloaded) await typeCommand($, `/reload-plugins ${RELOAD_ARGS}`)
   }
   const label = uninstalling ? 'Uninstalling…' : armed ? 'Press again to uninstall' : 'Uninstall'
@@ -2494,13 +2911,27 @@ function uninstallButton($: EngineInterface, els: ReturnType<EngineInterface['ui
         <Box position="absolute" top={0} left={0}>
           <Svg source={binSvg(DASH_DIM)} alt="bin" width={14} height={14} />
         </Box>
-        <Box position="absolute" top={0} left={0} display={red ? 'flex' : 'none'} hover={red ? undefined : { scope: 'uninstall', display: 'flex' }}>
+        <Box
+          position="absolute"
+          top={0}
+          left={0}
+          display={red ? 'flex' : 'none'}
+          hover={red ? undefined : { scope: 'uninstall', display: 'flex' }}
+        >
           <Svg source={binSvg(UNINSTALL_RED)} alt="bin" width={14} height={14} />
         </Box>
       </Box>
-      <Text color={red ? UNINSTALL_RED : DASH_DIM} hover={{ scope: 'uninstall', color: UNINSTALL_RED }}>{label}</Text>
+      <Text color={red ? UNINSTALL_RED : DASH_DIM} hover={{ scope: 'uninstall', color: UNINSTALL_RED }}>
+        {label}
+      </Text>
       <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
-        <Button key="settings-uninstall" plain hover={{ scope: 'uninstall', backgroundColor: '#00000000' }} label={' '.repeat(label.length + 3)} onPress={press} />
+        <Button
+          key="settings-uninstall"
+          plain
+          hover={{ scope: 'uninstall', backgroundColor: '#00000000' }}
+          label={' '.repeat(label.length + 3)}
+          onPress={press}
+        />
       </Box>
     </Box>
   )
@@ -2508,11 +2939,20 @@ function uninstallButton($: EngineInterface, els: ReturnType<EngineInterface['ui
 
 /** The handoff or compact card: words, the moving art while it runs, green with a check once it has landed. `above` is
  * what sits over it (the reply it hangs under), or nothing for the band above the prompt. */
-function handoffCardTree($: EngineInterface, e: RenderInput<'AssistantMessage'> | RenderInput<'AbovePrompt'>, fresh: HandoffCard, above: unknown, onDismiss?: () => unknown) {
+function handoffCardTree(
+  $: EngineInterface,
+  e: RenderInput<'AssistantMessage'> | RenderInput<'AbovePrompt'>,
+  fresh: HandoffCard,
+  above: unknown,
+  onDismiss?: () => unknown,
+) {
   const { Box, Text, Svg, Button } = themedEls($.ui.resolve(e))
   const by = fresh.full ? 'Full' : 'Quick'
   const words = {
-    writing: ['✦ Handing off…', `${by} handoff being written. ${fresh.full ? 'Your skill takes a little while.' : 'A few seconds.'}`],
+    writing: [
+      '✦ Handing off…',
+      `${by} handoff being written. ${fresh.full ? 'Your skill takes a little while.' : 'A few seconds.'}`,
+    ],
     done: ['✦ Handoff complete', 'Carried on from the last chat. The old one is cleared.'],
     copied: ['✦ Handoff copied', 'Paste it into a new chat. This one stays.'],
     compacting: ['✦ Compacting…', 'The chat is being summed up. Takes a minute or so.'],
@@ -2521,19 +2961,46 @@ function handoffCardTree($: EngineInterface, e: RenderInput<'AssistantMessage'> 
   // Compacting is a wait in the background, not a result: one quiet line over the band's calm art, not the loud glow.
   const quiet = fresh.kind === 'compacting'
   const card = (
-    <Box key="reply-handoff" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
-      backgroundColor={cardLanded(fresh.kind) ? DONE_BG : BRAND_BG} borderStyle="round" borderColor={cardLanded(fresh.kind) ? DONE_EDGE : BRAND_EDGE}>
+    <Box
+      key="reply-handoff"
+      position="relative"
+      flexDirection="row"
+      alignItems="center"
+      paddingX={1}
+      overflow="hidden"
+      backgroundColor={cardLanded(fresh.kind) ? DONE_BG : BRAND_BG}
+      borderStyle="round"
+      borderColor={cardLanded(fresh.kind) ? DONE_EDGE : BRAND_EDGE}
+    >
       <Box key="reply-handoff-art" position="absolute" top={-1} right={0} bottom={-1}>
         {quiet ? (
           <Svg source={DASH_SVG} alt="compacting" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
         ) : cardRunning(fresh.kind) ? (
           <Svg source={HANDOFF_SVG} alt="handing off" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
         ) : (
-          <Svg source={cardLanded(fresh.kind) ? DONE_SVG : BRAND_SVG} alt="context-lens" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
+          <Svg
+            source={cardLanded(fresh.kind) ? DONE_SVG : BRAND_SVG}
+            alt="context-lens"
+            width={FROST_WIDTH * 2}
+            height={FROST_HEIGHT * 2}
+          />
         )}
       </Box>
-      <Box key="reply-handoff-words" position="relative" flexDirection={quiet ? 'row' : 'column'} gap={quiet ? 1 : 0} flexShrink={1} minWidth={0}>
-        {markTitle({ Box, Text, Svg }, 'reply-handoff-title', cardLanded(fresh.kind) ? DONE_ACCENT : ACCENT, words[0], cardLanded(fresh.kind) ? DONE_MARK_SVG : MARK_SVG)}
+      <Box
+        key="reply-handoff-words"
+        position="relative"
+        flexDirection={quiet ? 'row' : 'column'}
+        gap={quiet ? 1 : 0}
+        flexShrink={1}
+        minWidth={0}
+      >
+        {markTitle(
+          { Box, Text, Svg },
+          'reply-handoff-title',
+          cardLanded(fresh.kind) ? DONE_ACCENT : ACCENT,
+          words[0],
+          cardLanded(fresh.kind) ? DONE_MARK_SVG : MARK_SVG,
+        )}
         <Text wrap="truncate">{words[1]}</Text>
       </Box>
       {onDismiss ? (
@@ -2542,7 +3009,14 @@ function handoffCardTree($: EngineInterface, e: RenderInput<'AssistantMessage'> 
           {/* A box just the ✕'s size, so its hover lights only the ✕, not the card's right half. */}
           <Box key="card-close-box" position="relative" flexShrink={0}>
             <Box position="absolute" top={0} left={0} />
-            <Button key="card-close" plain role="dismiss" label="✕" hover={{ backgroundColor: CARD_CLOSE_HOVER }} onPress={onDismiss} />
+            <Button
+              key="card-close"
+              plain
+              role="dismiss"
+              label="✕"
+              hover={{ backgroundColor: CARD_CLOSE_HOVER }}
+              onPress={onDismiss}
+            />
           </Box>
         </Box>
       ) : null}
@@ -2560,7 +3034,12 @@ function handoffCardTree($: EngineInterface, e: RenderInput<'AssistantMessage'> 
 /** This install's version, read from its plugin.json when the timers start. */
 let ownVersion = ''
 function readOwnVersion($: EngineInterface) {
-  void $.fs.read(`${$.plugin.root}/.claude-plugin/plugin.json`).then(text => { ownVersion = String(JSON.parse(String(text)).version ?? '') }).catch(() => undefined)
+  void $.fs
+    .read(`${$.plugin.root}/.claude-plugin/plugin.json`)
+    .then(text => {
+      ownVersion = String(JSON.parse(String(text)).version ?? '')
+    })
+    .catch(() => undefined)
 }
 
 /** The session's timers. A reload loads the module again with no session start, so the band's first draw starts them
@@ -2579,7 +3058,9 @@ function startTimers($: EngineInterface, from: 'start' | 'draw') {
     $.clock.every(LENS_TICK_MS, () => void lensTick($).catch(() => undefined)),
   ]
   // Read the usage at once too, so the context ring is there from the start rather than a tick later.
-  void checkSwamp($).then(() => $.ui.invalidate('ui.render')).catch(() => undefined)
+  void checkSwamp($)
+    .then(() => $.ui.invalidate('ui.render'))
+    .catch(() => undefined)
   // A written handoff is cleared and resent from here: a hook the turn waits on may not run commands.
   handoffTimer?.cancel()
   handoffTimer = $.clock.every(HANDOFF_POLL_MS, () => {
@@ -2592,7 +3073,10 @@ function startTimers($: EngineInterface, from: 'start' | 'draw') {
       }
     }
     // Right after a start the app may not have the usage yet: ask each second until it has, so the ring shows.
-    if (!lastContext || !lastContext.window) void checkSwamp($).then(() => lastContext?.window && $.ui.invalidate('ui.render')).catch(() => undefined)
+    if (!lastContext || !lastContext.window)
+      void checkSwamp($)
+        .then(() => lastContext?.window && $.ui.invalidate('ui.render'))
+        .catch(() => undefined)
     // The dashboard's countdown ticks inside its own image; the band is redrawn once a minute to start the next one.
     if (cacheExpires > 0 && !config.hide.includes('timer'))
       void $.clock.now().then(now => {
@@ -2622,7 +3106,10 @@ const NOT_STARTED = /ENOENT|not found or is in an unsafe location|failed to star
 /** For a `claude` that would not start: what to install, in the person's own shell; undefined for any other error. */
 export function noClaudeHint(error: string, home: string | undefined): string | undefined {
   if (!NOT_STARTED.test(error)) return undefined
-  const install = home && /^[A-Za-z]:/.test(home) ? 'irm https://claude.ai/install.ps1 | iex' : 'curl -fsSL https://claude.ai/install.sh | bash'
+  const install =
+    home && /^[A-Za-z]:/.test(home)
+      ? 'irm https://claude.ai/install.ps1 | iex'
+      : 'curl -fsSL https://claude.ai/install.sh | bash'
   return `This needs the Claude Code CLI. Install it with ${install}, then reopen the app.`
 }
 const homeDir = async ($: EngineInterface) => ((await envUserProfile($)) ?? (await envHome($))) || undefined
@@ -2674,19 +3161,33 @@ const HANDOFF_PILL_W = 66
 const HANDOFF_PILL_H = 19
 /** Handoff's look at `percent` of context, a step each percent: no box at 0, the grey box by HANDOFF_BOX_AT, white by
  * HANDOFF_LOUD_AT. The label goes from dim to white, and dark once the box is light enough to need it. */
-export function handoffLook(percent: number, hovered = false): { fill: string; opacity: number; edge: string; label: string } {
+export function handoffLook(
+  percent: number,
+  hovered = false,
+): { fill: string; opacity: number; edge: string; label: string } {
   // Hovered, the box is there even on a fresh chat and a few steps lighter.
   const p = Math.max(hovered ? HANDOFF_BOX_AT : 0, Math.min(HANDOFF_LOUD_AT, Math.round(percent) + (hovered ? 5 : 0)))
   const mix = (a: string, b: string, k: number) => {
     const ch = (hex: string, i: number) => parseInt(hex.slice(1 + i * 2, 3 + i * 2), 16)
-    return `#${[0, 1, 2].map(i => Math.round(ch(a, i) + (ch(b, i) - ch(a, i)) * k).toString(16).padStart(2, '0')).join('')}`
+    return `#${[0, 1, 2]
+      .map(i =>
+        Math.round(ch(a, i) + (ch(b, i) - ch(a, i)) * k)
+          .toString(16)
+          .padStart(2, '0'),
+      )
+      .join('')}`
   }
   if (p <= HANDOFF_BOX_AT) {
     const k = p / HANDOFF_BOX_AT
     return { fill: HOVER_BOX, opacity: k, edge: mix(DASH_BG, '#3a3a40', k), label: mix(DASH_DIM, '#ececf0', k) }
   }
   const k = (p - HANDOFF_BOX_AT) / (HANDOFF_LOUD_AT - HANDOFF_BOX_AT)
-  return { fill: mix(HOVER_BOX, '#ececf0', k), opacity: 1, edge: mix('#3a3a40', '#ffffff', k), label: k > 0.45 ? '#141416' : '#ececf0' }
+  return {
+    fill: mix(HOVER_BOX, '#ececf0', k),
+    opacity: 1,
+    edge: mix('#3a3a40', '#ffffff', k),
+    label: k > 0.45 ? '#141416' : '#ececf0',
+  }
 }
 /** Handoff's box as drawn (see handoffLook). */
 export function handoffPillSvg(percent: number, hovered = false): string {
@@ -2721,7 +3222,9 @@ export function handoffGlowSvg(step: number, nowMs = 0): string {
   const lock = (svg: string) => inPhase(svg, nowMs % (period * 1000))
   const x = (GLOW_W - GLOW_BUTTON.w) / 2 - e
   const y = (GLOW_H - GLOW_BUTTON.h) / 2 - e
-  return lock(`<svg xmlns="http://www.w3.org/2000/svg" width="${GLOW_W}" height="${GLOW_H}" viewBox="0 0 ${GLOW_W} ${GLOW_H}"><style>.g{animation:p ${period}s ease-in-out infinite}@keyframes p{0%,100%{opacity:${low}}50%{opacity:${peak}}}</style><defs><filter id="b" x="-30%" y="-80%" width="160%" height="260%"><feGaussianBlur stdDeviation="${blur}"/></filter></defs><g class="g" filter="url(#b)"><rect x="${x}" y="${y}" width="${GLOW_BUTTON.w + 2 * e}" height="${GLOW_BUTTON.h + 2 * e}" rx="${GLOW_BUTTON.r + e}" fill="${ACCENT}"/></g></svg>`)
+  return lock(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${GLOW_W}" height="${GLOW_H}" viewBox="0 0 ${GLOW_W} ${GLOW_H}"><style>.g{animation:p ${period}s ease-in-out infinite}@keyframes p{0%,100%{opacity:${low}}50%{opacity:${peak}}}</style><defs><filter id="b" x="-30%" y="-80%" width="160%" height="260%"><feGaussianBlur stdDeviation="${blur}"/></filter></defs><g class="g" filter="url(#b)"><rect x="${x}" y="${y}" width="${GLOW_BUTTON.w + 2 * e}" height="${GLOW_BUTTON.h + 2 * e}" rx="${GLOW_BUTTON.r + e}" fill="${ACCENT}"/></g></svg>`,
+  )
 }
 
 /** How long the switch's knob takes to slide after a click. */
@@ -2773,7 +3276,8 @@ const AUTO_GLOW_W = 760
 const AUTO_GLOW_H = 37
 const COLD_GLOW_MS = 4200
 /** This install's id, context-lens@<marketplace>, read off the cache path (…/plugins/cache/<marketplace>/context-lens/<version>). */
-const pluginId = ($: EngineInterface) => `context-lens@${$.plugin.root.match(/cache[\\/]([^\\/]+)[\\/]/)?.[1] ?? 'context-lens'}`
+const pluginId = ($: EngineInterface) =>
+  `context-lens@${$.plugin.root.match(/cache[\\/]([^\\/]+)[\\/]/)?.[1] ?? 'context-lens'}`
 
 /** The rim in the brand's violet while the judge decides: it lights up and stays at full while it thinks, then fades from
  * full once the verdict is in. Two images, each placed by the clock on every draw (inPhase): the app swaps the whole
@@ -2816,7 +3320,9 @@ export function judgeGlowSvg(kind: 'rise' | 'fade', elapsedMs = 0): string {
   const from = judgeBrightnessAt(kind, elapsedMs)
   // Five points along the true curve, so the piece is where the curve is at every moment and the next one starts on it.
   const span = Math.max(1, Math.min(JUDGE_PIECE_MS, dur - elapsedMs))
-  const points = [0, 0.25, 0.5, 0.75, 1].map(k => `${(k * 100).toFixed(0)}%{opacity:${judgeBrightnessAt(kind, elapsedMs + k * span).toFixed(3)}}`).join('')
+  const points = [0, 0.25, 0.5, 0.75, 1]
+    .map(k => `${(k * 100).toFixed(0)}%{opacity:${judgeBrightnessAt(kind, elapsedMs + k * span).toFixed(3)}}`)
+    .join('')
   const still = kind === 'rise' && elapsedMs >= dur
   const css = still
     ? `.r{opacity:${JUDGE_GLOW_MAX}}`
@@ -2833,7 +3339,8 @@ export function judgeGlowAt(startedAt: number, endedAt: number | null, now: numb
 }
 /** Redraws the band every JUDGE_STEP_MS from `from` ms over `span` ms, so each piece of the rise or fade is drawn in turn. */
 function drawGlowSteps($: EngineInterface, from: number, span: number) {
-  for (let at = Math.max(0, from); at <= from + span + JUDGE_STEP_MS; at += JUDGE_STEP_MS) $.clock.after(at + 5, () => $.ui.invalidate('ui.render'))
+  for (let at = Math.max(0, from); at <= from + span + JUDGE_STEP_MS; at += JUDGE_STEP_MS)
+    $.clock.after(at + 5, () => $.ui.invalidate('ui.render'))
 }
 // The glow's clock is read as late as the draw allows, and set ahead by how long the rest of a draw takes (measured,
 // smoothed): a fade placed where it was when the draw began showed up that much behind, a little brighter at every
@@ -2849,7 +3356,9 @@ async function endJudgeGlow($: EngineInterface, why: string) {
   if (judgeEndedAt !== null) return
   judgeEndedAt = await $.clock.now().catch(() => Date.now())
   const fadeAt = Math.max(judgeEndedAt, judgeStartedAt + JUDGE_RISE_MS) - judgeEndedAt
-  renderLog.push(`${new Date().toISOString()} ${loadedSession} glow: ${why} ${judgeEndedAt - judgeStartedAt} ms after start, fade in ${fadeAt} ms`)
+  renderLog.push(
+    `${new Date().toISOString()} ${loadedSession} glow: ${why} ${judgeEndedAt - judgeStartedAt} ms after start, fade in ${fadeAt} ms`,
+  )
   drawGlowSteps($, fadeAt, JUDGE_FADE_MS)
   $.ui.invalidate('ui.render')
 }
@@ -2943,7 +3452,10 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
     // The terminal gives the hint a place of its own on the detail line; desktop's one row has none, so it leads the reason.
     reason: inAgent
       ? ''
-      : [e.surface === 'terminal' ? '' : hint, adviceNow ? `Handoff would suit: ${adviceNow}` : config.hide.includes('reason') ? '' : reason]
+      : [
+          e.surface === 'terminal' ? '' : hint,
+          adviceNow ? `Handoff would suit: ${adviceNow}` : config.hide.includes('reason') ? '' : reason,
+        ]
           .filter(Boolean)
           .join(' — '),
   })
@@ -2957,7 +3469,11 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
   const buttons = [
     // Once the slot is Handoff (advised, or the setting says always), Compact stays beside it as quiet text, so both are
     // a press away. Desktop only, where there is room for it; the terminal compacts in one press from its own rows.
-    ...(e.surface !== 'terminal' && 'Svg' in els && !config.hide.includes('handoff') && handoffSlot() && (typeof e.props.bodyColumns !== 'number' || e.props.bodyColumns >= COMPACT_BUTTON_MIN_COLUMNS)
+    ...(e.surface !== 'terminal' &&
+    'Svg' in els &&
+    !config.hide.includes('handoff') &&
+    handoffSlot() &&
+    (typeof e.props.bodyColumns !== 'number' || e.props.bodyColumns >= COMPACT_BUTTON_MIN_COLUMNS)
       ? [<Button key="dash-compact" plain dimColor label="Compact" onPress={() => openCompact($, e)} />]
       : []),
     ...(config.hide.includes('handoff')
@@ -2972,8 +3488,22 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
             <Box key="dash-handoff-wrap" flexShrink={0} flexDirection="row">
               {/* No glow while a reply runs: the band redraws then, and each redraw restarted the glow, so it flickered. */}
               {handoffLoud() && !e.props.isWorking ? (
-                <Box key="dash-glow" position="absolute" top={0} bottom={0} left={-2} right={-2} alignItems="center" justifyContent="center">
-                  <els.Svg source={handoffGlowSvg(handoffGlowStep(handoffLevel()), nowMs)} alt="handoff glow" width={GLOW_W} height={GLOW_H} />
+                <Box
+                  key="dash-glow"
+                  position="absolute"
+                  top={0}
+                  bottom={0}
+                  left={-2}
+                  right={-2}
+                  alignItems="center"
+                  justifyContent="center"
+                >
+                  <els.Svg
+                    source={handoffGlowSvg(handoffGlowStep(handoffLevel()), nowMs)}
+                    alt="handoff glow"
+                    width={GLOW_W}
+                    height={GLOW_H}
+                  />
                 </Box>
               ) : null}
               {/* The H key, once Handoff is loud: on a button of its own, clipped away, since a blank button with a
@@ -2987,20 +3517,74 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
                   label (centred over it) would run into Auto. */}
               <Box key="dash-handoff-box" flexShrink={0} flexDirection="row" alignItems="center">
                 <Box width={9} height={1} flexShrink={0} />
-                <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
-                  <els.Svg source={handoffPillSvg(handoffLevel())} alt="Handoff box" width={HANDOFF_PILL_W} height={HANDOFF_PILL_H} />
+                <Box
+                  position="absolute"
+                  top={0}
+                  bottom={0}
+                  left={0}
+                  right={0}
+                  alignItems="center"
+                  justifyContent="center"
+                >
+                  <els.Svg
+                    source={handoffPillSvg(handoffLevel())}
+                    alt="Handoff box"
+                    width={HANDOFF_PILL_W}
+                    height={HANDOFF_PILL_H}
+                  />
                 </Box>
                 {/* Its hover: a lighter pill shown over the box, not the app's ghost fill, which is sized to the blank
                     label and sat off the drawn box. */}
-                <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center"
-                  display="none" hover={{ scope: 'handoff', display: 'flex' }}>
-                  <els.Svg source={handoffPillSvg(handoffLevel(), true)} alt="Handoff box" width={HANDOFF_PILL_W} height={HANDOFF_PILL_H} />
+                <Box
+                  position="absolute"
+                  top={0}
+                  bottom={0}
+                  left={0}
+                  right={0}
+                  alignItems="center"
+                  justifyContent="center"
+                  display="none"
+                  hover={{ scope: 'handoff', display: 'flex' }}
+                >
+                  <els.Svg
+                    source={handoffPillSvg(handoffLevel(), true)}
+                    alt="Handoff box"
+                    width={HANDOFF_PILL_W}
+                    height={HANDOFF_PILL_H}
+                  />
                 </Box>
-                <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
-                  <Text color={handoffLook(handoffLevel()).label} hover={{ scope: 'handoff', color: handoffLook(handoffLevel(), true).label }}>{handoffSlot() ? 'Handoff' : 'Compact'}</Text>
+                <Box
+                  position="absolute"
+                  top={0}
+                  bottom={0}
+                  left={0}
+                  right={0}
+                  alignItems="center"
+                  justifyContent="center"
+                >
+                  <Text
+                    color={handoffLook(handoffLevel()).label}
+                    hover={{ scope: 'handoff', color: handoffLook(handoffLevel(), true).label }}
+                  >
+                    {handoffSlot() ? 'Handoff' : 'Compact'}
+                  </Text>
                 </Box>
-                <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
-                  <Button key="dash-handoff" plain label={' '.repeat(14)} hover={{ scope: 'handoff', backgroundColor: '#00000000' }} onPress={() => (handoffSlot() ? openHandoffBar($) : openCompact($, e))} />
+                <Box
+                  position="absolute"
+                  top={0}
+                  bottom={0}
+                  left={0}
+                  right={0}
+                  alignItems="center"
+                  justifyContent="center"
+                >
+                  <Button
+                    key="dash-handoff"
+                    plain
+                    label={' '.repeat(14)}
+                    hover={{ scope: 'handoff', backgroundColor: '#00000000' }}
+                    onPress={() => (handoffSlot() ? openHandoffBar($) : openCompact($, e))}
+                  />
                 </Box>
               </Box>
             </Box>
@@ -3012,17 +3596,45 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
         ]),
     // The terminal says it in a word; the desktop draws an icon, with this button laid blank over it to take the click.
     // No-break spaces, not braille blanks: some fonts draw U+2800 as a dot.
-    <Button key="dash-settings" plain label={'Svg' in els && e.surface !== 'terminal' ? '   ' : 'Settings'} onPress={toggleSettings} />,
+    <Button
+      key="dash-settings"
+      plain
+      label={'Svg' in els && e.surface !== 'terminal' ? '   ' : 'Settings'}
+      onPress={toggleSettings}
+    />,
   ].filter(Boolean)
   // The terminal switches both Autos on the Model and Effort pickers under the band; desktop has no pickers.
   const autoButtons = [
-    <Button key="dash-auto-model" variant="secondary" dimColor={!v.autoModel} label={v.autoModel ? 'Auto model on' : 'Auto model off'} onPress={() => toggleAutoModel($)} />,
-    <Button key="dash-auto" variant="secondary" dimColor={!v.auto} label={v.auto ? 'Auto effort on' : 'Auto effort off'} onPress={() => toggleAutoEffort($)} />,
+    <Button
+      key="dash-auto-model"
+      variant="secondary"
+      dimColor={!v.autoModel}
+      label={v.autoModel ? 'Auto model on' : 'Auto model off'}
+      onPress={() => toggleAutoModel($)}
+    />,
+    <Button
+      key="dash-auto"
+      variant="secondary"
+      dimColor={!v.auto}
+      label={v.auto ? 'Auto effort on' : 'Auto effort off'}
+      onPress={() => toggleAutoEffort($)}
+    />,
   ]
   // The terminal flashes the effort word as the desktop does: in the accent on a change, fading back to white.
   if (e.surface === 'terminal')
-    return terminalBand($, e, { key: 'dash', kind: 'calm', color: DASH_TEXT, bg: DASH_BG, edge: DASH_EDGE, title: head.replace(/^✦ /, ''), detail, hint, buttons, extra: lens,
-      word: { text: pair, color: await effortFlash($, what, judgingHere, entering), rest } })
+    return terminalBand($, e, {
+      key: 'dash',
+      kind: 'calm',
+      color: DASH_TEXT,
+      bg: DASH_BG,
+      edge: DASH_EDGE,
+      title: head.replace(/^✦ /, ''),
+      detail,
+      hint,
+      buttons,
+      extra: lens,
+      word: { text: pair, color: await effortFlash($, what, judgingHere, entering), rest },
+    })
   const Svg = 'Svg' in els ? els.Svg : undefined
   const wordColor = await effortFlash($, what, judgingHere, entering)
   glowReadAt = Date.now()
@@ -3031,10 +3643,22 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
 
   const autoGlowing = Svg && v.auto && nowMs - autoOnAt < AUTO_GLOW_MS
   if (autoGlowing) renderLog.push(`glow on at ${nowMs - autoOnAt} ms`)
-  if (glowSource && judgeEndedAt !== null) renderLog.push(`${new Date().toISOString()} ${loadedSession} glow: fade drawn at +${Math.round(glowNow - Math.max(judgeEndedAt, judgeStartedAt + JUDGE_RISE_MS))} ms, lead ${Math.round(drawLead)} ms, ${Math.round(glowNow - drawLead - nowMs)} ms after the draw began`)
+  if (glowSource && judgeEndedAt !== null)
+    renderLog.push(
+      `${new Date().toISOString()} ${loadedSession} glow: fade drawn at +${Math.round(glowNow - Math.max(judgeEndedAt, judgeStartedAt + JUDGE_RISE_MS))} ms, lead ${Math.round(drawLead)} ms, ${Math.round(glowNow - drawLead - nowMs)} ms after the draw began`,
+    )
   return (
-    <Box key="dash" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
-      backgroundColor={DASH_BG} borderStyle="round" borderColor={DASH_EDGE}>
+    <Box
+      key="dash"
+      position="relative"
+      flexDirection="row"
+      alignItems="center"
+      paddingX={1}
+      overflow="hidden"
+      backgroundColor={DASH_BG}
+      borderStyle="round"
+      borderColor={DASH_EDGE}
+    >
       {Svg ? (
         // Auto off: the art goes, so the bar reads as resting, not working.
         v.auto ? (
@@ -3045,7 +3669,12 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
       ) : null}
       {autoGlowing ? (
         <Box key="dash-auto-glow" position="absolute" top={0} left={0} right={0} bottom={0}>
-          <Svg source={inPhase(autoGlowSvg(v.auto), nowMs - autoOnAt)} alt="auto glow" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
+          <Svg
+            source={inPhase(autoGlowSvg(v.auto), nowMs - autoOnAt)}
+            alt="auto glow"
+            width={AUTO_GLOW_W}
+            height={AUTO_GLOW_H}
+          />
         </Box>
       ) : null}
       {/* The judge decides: the rim lights up in the accent, holds, and fades from full once the verdict is in. */}
@@ -3057,17 +3686,36 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
       {/* One row: the effort word, the context ring, the cache, then the reason and the last reply, dim. The word never shrinks;
           when room runs out the reason goes first (it shrinks a hundred times faster), then the cache, and the row clips
           rather than run under the buttons. Siblings, not nested: a shrunk parent let the word spill under the ring. */}
-      <Box key="dash-words" position="relative" flexDirection="row" flexGrow={1} flexShrink={1} minWidth={0} overflow="hidden">
+      <Box
+        key="dash-words"
+        position="relative"
+        flexDirection="row"
+        flexGrow={1}
+        flexShrink={1}
+        minWidth={0}
+        overflow="hidden"
+      >
         <Box flexShrink={0} flexDirection="row">
           {Svg ? (
             // The mark, as it is, where the ✦ stood; faded while Auto is off.
             <Box key="dash-mark" flexShrink={0} marginRight={1} alignItems="center">
-              <Svg source={v.auto ? MARK_SVG : DASH_MARK_OFF} alt="context-lens" width={DASH_MARK_SIZE} height={DASH_MARK_SIZE} />
+              <Svg
+                source={v.auto ? MARK_SVG : DASH_MARK_OFF}
+                alt="context-lens"
+                width={DASH_MARK_SIZE}
+                height={DASH_MARK_SIZE}
+              />
             </Box>
-          ) : <Text color={v.auto ? ACCENT : DASH_DIM} bold>✦ </Text>}
+          ) : (
+            <Text color={v.auto ? ACCENT : DASH_DIM} bold>
+              ✦{' '}
+            </Text>
+          )}
           {/* A new effort shows in the accent, then white (effortFlash): plain text in the app's font. An animated image
               of the word looked cheap: another font, a late start and a jump back to the text. */}
-          <Text key="dash-level" color={wordColor} bold>{judgingHere && Svg ? (modelName ? `${modelName} · Deciding` : 'Deciding') : pair}</Text>
+          <Text key="dash-level" color={wordColor} bold>
+            {judgingHere && Svg ? (modelName ? `${modelName} · Deciding` : 'Deciding') : pair}
+          </Text>
           {/* While the judge decides: thinking dots, as a plain image (its CSS still runs, and a
               redraw does not restart it the way an interactive frame does). */}
           {judgingHere && Svg ? (
@@ -3078,16 +3726,30 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
         </Box>
         {rest ? (
           <Box flexShrink={detail ? 0 : 1} minWidth={0}>
-            <Text color={DASH_TEXT} bold wrap="truncate">{rest}</Text>
+            <Text color={DASH_TEXT} bold wrap="truncate">
+              {rest}
+            </Text>
           </Box>
         ) : null}
         {/* What shows when room runs out, most needed first: the effort and the context never shrink; the cache shrinks
             next and goes; the reason (dim, after it) goes first of all. Hovering the ring or the cache swaps the reason
             for what they mean. */}
         {Svg && lastContext && lastContext.window ? (
-          <Box key="dash-ring" flexShrink={0} marginLeft={2} flexDirection="row" gap={1} alignItems="center"
-            hover={{ scope: 'dash-cache', backgroundColor: HOVER_BOX }}>
-            <Svg source={ringSvg(lastContext.percent, DASH_TEXT)} alt={`${Math.round(lastContext.percent)}% of context`} width={16} height={16} />
+          <Box
+            key="dash-ring"
+            flexShrink={0}
+            marginLeft={2}
+            flexDirection="row"
+            gap={1}
+            alignItems="center"
+            hover={{ scope: 'dash-cache', backgroundColor: HOVER_BOX }}
+          >
+            <Svg
+              source={ringSvg(lastContext.percent, DASH_TEXT)}
+              alt={`${Math.round(lastContext.percent)}% of context`}
+              width={16}
+              height={16}
+            />
             <Text color={DASH_TEXT}>{`${Math.round(lastContext.percent)}%`}</Text>
           </Box>
         ) : null}
@@ -3096,29 +3758,74 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
             keeps its fixed width (the ticking seconds never shift the row) and, once it no longer fits, wraps to the
             hidden second row whole, taking the reason with it. */}
         {Svg && (cacheShown !== null || detail) ? (
-          <Box key="dash-tail" flexGrow={1} flexShrink={1} minWidth={0} height={1} overflow="hidden" flexDirection="row" flexWrap="wrap" marginLeft={2}>
+          <Box
+            key="dash-tail"
+            flexGrow={1}
+            flexShrink={1}
+            minWidth={0}
+            height={1}
+            overflow="hidden"
+            flexDirection="row"
+            flexWrap="wrap"
+            marginLeft={2}
+          >
             <Box width={0} height={1} />
             {cacheShown !== null ? (
-              <Box key="dash-cache-time" width={11} flexShrink={0} hover={{ scope: 'dash-cache', backgroundColor: HOVER_BOX }}>
-                <Svg source={cacheClockSvg(cacheExpires - (await $.clock.now()), cacheShown === 0 ? ICE : (cacheColor(cacheShown) ?? DASH_DIM))}
-                  alt={`cache ${cacheClock(cacheExpires - (await $.clock.now()))}`} width={84} height={17} />
+              <Box
+                key="dash-cache-time"
+                width={11}
+                flexShrink={0}
+                hover={{ scope: 'dash-cache', backgroundColor: HOVER_BOX }}
+              >
+                <Svg
+                  source={cacheClockSvg(
+                    cacheExpires - (await $.clock.now()),
+                    cacheShown === 0 ? ICE : (cacheColor(cacheShown) ?? DASH_DIM),
+                  )}
+                  alt={`cache ${cacheClock(cacheExpires - (await $.clock.now()))}`}
+                  width={84}
+                  height={17}
+                />
               </Box>
             ) : null}
             {detail ? (
               // Over the reason, shown only while the ring or cache is hovered, what they mean: a hover can only
               // reveal, so the tip is a layer on the band's colour that covers the reason.
-              <Box key="dash-detail" position="relative" width={0} flexGrow={1} flexShrink={1} minWidth={10} marginLeft={cacheShown !== null ? 2 : 0}>
-                <Text dimColor wrap="truncate">{detail}</Text>
-                <Box key="dash-cache-tip" position="absolute" top={0} left={0} right={0} bottom={0} backgroundColor={DASH_BG}
-                  display="none" hover={{ scope: 'dash-cache', display: 'flex' }}>
-                  <Text dimColor wrap="truncate">{hoverTips(v).cache.replace(/^Prompt cache/, 'Cache')}</Text>
+              <Box
+                key="dash-detail"
+                position="relative"
+                width={0}
+                flexGrow={1}
+                flexShrink={1}
+                minWidth={10}
+                marginLeft={cacheShown !== null ? 2 : 0}
+              >
+                <Text dimColor wrap="truncate">
+                  {detail}
+                </Text>
+                <Box
+                  key="dash-cache-tip"
+                  position="absolute"
+                  top={0}
+                  left={0}
+                  right={0}
+                  bottom={0}
+                  backgroundColor={DASH_BG}
+                  display="none"
+                  hover={{ scope: 'dash-cache', display: 'flex' }}
+                >
+                  <Text dimColor wrap="truncate">
+                    {hoverTips(v).cache.replace(/^Prompt cache/, 'Cache')}
+                  </Text>
                 </Box>
               </Box>
             ) : null}
           </Box>
         ) : detail ? (
           <Box key="dash-detail" flexShrink={1000} minWidth={0} marginLeft={2}>
-            <Text dimColor wrap="truncate">{detail}</Text>
+            <Text dimColor wrap="truncate">
+              {detail}
+            </Text>
           </Box>
         ) : null}
       </Box>
@@ -3130,13 +3837,39 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
         {Svg
           ? // Each Auto as a switch, drawn, with a blank button laid over it to take the click (the cog's pattern).
             [
-              { key: 'dash-auto-model', word: 'model', on: v.autoModel, flipAt: autoModelFlipAt, toggle: () => toggleAutoModel($) },
+              {
+                key: 'dash-auto-model',
+                word: 'model',
+                on: v.autoModel,
+                flipAt: autoModelFlipAt,
+                toggle: () => toggleAutoModel($),
+              },
               { key: 'dash-auto', word: 'effort', on: v.auto, flipAt: autoFlipAt, toggle: () => toggleAutoEffort($) },
             ].map(autoSwitch => (
-              <Box key={`${autoSwitch.key}-switch`} position="relative" flexDirection="row" alignItems="center" gap={1} paddingX={1}>
-                <Svg source={autoSwitchSvg(autoSwitch.on, nowMs - autoSwitch.flipAt)} alt={`Auto ${autoSwitch.word} ${autoSwitch.on ? 'on' : 'off'}`} width={26} height={15} />
+              <Box
+                key={`${autoSwitch.key}-switch`}
+                position="relative"
+                flexDirection="row"
+                alignItems="center"
+                gap={1}
+                paddingX={1}
+              >
+                <Svg
+                  source={autoSwitchSvg(autoSwitch.on, nowMs - autoSwitch.flipAt)}
+                  alt={`Auto ${autoSwitch.word} ${autoSwitch.on ? 'on' : 'off'}`}
+                  width={26}
+                  height={15}
+                />
                 <Text color={autoSwitch.on ? DASH_TEXT : DASH_DIM}>{`Auto ${autoSwitch.word}`}</Text>
-                <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
+                <Box
+                  position="absolute"
+                  top={0}
+                  bottom={0}
+                  left={0}
+                  right={0}
+                  alignItems="center"
+                  justifyContent="center"
+                >
                   <Button key={autoSwitch.key} plain label={' '.repeat(32)} onPress={autoSwitch.toggle} />
                 </Box>
               </Box>
@@ -3197,7 +3930,9 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
   const neverHold = async () => {
     await dismiss()
     await saveSetting($, 'holdOffer', 'off')
-    $.ui.toast('context-lens: prompts are not held for model offers now. /context-lens settings, Model, turns it back on.')
+    $.ui.toast(
+      'context-lens: prompts are not held for model offers now. /context-lens settings, Model, turns it back on.',
+    )
   }
 
   // A bare digit in an empty composer presses a band Button, so a held prompt is answered with 1, 2 or 3 without focusing
@@ -3209,8 +3944,12 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
     <Box flexDirection="column">
       <Box flexDirection="row" gap={1} alignItems="center">
         <Text>
-          {suggestedAs === 'subagent' ? `Hand this to a ${MODELS.find(m => m.key === wanted)?.label} subagent?` : `Switch to ${MODELS.find(m => m.key === wanted)?.label}?`}{' '}
-          {offer ? `Your prompt waits ${Math.max(1, Math.ceil((offer.until - (await $.clock.now())) / 1000))}s.` : 'The context reloads.'}
+          {suggestedAs === 'subagent'
+            ? `Hand this to a ${MODELS.find(m => m.key === wanted)?.label} subagent?`
+            : `Switch to ${MODELS.find(m => m.key === wanted)?.label}?`}{' '}
+          {offer
+            ? `Your prompt waits ${Math.max(1, Math.ceil((offer.until - (await $.clock.now())) / 1000))}s.`
+            : 'The context reloads.'}
         </Text>
         <Button
           key="accept"
@@ -3220,8 +3959,22 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
           label={suggestedAs === 'subagent' ? 'Hand off' : 'Switch'}
           onPress={acceptSuggestion(wanted)}
         />
-        <Button key="decline" hotkey={offerKeys ? '2' : undefined} plain={offerKeys ? true : undefined} label="Keep" onPress={dismiss} />
-        {offer ? <Button key="never" hotkey={offerKeys ? '3' : undefined} plain={offerKeys ? true : undefined} label="Don't ask again" onPress={neverHold} /> : null}
+        <Button
+          key="decline"
+          hotkey={offerKeys ? '2' : undefined}
+          plain={offerKeys ? true : undefined}
+          label="Keep"
+          onPress={dismiss}
+        />
+        {offer ? (
+          <Button
+            key="never"
+            hotkey={offerKeys ? '3' : undefined}
+            plain={offerKeys ? true : undefined}
+            label="Don't ask again"
+            onPress={neverHold}
+          />
+        ) : null}
       </Box>
     </Box>
   ) : null
@@ -3247,7 +4000,13 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
           <Button key={`m-${m.key}`} plain dimColor label={m.label} onPress={setModel(m.key)} />
         ),
       )}
-      <Button key="auto-model" hotkey="m" variant={autoModel ? 'primary' : undefined} label={autoModel ? 'Auto' : 'Manual'} onPress={() => toggleAutoModel($)} />
+      <Button
+        key="auto-model"
+        hotkey="m"
+        variant={autoModel ? 'primary' : undefined}
+        label={autoModel ? 'Auto' : 'Manual'}
+        onPress={() => toggleAutoModel($)}
+      />
     </Box>
   )
   const effortPicker = (
@@ -3260,7 +4019,13 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
           <Button key={`e-${level}`} plain dimColor label={level} onPress={setEffort(level)} />
         ),
       )}
-      <Button key="auto" hotkey="a" variant={auto ? 'primary' : undefined} label={auto ? 'Auto' : 'Manual'} onPress={() => toggleAutoEffort($)} />
+      <Button
+        key="auto"
+        hotkey="a"
+        variant={auto ? 'primary' : undefined}
+        label={auto ? 'Auto' : 'Manual'}
+        onPress={() => toggleAutoEffort($)}
+      />
     </Box>
   )
   // Model at the left and Effort at the right; a terminal too narrow for both wraps Effort onto a line of its own.
@@ -3278,7 +4043,13 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
   // frame and hotkey; a toggle is counted at its wider word.
   const pickerWidth = (word: string, labels: string[]) =>
     word.length + [...labels, 'Manual'].reduce((sum, label) => sum + label.length + 4, 0)
-  const bothWidth = pickerWidth('Model', MODELS.map(m => m.label)) + 2 + pickerWidth('Effort', EFFORTS)
+  const bothWidth =
+    pickerWidth(
+      'Model',
+      MODELS.map(m => m.label),
+    ) +
+    2 +
+    pickerWidth('Effort', EFFORTS)
   const columns = typeof e.props.bodyColumns === 'number' ? e.props.bodyColumns : 100
   const height = (bothWidth > columns ? 2 : 1) + (question ? 1 : 0)
   const noteLine = inAgent ? null : hintLine({ Box, Text }, hint, reasonNote, 'effort-note')
@@ -3335,7 +4106,14 @@ async function subagentEffort($: EngineInterface, prompt: string, type: string):
   const saving = (await read($, saveUntil)) !== null
   const leaned = tipped(verdict.effort, verdict.sure, config.bias)
   const effort = capped(bounded(leaned, subagentFloor(config.floor, config.ceiling), config.ceiling), saving)
-  return { ...verdict, effort, why: effort !== leaned && EFFORTS.indexOf(leaned) < EFFORTS.indexOf(effort) ? `${verdict.why} (subagents start at medium)` : verdict.why }
+  return {
+    ...verdict,
+    effort,
+    why:
+      effort !== leaned && EFFORTS.indexOf(leaned) < EFFORTS.indexOf(effort)
+        ? `${verdict.why} (subagents start at medium)`
+        : verdict.why,
+  }
 }
 
 /** The effort (and model) picked for this subagent, claiming a waiting pick the first time its id is seen. */
@@ -3344,7 +4122,9 @@ async function subagentSpawnOf($: EngineInterface, id: string): Promise<Subagent
   if (known || subagentWaiting.length === 0) return known
   const info = (await $.agent.list().catch(() => [])).find(a => a.id === id)
   if (!info) return undefined
-  const match = subagentWaiting.find(w => w.description === info.description && w.type === info.type && w.parentId === info.parentId)
+  const match = subagentWaiting.find(
+    w => w.description === info.description && w.type === info.type && w.parentId === info.parentId,
+  )
   if (!match) return undefined
   subagentWaiting = subagentWaiting.filter(w => w !== match)
   const spawn: SubagentSpawn = { pick: match.pick, call: match.call }
@@ -3352,7 +4132,8 @@ async function subagentSpawnOf($: EngineInterface, id: string): Promise<Subagent
   return spawn
 }
 
-const subagentPickOf = async ($: EngineInterface, id: string): Promise<SubagentPick | undefined> => (await subagentSpawnOf($, id))?.pick
+const subagentPickOf = async ($: EngineInterface, id: string): Promise<SubagentPick | undefined> =>
+  (await subagentSpawnOf($, id))?.pick
 
 /**
  * What of a subagent's request the mod may change: the model and the effort it inherits from its parent, and with
@@ -3375,13 +4156,17 @@ export function subagentSteerable(
 }
 
 /** The effort picked for this subagent. */
-const subagentEffortOf = async ($: EngineInterface, id: string): Promise<Effort | undefined> => (await subagentPickOf($, id))?.effort
+const subagentEffortOf = async ($: EngineInterface, id: string): Promise<Effort | undefined> =>
+  (await subagentPickOf($, id))?.effort
 
 /** Counts one request of a subagent the judge steered, for /context-lens stats. */
 async function subagentTally($: EngineInterface, usage: Parameters<typeof weighted>[0]) {
   await update($, saved, old => {
     const t = asSpent(old)
-    return { ...t, subagents: { ...t.subagents, requests: t.subagents.requests + 1, cost: t.subagents.cost + weighted(usage) } }
+    return {
+      ...t,
+      subagents: { ...t.subagents, requests: t.subagents.requests + 1, cost: t.subagents.cost + weighted(usage) },
+    }
   })
 }
 
@@ -3415,7 +4200,16 @@ Reply with the summary only.`
 export const COMPACT_TAIL = 6
 const COMPACT_TAIL_CHARS = 20_000
 /** The transcript as plain text for the summarizer: each message, its tool calls and their results, the long ones cut. */
-export function compactTranscript(messages: readonly { role: string; text: string; toolUses?: readonly { tool: string; input: unknown; text?: string }[]; toolResults?: readonly { text?: string }[] }[], toolChars = 2000, tailChars = COMPACT_TAIL_CHARS): string {
+export function compactTranscript(
+  messages: readonly {
+    role: string
+    text: string
+    toolUses?: readonly { tool: string; input: unknown; text?: string }[]
+    toolResults?: readonly { text?: string }[]
+  }[],
+  toolChars = 2000,
+  tailChars = COMPACT_TAIL_CHARS,
+): string {
   const cut = (s: string, n: number) => (s.length > n ? `${s.slice(0, n)} …[${s.length - n} more characters]` : s)
   const tailFrom = messages.length - COMPACT_TAIL
   return messages
@@ -3428,7 +4222,8 @@ export function compactTranscript(messages: readonly { role: string; text: strin
         lines.push(`  [${t.tool} ${cut(JSON.stringify(t.input ?? {}), inputChars)}]`)
         if (t.text) lines.push(`  → ${cut(t.text, resultChars)}`)
       }
-      if (!m.toolUses?.length) for (const r of m.toolResults ?? []) if (r.text) lines.push(`  → ${cut(r.text, resultChars)}`)
+      if (!m.toolUses?.length)
+        for (const r of m.toolResults ?? []) if (r.text) lines.push(`  → ${cut(r.text, resultChars)}`)
       return lines.join('\n')
     })
     .join('\n\n')
@@ -3443,7 +4238,11 @@ function fittingTranscript(messages: Parameters<typeof compactTranscript>[0]): s
 }
 
 /** Haiku's summary of the transcript, or why there is none. */
-async function haikuCompaction($: EngineInterface, messages: Parameters<typeof compactTranscript>[0], instructions?: string): Promise<{ text: string } | { fail: string }> {
+async function haikuCompaction(
+  $: EngineInterface,
+  messages: Parameters<typeof compactTranscript>[0],
+  instructions?: string,
+): Promise<{ text: string } | { fail: string }> {
   const transcript = fittingTranscript(messages)
   if (transcript === null) return { fail: 'the chat is too long for Haiku' }
   const r = await $.model.complete({
@@ -3459,12 +4258,16 @@ async function haikuCompaction($: EngineInterface, messages: Parameters<typeof c
 }
 
 /** The quick handoff written by Haiku from the transcript, for a chat whose cache went cold; null when it fails. */
-async function haikuHandoff($: EngineInterface, messages: Parameters<typeof compactTranscript>[0]): Promise<string | null> {
+async function haikuHandoff(
+  $: EngineInterface,
+  messages: Parameters<typeof compactTranscript>[0],
+): Promise<string | null> {
   const transcript = fittingTranscript(messages)
   if (transcript === null) return null
   const r = await $.model.complete({
     model: COMPACT_MODEL,
-    system: 'You read a conversation between a user and Claude Code, an AI coding agent, and write the handoff the user asks for.',
+    system:
+      'You read a conversation between a user and Claude Code, an AI coding agent, and write the handoff the user asks for.',
     prompt: `${transcript}\n\n---\n${HANDOFF_PROMPT}`,
     maxTokens: 4000,
     effort: 'medium',
@@ -3518,7 +4321,12 @@ async function refreshUsage($: EngineInterface): Promise<void> {
   if (breakdown) await update($, lensContext, () => toContextView(breakdown))
 }
 
-async function recordRequest($: EngineInterface, agentId: string | undefined, usage: ModelUsage, ran?: { model?: ModelKey; effort?: Effort }): Promise<void> {
+async function recordRequest(
+  $: EngineInterface,
+  agentId: string | undefined,
+  usage: ModelUsage,
+  ran?: { model?: ModelKey; effort?: Effort },
+): Promise<void> {
   const [at, ttls] = await Promise.all([$.clock.now(), cacheTtls($)])
   if (agentId === undefined) {
     const previous = await read($, lensMain)
@@ -3530,7 +4338,13 @@ async function recordRequest($: EngineInterface, agentId: string | undefined, us
   const info = known ? undefined : (await $.agent.list()).find(a => a.id === agentId)
   await update($, lensAgents, list => {
     const type = list.find(a => a.id === agentId)?.type ?? info?.type ?? 'agent'
-    const next: AgentCache = { ...applyUsage(usage, at, ttls.agent), id: agentId, type, ...(ran?.model ? { model: ran.model } : {}), ...(ran?.effort ? { effort: ran.effort } : {}) }
+    const next: AgentCache = {
+      ...applyUsage(usage, at, ttls.agent),
+      id: agentId,
+      type,
+      ...(ran?.model ? { model: ran.model } : {}),
+      ...(ran?.effort ? { effort: ran.effort } : {}),
+    }
     return [...list.filter(a => a.id !== agentId), next]
   })
 }
@@ -3668,8 +4482,11 @@ export const register: Register = (on, options) => {
       // Ahead-of-time summaries would be written by the chat's model and then not used: none.
       if (e.trigger === 'precompute') return { skip: 'context-lens compacts with Haiku when it is time' }
       // The transcript comes with the event; read it if not (a test's engine hands none).
-      const messages = Array.isArray(e.messages) && e.messages.length ? e.messages : await $.session.messages().catch(() => [])
-      const got = await haikuCompaction($, messages, e.instructions).catch((error: unknown) => ({ fail: String(error).slice(0, 80) }))
+      const messages =
+        Array.isArray(e.messages) && e.messages.length ? e.messages : await $.session.messages().catch(() => [])
+      const got = await haikuCompaction($, messages, e.instructions).catch((error: unknown) => ({
+        fail: String(error).slice(0, 80),
+      }))
       if ('fail' in got) {
         $.ui.toast(`context-lens: Haiku could not compact (${got.fail}). The chat's own model does it.`)
         return next(e)
@@ -3685,7 +4502,8 @@ export const register: Register = (on, options) => {
         ],
       }
     })()
-    if (e.agentId === undefined && e.trigger !== 'precompute' && !('skip' in result && result.skip)) await afterCompaction($).catch(() => undefined)
+    if (e.agentId === undefined && e.trigger !== 'precompute' && !('skip' in result && result.skip))
+      await afterCompaction($).catch(() => undefined)
     return result
   })
   on('session.start', async ($, e, next) => {
@@ -3715,20 +4533,34 @@ export const register: Register = (on, options) => {
       typeof storedAuto === 'boolean' ? update($, isAuto, () => storedAuto) : null,
       typeof storedAutoModel === 'boolean' ? update($, isAutoModel, () => storedAutoModel) : null,
       // Auto off means the effort you chose should still be the one in force.
-      storedAuto === false && storedPick && EFFORTS.includes(storedPick.effort) ? update($, pick, () => storedPick).then(() => { pickCarried = true }) : null,
+      storedAuto === false && storedPick && EFFORTS.includes(storedPick.effort)
+        ? update($, pick, () => storedPick).then(() => {
+            pickCarried = true
+          })
+        : null,
       // The first time the mod runs, the setup guide opens above the prompt.
       setupDone !== true ? update($, setupStep, () => 'lean').then(() => update($, setupPending, () => true)) : null,
     ])
     // The command file lists /context-lens before the session starts; registering it here makes plain /context-lens the
     // mod's own command afterwards, instead of the file run as a skill.
-    void $.command.register({ name: 'context-lens', description: 'context-lens: settings, debug, handoff, setup, bench, auto, stats.' }).catch(() => undefined)
+    void $.command
+      .register({
+        name: 'context-lens',
+        description: 'context-lens: settings, debug, handoff, setup, bench, auto, stats.',
+      })
+      .catch(() => undefined)
     readOwnVersion($)
     void drainSetupSave($).catch(() => undefined)
     startTimers($, 'start')
     // Clear the status entry older versions set.
     $.ui.status(undefined)
-    void $.session.model().then(m => modelIs($, m)).catch(() => undefined)
-    renderLog.push(`${new Date().toISOString()} ${loadedSession} session.start (${e.surface ?? '?'}), ready in ${Date.now() - sessionStarted} ms`)
+    void $.session
+      .model()
+      .then(m => modelIs($, m))
+      .catch(() => undefined)
+    renderLog.push(
+      `${new Date().toISOString()} ${loadedSession} session.start (${e.surface ?? '?'}), ready in ${Date.now() - sessionStarted} ms`,
+    )
     void writeRenderLog($).catch(() => undefined)
     return next(e)
   })
@@ -3739,8 +4571,15 @@ export const register: Register = (on, options) => {
   on('classic.SessionStart', async ($, e, next) => {
     const result = await next(e)
     const r = e as { source?: string; seconds_since_last_response?: number; prompt_cache_likely_expired?: boolean }
-    classicStart = { at: Date.now(), said: `${r.source ?? '?'}, ${r.seconds_since_last_response ?? '?'}s since reply, expired ${r.prompt_cache_likely_expired ?? '?'}` }
-    if ((r.source === 'resume' || r.source === 'fork') && typeof r.seconds_since_last_response === 'number' && cacheExpires === 0) {
+    classicStart = {
+      at: Date.now(),
+      said: `${r.source ?? '?'}, ${r.seconds_since_last_response ?? '?'}s since reply, expired ${r.prompt_cache_likely_expired ?? '?'}`,
+    }
+    if (
+      (r.source === 'resume' || r.source === 'fork') &&
+      typeof r.seconds_since_last_response === 'number' &&
+      cacheExpires === 0
+    ) {
       const now = await $.clock.now()
       lastResponseAt = now - r.seconds_since_last_response * 1000
       const left = lastResponseAt + CACHE_TTL[cacheTtl]
@@ -3783,7 +4622,9 @@ export const register: Register = (on, options) => {
     }
     // A landed handoff card stays under the first reply after it, and goes with the next.
     if (!e.agentId) {
-      await update($, handoffCard, card => (!card || cardRunning(card.kind) ? card : card.seen ? null : { ...card, seen: true }))
+      await update($, handoffCard, card =>
+        !card || cardRunning(card.kind) ? card : card.seen ? null : { ...card, seen: true },
+      )
     }
     if (!e.agentId && (await read($, handoffStage)) === 'writing') {
       if (e.reason === 'answer' && e.answer.trim()) handoffText = e.answer
@@ -3803,15 +4644,25 @@ export const register: Register = (on, options) => {
     const arg = e.args.trim().toLowerCase()
     if (arg === 'auto') {
       await toggleAutoEffort($)
-      return { text: (await read($, isAuto)) ? 'Auto on: effort is picked for every prompt.' : 'Auto off: the effort is yours.' }
+      return {
+        text: (await read($, isAuto))
+          ? 'Auto on: effort is picked for every prompt.'
+          : 'Auto off: the effort is yours.',
+      }
     }
     if (arg === 'hot') {
       // Shows the running-hot band now, to try it: the next check puts back the real figures.
       await update($, hotHidden, () => null)
       await $.store.set('hotClosed', null).catch(() => undefined)
-      await update($, hot, () => ({ kind: 'five_hour', percent: 82, resetsAt: new Date(Date.now() + 2 * 3600_000).toISOString() }))
+      await update($, hot, () => ({
+        kind: 'five_hour',
+        percent: 82,
+        resetsAt: new Date(Date.now() + 2 * 3600_000).toISOString(),
+      }))
       $.ui.invalidate('ui.render')
-      return { text: 'The running-hot band is showing now (a test). It goes away at the next check unless a limit really is close.' }
+      return {
+        text: 'The running-hot band is showing now (a test). It goes away at the next check unless a limit really is close.',
+      }
     }
     if (arg === 'down') {
       await update($, judgeDownHidden, () => null)
@@ -3824,7 +4675,9 @@ export const register: Register = (on, options) => {
       await update($, swampHiddenAt, () => null)
       await update($, swamped, () => SWAMP_TOKENS)
       $.ui.invalidate('ui.render')
-      return { text: 'The swamp band is showing now (a test). It goes away at the next check unless the chat really is swamped.' }
+      return {
+        text: 'The swamp band is showing now (a test). It goes away at the next check unless the chat really is swamped.',
+      }
     }
     if (arg === 'save') return { text: await toggleSave($) }
     if (arg === 'handoff' || arg === 'handoff full') {
@@ -3845,27 +4698,28 @@ export const register: Register = (on, options) => {
       const debugNow = await $.clock.now().catch(() => Date.now())
       const lastFork = (await $.store.get('lastFork').catch(() => null)) as { at: number; outcome: string } | null
       return {
-        text: [
-          // A copy outside the plugin cache (--plugin-dir) has no marketplace; name its folder instead.
-          `plugin: ${ownVersion || '?'}, ${/cache[\\/][^\\/]+[\\/]/.test($.plugin.root) ? pluginId($) : `local copy at ${$.plugin.root}`}`,
-          `session.start ${ago(sessionStarted)}`,
-          `app SessionStart: ${classicStart ? `${ago(classicStart.at)} (${classicStart.said})` : 'never'}`,
-          `cache: ${cacheExpires === 0 ? 'not started' : `${await cacheMinutes($)} min left`}, shown ${await read($, cacheLeft)}, ttl ${cacheTtl}, last reply ${lastResponseAt ? ago(lastResponseAt) : 'none seen'}, replies seen ${repliesSeen}, forced ${coldForced}`,
-          `model caches: ${[...modelCaches].map(([k, c]) => `${k} ${kTokens(c.tokens)} ${Math.max(0, Math.ceil((c.expires - debugNow) / 60_000))} min`).join(', ') || 'none'}${sessionPick ? `, session on ${sessionPick}` : ''}`,
-          `band asked for ${renderCalls} times, last ${ago(lastRenderAt)}`,
-          `band error: ${lastRenderError || 'none'}`,
-          `last draw: ${lastRenderBranch || 'none'}`,
-          `app sent: ${lastRenderProps || 'nothing'}`,
-          `settings open: ${await read($, settingsOpen)}`,
-          `setup step: ${await read($, setupStep)}`,
-          `handoff: ${await read($, handoffStage)}`,
-          `last fork: ${lastFork ? `${lastFork.outcome}, ${ago(lastFork.at)}` : 'none'}`,
-          `hidden: ${config.hide.join(',') || 'nothing'}`,
-          lastRequest
-            ? `last request: app asked ${lastRequest.appModel} at ${lastRequest.appEffort ?? 'none'}, sent ${lastRequest.model} at ${lastRequest.effort ?? 'none'}${lastRequest.model === lastRequest.appModel && lastRequest.effort === lastRequest.appEffort ? ' (unchanged)' : ' (changed by context-lens)'}, ${ago(lastRequest.at)}`
-            : 'last request: none yet',
-          `compact with: ${config.compactWith}${lastHaikuCompact ? `, last by Haiku ${ago(lastHaikuCompact)}` : ''}`,
-        ].join(' | ') +
+        text:
+          [
+            // A copy outside the plugin cache (--plugin-dir) has no marketplace; name its folder instead.
+            `plugin: ${ownVersion || '?'}, ${/cache[\\/][^\\/]+[\\/]/.test($.plugin.root) ? pluginId($) : `local copy at ${$.plugin.root}`}`,
+            `session.start ${ago(sessionStarted)}`,
+            `app SessionStart: ${classicStart ? `${ago(classicStart.at)} (${classicStart.said})` : 'never'}`,
+            `cache: ${cacheExpires === 0 ? 'not started' : `${await cacheMinutes($)} min left`}, shown ${await read($, cacheLeft)}, ttl ${cacheTtl}, last reply ${lastResponseAt ? ago(lastResponseAt) : 'none seen'}, replies seen ${repliesSeen}, forced ${coldForced}`,
+            `model caches: ${[...modelCaches].map(([k, c]) => `${k} ${kTokens(c.tokens)} ${Math.max(0, Math.ceil((c.expires - debugNow) / 60_000))} min`).join(', ') || 'none'}${sessionPick ? `, session on ${sessionPick}` : ''}`,
+            `band asked for ${renderCalls} times, last ${ago(lastRenderAt)}`,
+            `band error: ${lastRenderError || 'none'}`,
+            `last draw: ${lastRenderBranch || 'none'}`,
+            `app sent: ${lastRenderProps || 'nothing'}`,
+            `settings open: ${await read($, settingsOpen)}`,
+            `setup step: ${await read($, setupStep)}`,
+            `handoff: ${await read($, handoffStage)}`,
+            `last fork: ${lastFork ? `${lastFork.outcome}, ${ago(lastFork.at)}` : 'none'}`,
+            `hidden: ${config.hide.join(',') || 'nothing'}`,
+            lastRequest
+              ? `last request: app asked ${lastRequest.appModel} at ${lastRequest.appEffort ?? 'none'}, sent ${lastRequest.model} at ${lastRequest.effort ?? 'none'}${lastRequest.model === lastRequest.appModel && lastRequest.effort === lastRequest.appEffort ? ' (unchanged)' : ' (changed by context-lens)'}, ${ago(lastRequest.at)}`
+              : 'last request: none yet',
+            `compact with: ${config.compactWith}${lastHaikuCompact ? `, last by Haiku ${ago(lastHaikuCompact)}` : ''}`,
+          ].join(' | ') +
           // On its own line, easy to find: the model and effort the last request actually ran on.
           `
 model used: ${lastRequest ? `${lastRequest.model} at ${lastRequest.effort ?? 'none'}` : 'none yet'}`,
@@ -3881,16 +4735,19 @@ model used: ${lastRequest ? `${lastRequest.model} at ${lastRequest.effort ?? 'no
       return { text: 'The context-lens setup is open above the prompt.' }
     }
     if (arg === 'bench') {
-      const cases = (JSON.parse(await $.fs.read(`${$.plugin.root}/bench/judge-cases.json`)) as { cases: BenchCase[] }).cases
+      const cases = (JSON.parse(await $.fs.read(`${$.plugin.root}/bench/judge-cases.json`)) as { cases: BenchCase[] })
+        .cases
       const answers = await runBench($, cases)
       const report = benchReport(cases, answers)
       const stamp = new Date(await $.clock.now()).toISOString().slice(0, 16).replace(/[:T]/g, '-')
       const out = `context-lens-bench-${stamp}`
       await $.fs.write(`${out}.json`, JSON.stringify({ cases: cases.length, answers }, null, 2))
       await $.fs.write(`${out}.md`, report)
-      return { text: `${report}
+      return {
+        text: `${report}
 
-Saved to ${out}.md and .json` }
+Saved to ${out}.md and .json`,
+      }
     }
     // A test aid: marks the cache cold now, so the Compact button can be tried without waiting out the hour.
     if (arg === 'cold') {
@@ -3898,7 +4755,9 @@ Saved to ${out}.md and .json` }
       cacheExpires = await $.clock.now()
       await update($, cacheLeft, () => 0)
       $.ui.invalidate('ui.render')
-      return { text: 'The cache shows as cold now (a test). Compact is in the footer. The next response restarts the countdown.' }
+      return {
+        text: 'The cache shows as cold now (a test). Compact is in the footer. The next response restarts the countdown.',
+      }
     }
     if (arg === 'stats' || arg === 'saved') return { text: `Auto, this session:\n${savedText(await read($, saved))}` }
     if (!wanted) return { text: 'No model suggestion right now.' }
@@ -3932,9 +4791,17 @@ Saved to ${out}.md and .json` }
     // routine) starts a reply nobody typed: with Auto on for effort it is judged like a prompt, so it does not run on the
     // effort picked for the last typed one. The model is left alone.
     // A relayed channel message (Slack, Telegram) and a follow-up to the person's click are theirs, but not typed here: same.
-    const byAgent = ['task-notification', 'peer', 'peer-send-message', 'scheduled-trigger', 'channel', 'auto-continuation'].includes(e.origin.kind)
+    const byAgent = [
+      'task-notification',
+      'peer',
+      'peer-send-message',
+      'scheduled-trigger',
+      'channel',
+      'auto-continuation',
+    ].includes(e.origin.kind)
     // The handoff check runs for every message the person types, whatever the effort judge is doing (or whether Auto is on).
-    if (byPerson && !e.text.trim().startsWith('/') && !isFollowUp(e.text)) void checkHandoff($, e.text).catch(() => undefined)
+    if (byPerson && !e.text.trim().startsWith('/') && !isFollowUp(e.text))
+      void checkHandoff($, e.text).catch(() => undefined)
     const wantsEffort = await read($, isAuto)
     const wantsModel = await read($, isAutoModel)
     settleOffer(false)
@@ -3953,11 +4820,25 @@ Saved to ${out}.md and .json` }
     // A message with an image is never a bare follow-up: "fix this" plus a screenshot is new work.
     // Typed while a turn ran (e.turnId), it often steers that task: the judge is told, so it can keep the effort.
     const midTurn = e.turnId !== undefined && before !== null
-    const said = byAgent ? e.text.slice(0, 1500) : skill ? `${e.text}
+    const said = byAgent
+      ? e.text.slice(0, 1500)
+      : skill
+        ? `${e.text}
 
-[This is a slash command that runs a skill: ${skill.description || skill.name}. Judge the work the skill will do.]` : e.text
-    const shown = midTurn ? withMidTurn(withAttachments(said, e.attachments), before.effort) : withAttachments(said, e.attachments)
-    if (wantsEffort && before && before.by !== 'manual' && !e.attachments?.length && !slash && isFollowUp(e.text) && keepsEffort(e.text, await recentContext($).catch(() => ''))) {
+[This is a slash command that runs a skill: ${skill.description || skill.name}. Judge the work the skill will do.]`
+        : e.text
+    const shown = midTurn
+      ? withMidTurn(withAttachments(said, e.attachments), before.effort)
+      : withAttachments(said, e.attachments)
+    if (
+      wantsEffort &&
+      before &&
+      before.by !== 'manual' &&
+      !e.attachments?.length &&
+      !slash &&
+      isFollowUp(e.text) &&
+      keepsEffort(e.text, await recentContext($).catch(() => ''))
+    ) {
       await countPrompt($, before.effort, undefined, 0, 0)
       void proof($, `follow-up "${e.text.trim()}": keeping ${before.effort}`)
       return next(e)
@@ -4001,7 +4882,13 @@ Saved to ${out}.md and .json` }
       })
       await endJudgeGlow($, 'verdict')
       const ms = Date.now() - startedAt
-      await countPrompt($, wantsEffort && takesEffort(modelId) ? verdict?.effort : undefined, verdict?.by, ms, judgeTokens)
+      await countPrompt(
+        $,
+        wantsEffort && takesEffort(modelId) ? verdict?.effort : undefined,
+        verdict?.by,
+        ms,
+        judgeTokens,
+      )
       void proof(
         $,
         verdict
@@ -4031,7 +4918,15 @@ Saved to ${out}.md and .json` }
         // Only another model than the chat's: a switch where it pays for the cache it rewrites, else a subagent (see switchWorth).
         const cold = (await read($, cacheLeft)) === 0 || coldForced
         const now = await $.clock.now().catch(() => Date.now())
-        const worth = verdict.model === declined ? null : switchWorth(verdict.model, inUse, { cold, tokens: lastContext?.tokens ?? modelCaches.get(inUse)?.tokens, ttl: cacheTtl, warm: warmTokens(verdict.model, now) })
+        const worth =
+          verdict.model === declined
+            ? null
+            : switchWorth(verdict.model, inUse, {
+                cold,
+                tokens: lastContext?.tokens ?? modelCaches.get(inUse)?.tokens,
+                ttl: cacheTtl,
+                warm: warmTokens(verdict.model, now),
+              })
         // A subagent takes a prompt the person typed, before it is sent: a note, an agent's report or a prompt already on
         // its way has nothing left to hand off.
         const typedNow = byPerson && !midTurn && !slash
@@ -4042,7 +4937,11 @@ Saved to ${out}.md and .json` }
           await update($, suggestion, () => null)
           if (worth === 'subagent') handTo = verdict.model
           else await switchModel($, verdict.model)
-          $.ui.toast(worth === 'subagent' ? `Handed to a subagent on ${label}: ${verdict.why}` : `Switched to ${label} for this session: ${verdict.why}`)
+          $.ui.toast(
+            worth === 'subagent'
+              ? `Handed to a subagent on ${label}: ${verdict.why}`
+              : `Switched to ${label} for this session: ${verdict.why}`,
+          )
         } else if (worth && offerable && typedNow && config.holdOffer === 'on') {
           suggestedAs = worth
           await update($, suggestion, () => verdict.model)
@@ -4070,7 +4969,12 @@ Saved to ${out}.md and .json` }
       const accepted = await holdForOffer($, held)
       await update($, suggestion, () => null)
       $.ui.invalidate('ui.render')
-      void proof($, accepted ? `offer taken: ${as === 'subagent' ? 'a subagent on' : 'switching to'} ${held}` : 'offer not taken: the prompt goes on as it is')
+      void proof(
+        $,
+        accepted
+          ? `offer taken: ${as === 'subagent' ? 'a subagent on' : 'switching to'} ${held}`
+          : 'offer not taken: the prompt goes on as it is',
+      )
       // A subagent: the chat's model and its warm cache stay, and the prompt asks for a subagent on the other model.
       if (accepted && as === 'subagent') return next({ ...e, text: e.text + subagentNote(held) })
       // The switch only changes what the requests carry, so the prompt goes straight on, on the new model.
@@ -4107,10 +5011,26 @@ Saved to ${out}.md and .json` }
     }
     // Every main-conversation response, whatever its effort, keeps the cache warm for its lifetime from now.
     const send = async function* (request: typeof e) {
-      if (e.agentId === undefined) ranThisTurn = { model: typeof request.model === 'string' ? keyOf(request.model) : undefined, effort: EFFORTS.find(x => x === request.effort) }
-      if (e.agentId === undefined) lastRequest = { index: e.index, appModel: asked.model, appEffort: asked.effort, model: request.model, effort: request.effort, at: Date.now() }
+      if (e.agentId === undefined)
+        ranThisTurn = {
+          model: typeof request.model === 'string' ? keyOf(request.model) : undefined,
+          effort: EFFORTS.find(x => x === request.effort),
+        }
+      if (e.agentId === undefined)
+        lastRequest = {
+          index: e.index,
+          appModel: asked.model,
+          appEffort: asked.effort,
+          model: request.model,
+          effort: request.effort,
+          at: Date.now(),
+        }
       const answer = yield* next(request)
-      if (answer?.usage) await recordRequest($, e.agentId, answer.usage, { model: typeof request.model === 'string' ? keyOf(request.model) : undefined, effort: EFFORTS.find(x => x === request.effort) }).catch(() => undefined)
+      if (answer?.usage)
+        await recordRequest($, e.agentId, answer.usage, {
+          model: typeof request.model === 'string' ? keyOf(request.model) : undefined,
+          effort: EFFORTS.find(x => x === request.effort),
+        }).catch(() => undefined)
       // Inside the hook ($ calls after it returns are refused), and never allowed to break the request.
       if (e.agentId === undefined && answer?.usage) await cacheTouched($, answer.usage).catch(() => undefined)
       const sentModel = typeof request.model === 'string' ? keyOf(request.model) : undefined
@@ -4141,33 +5061,44 @@ Saved to ${out}.md and .json` }
         await choose($, { model: await sessionModel($), effort: seen, why: 'your pick in the app', by: 'manual' })
         void proof($, `request ${e.index}: you set effort ${seen} yourself, Auto off`)
         // The app has no event for its effort picker: this is the first request after the pick, so say it plainly.
-        $.ui.toast(`context-lens: Auto is off. You picked ${EFFORT_LABELS[seen as Effort] ?? seen}; turn Auto on to hand it back.`)
+        $.ui.toast(
+          `context-lens: Auto is off. You picked ${EFFORT_LABELS[seen as Effort] ?? seen}; turn Auto on to hand it back.`,
+        )
         return yield* send(e)
       }
     }
     // What of a subagent's model and effort is its to keep: what its Agent call named, and its definition's unless
     // Override definitions is on.
     const spawned = e.agentId === undefined ? undefined : await subagentSpawnOf($, e.agentId)
-    const steer = e.agentId === undefined
-      ? null
-      : subagentSteerable(
-          { model: keyOf(e.model), effort: e.effort },
-          { model: spawned?.call.parentModel ?? keyOf(await $.session.model()), effort: engineEffort },
-          spawned?.call,
-          config.overrideDefinitions === 'on',
-        )
+    const steer =
+      e.agentId === undefined
+        ? null
+        : subagentSteerable(
+            { model: keyOf(e.model), effort: e.effort },
+            { model: spawned?.call.parentModel ?? keyOf(await $.session.model()), effort: engineEffort },
+            spawned?.call,
+            config.overrideDefinitions === 'on',
+          )
     if (steer && e.index === 0 && (!steer.model || !steer.effort))
-      void proof($, `subagent ${e.agentId} keeps its own ${[!steer.model && `model ${e.model}`, !steer.effort && `effort ${e.effort}`].filter(Boolean).join(' and ')}`)
+      void proof(
+        $,
+        `subagent ${e.agentId} keeps its own ${[!steer.model && `model ${e.model}`, !steer.effort && `effort ${e.effort}`].filter(Boolean).join(' and ')}`,
+      )
 
     // A subagent the judge picked an effort for at its spawn runs every request at it.
     if (steer && config.subagents === 'on' && takesEffort(e.model)) {
       const picked = spawned?.pick
       // With Cheaper model for subagents on, a cheaper model than the one it was given, when the judge named one.
-      const cheaper = config.subagentModel === 'on' && steer.model ? subagentModelFor(picked?.model, keyOf(e.model)) : null
+      const cheaper =
+        config.subagentModel === 'on' && steer.model ? subagentModelFor(picked?.model, keyOf(e.model)) : null
       const effort = steer.effort ? picked?.effort : undefined
       if ((effort && typeof e.effort === 'string') || cheaper) {
         const model = cheaper ? MODELS.find(m => m.key === cheaper)!.id : e.model
-        if (e.index === 0) void proof($, `subagent ${e.agentId} request 0 (${e.model}): ${cheaper ? `model -> ${model}, ` : ''}effort ${e.effort} -> ${effort ?? e.effort}`)
+        if (e.index === 0)
+          void proof(
+            $,
+            `subagent ${e.agentId} request 0 (${e.model}): ${cheaper ? `model -> ${model}, ` : ''}effort ${e.effort} -> ${effort ?? e.effort}`,
+          )
         const result = yield* send({ ...e, model, ...(effort ? { effort } : {}) })
         if (result.usage) await subagentTally($, result.usage).catch(() => undefined)
         return result
@@ -4187,10 +5118,12 @@ Saved to ${out}.md and .json` }
       if (p.by === 'manual' || !steer?.effort) return yield* send(e)
       const floor = subagentFloor(config.floor, config.ceiling)
       const effort = EFFORTS.indexOf(p.effort) < EFFORTS.indexOf(floor) ? floor : p.effort
-      if (e.index === 0) void proof($, `subagent ${e.agentId} (${e.model}): effort ${e.effort ?? 'none'} -> ${effort}, the turn's`)
+      if (e.index === 0)
+        void proof($, `subagent ${e.agentId} (${e.model}): effort ${e.effort ?? 'none'} -> ${effort}, the turn's`)
       return yield* send({ ...e, effort })
     }
-    if (e.agentId === undefined) void proof($, `request ${e.index} (${e.model}): effort ${e.effort ?? 'none'} -> ${p.effort}`)
+    if (e.agentId === undefined)
+      void proof($, `request ${e.index} (${e.model}): effort ${e.effort ?? 'none'} -> ${p.effort}`)
     const result = yield* send({ ...e, effort: p.effort })
     // Only requests Auto steered count.
     if (e.agentId === undefined && p.by !== 'manual' && result.usage) {
@@ -4244,7 +5177,14 @@ Saved to ${out}.md and .json` }
           </Text>
         )}
         {/* The one thing to click: it switches Auto off and on. Text cannot be clicked, so it is a small button. */}
-        <Button key="auto" plain dimColor label=" ⏻ " hover={{ scope: 'power', backgroundColor: HOVER_BOX }} onPress={() => toggleAutoEffort($)} />
+        <Button
+          key="auto"
+          plain
+          dimColor
+          label=" ⏻ "
+          hover={{ scope: 'power', backgroundColor: HOVER_BOX }}
+          onPress={() => toggleAutoEffort($)}
+        />
         {/* Until the setup is done the footer offers it; after that the same place opens the settings panel. */}
         {needsSetup ? (
           <Button
@@ -4290,11 +5230,17 @@ Saved to ${out}.md and .json` }
         {/* Cold: the band above the prompt says it and holds Compact; the footer only shows the state, in ice blue. */}
         {/* Hovering it reveals a card above the prompt (the cache scope); see the hover cards in AbovePrompt. */}
         {config.hide.includes('timer') ? null : v.cacheNow === 0 ? (
-          <Text color={ICE} hover={{ scope: 'cache', backgroundColor: HOVER_BOX }}>{cacheLabel(0)}</Text>
+          <Text color={ICE} hover={{ scope: 'cache', backgroundColor: HOVER_BOX }}>
+            {cacheLabel(0)}
+          </Text>
         ) : v.cacheNow === null ? null : cacheColor(v.cacheNow) ? (
-          <Text color={cacheColor(v.cacheNow)} hover={{ scope: 'cache', backgroundColor: HOVER_BOX }}>{cacheLabel(v.cacheNow)}</Text>
+          <Text color={cacheColor(v.cacheNow)} hover={{ scope: 'cache', backgroundColor: HOVER_BOX }}>
+            {cacheLabel(v.cacheNow)}
+          </Text>
         ) : (
-          <Text dimColor hover={{ scope: 'cache', backgroundColor: HOVER_BOX }}>{cacheLabel(v.cacheNow)}</Text>
+          <Text dimColor hover={{ scope: 'cache', backgroundColor: HOVER_BOX }}>
+            {cacheLabel(v.cacheNow)}
+          </Text>
         )}
       </Box>
     )
@@ -4308,13 +5254,23 @@ Saved to ${out}.md and .json` }
   on('agent.spawn', async ($, e, next) => {
     // Effort for subagents: the judge reads the subagent's task before it starts (a fork shares the chat's context and
     // keeps its effort). Without a verdict it runs at the chat's effort, as with the setting off.
-    const verdict = config.subagents === 'on' && !e.fork && !e.isTeammate && !e.workflow
-      ? await subagentEffort($, e.prompt, e.subagentType).catch(() => null)
-      : null
+    const verdict =
+      config.subagents === 'on' && !e.fork && !e.isTeammate && !e.workflow
+        ? await subagentEffort($, e.prompt, e.subagentType).catch(() => null)
+        : null
     // The model the judge named counts when Cheaper model for subagents is on and it was sure of the task.
-    const named = verdict && config.subagentModel === 'on' && (verdict.sure === undefined || verdict.sure >= SUBAGENT_MODEL_SURE) ? verdict.model : undefined
-    const pick: SubagentPick | undefined = verdict ? { effort: verdict.effort, ...(named ? { model: named } : {}) } : undefined
-    const call: SpawnCall = { model: e.model !== undefined, effort: callEfforts.delete(e.tool_use_id), parentModel: e.parentModel ? keyOf(e.parentModel) : undefined }
+    const named =
+      verdict && config.subagentModel === 'on' && (verdict.sure === undefined || verdict.sure >= SUBAGENT_MODEL_SURE)
+        ? verdict.model
+        : undefined
+    const pick: SubagentPick | undefined = verdict
+      ? { effort: verdict.effort, ...(named ? { model: named } : {}) }
+      : undefined
+    const call: SpawnCall = {
+      model: e.model !== undefined,
+      effort: callEfforts.delete(e.tool_use_id),
+      parentModel: e.parentModel ? keyOf(e.parentModel) : undefined,
+    }
     const waiting = { description: e.description, type: e.subagentType, parentId: e.parentAgentId, pick, call }
     subagentWaiting = [...subagentWaiting, waiting].slice(-20)
     const result = await next(e)
@@ -4324,9 +5280,18 @@ Saved to ${out}.md and .json` }
     if (agentId && pick) {
       await update($, saved, old => {
         const t = asSpent(old)
-        return { ...t, subagents: { ...t.subagents, runs: { ...t.subagents.runs, [pick.effort]: (t.subagents.runs[pick.effort] ?? 0) + 1 } } }
+        return {
+          ...t,
+          subagents: {
+            ...t.subagents,
+            runs: { ...t.subagents.runs, [pick.effort]: (t.subagents.runs[pick.effort] ?? 0) + 1 },
+          },
+        }
       }).catch(() => undefined)
-      void proof($, `subagent ${e.subagentType} "${e.description}": ${pick.effort}${pick.model ? ` on ${pick.model} if cheaper` : ''} (${verdict?.why})`)
+      void proof(
+        $,
+        `subagent ${e.subagentType} "${e.description}": ${pick.effort}${pick.model ? ` on ${pick.model} if cheaper` : ''} (${verdict?.why})`,
+      )
     }
     return result
   })
@@ -4356,7 +5321,11 @@ Saved to ${out}.md and .json` }
     return (
       <Box key="turn-line" flexDirection="row" gap={1}>
         <Text dimColor>{`${e.props.word} ${took < 60 ? `${took}s` : `${Math.floor(took / 60)}m ${took % 60}s`}`}</Text>
-        {ran ? <Text color={ACCENT}>{`✦ ${model ? `${model} · ` : ''}${ran.effort ? EFFORT_LABELS[ran.effort] : 'Auto'}`}</Text> : null}
+        {ran ? (
+          <Text
+            color={ACCENT}
+          >{`✦ ${model ? `${model} · ` : ''}${ran.effort ? EFFORT_LABELS[ran.effort] : 'Auto'}`}</Text>
+        ) : null}
         {ran?.cost ? <Text dimColor>{`· ≈${tokens(ran.cost)} tokens`}</Text> : null}
       </Box>
     )
@@ -4377,7 +5346,9 @@ Saved to ${out}.md and .json` }
     renderLog.push(`${new Date(lastRenderAt).toISOString()} ${loadedSession} ${lastRenderProps}`)
     if (!firstDrawLogged) {
       firstDrawLogged = true
-      renderLog.push(`${new Date().toISOString()} ${loadedSession} first draw asked ${lastRenderAt - loadedAt} ms after load`)
+      renderLog.push(
+        `${new Date().toISOString()} ${loadedSession} first draw asked ${lastRenderAt - loadedAt} ms after load`,
+      )
       void writeRenderLog($).catch(() => undefined)
     }
     try {
@@ -4399,7 +5370,9 @@ Saved to ${out}.md and .json` }
       }
       const asked = await $.store.get('openSettingsAt')
       const askedHere =
-        asked && typeof asked === 'object' && (asked as { session?: string }).session === (await $.session.id().catch(() => ''))
+        asked &&
+        typeof asked === 'object' &&
+        (asked as { session?: string }).session === (await $.session.id().catch(() => ''))
           ? (asked as { at: number }).at
           : null
       // The app denies a state write made while the band is being drawn, so an open asked for here is drawn now and
@@ -4461,16 +5434,26 @@ Saved to ${out}.md and .json` }
         }
         const panelNow = await $.clock.now()
         // Dirty only while the draft differs from what is saved: a control set back to its saved value is no change.
-        const sameSet = (a: string, b: string) => a.split(',').filter(Boolean).sort().join() === b.split(',').filter(Boolean).sort().join()
+        const sameSet = (a: string, b: string) =>
+          a.split(',').filter(Boolean).sort().join() === b.split(',').filter(Boolean).sort().join()
         const dirty = Object.entries(draft).some(([field, value]) =>
-          value === undefined ? false
-          : field === 'hide' ? !sameSet(value, config.hide.join(','))
-          : value !== String(config[field as Exclude<keyof SettingsDraft, 'hide'>] ?? ''))
+          value === undefined
+            ? false
+            : field === 'hide'
+              ? !sameSet(value, config.hide.join(','))
+              : value !== String(config[field as Exclude<keyof SettingsDraft, 'hide'>] ?? ''),
+        )
         const hidden = (draft.hide ?? config.hide.join(',')).split(',').filter(Boolean)
-        const withPart = (part: Hideable, off: boolean) => (off ? [...new Set([...hidden, part])] : hidden.filter(h => h !== part)).join(',')
+        const withPart = (part: Hideable, off: boolean) =>
+          (off ? [...new Set([...hidden, part])] : hidden.filter(h => h !== part)).join(',')
         const contextAlert = hidden.includes('swamp') ? 'off' : shown.swampAt
         const handoffButton = hidden.includes('handoff') ? 'hidden' : shown.handoffButton
-        const showParts = [['timer', 'Cache timer'], ['reason', 'Judge line'], ['hot', 'Running-low alert'], ['cold', 'Cold-cache alert']] as const
+        const showParts = [
+          ['timer', 'Cache timer'],
+          ['reason', 'Judge line'],
+          ['hot', 'Running-low alert'],
+          ['cold', 'Cold-cache alert'],
+        ] as const
         const summaries: Record<SettingsCard, string> = {
           auto: `${BIAS_WORDS[shown.bias + 2]} · ${shown.floor} to ${shown.ceiling}${shown.holdOffer === 'on' ? ' · held offers' : ''}`,
           subagents: `${shown.subagents !== 'on' ? 'Off' : shown.subagentModel === 'on' ? 'Effort and cheaper model' : 'Effort picked'} · definitions ${shown.overrideDefinitions === 'on' ? 'overridden' : 'kept'}`,
@@ -4482,64 +5465,153 @@ Saved to ${out}.md and .json` }
         const box = ([part, label]: readonly [Hideable, string]) => {
           const off = hidden.includes(part)
           return (
-            <Button key={`show-box-${part}`} plain dimColor={off} label={`${off ? '☐' : '☑'}︎ ${label}`}
-              onPress={() => set('hide')(withPart(part, !off))} />
+            <Button
+              key={`show-box-${part}`}
+              plain
+              dimColor={off}
+              label={`${off ? '☐' : '☑'}︎ ${label}`}
+              onPress={() => set('hide')(withPart(part, !off))}
+            />
           )
         }
         // An on/off setting on a row of its own, then what it does now. Desktop draws the dashboard's Auto switch (switch,
         // word, slide, one blank button laid over both); the terminal a ◉ or ○ before the word. `dim` greys a switch whose
         // setting waits on another.
-        const settingSwitch = (p: { key: string; label: string; on: boolean; dim?: boolean; about: string; onPress: () => unknown }) => {
+        const settingSwitch = (p: {
+          key: string
+          label: string
+          on: boolean
+          dim?: boolean
+          about: string
+          onPress: () => unknown
+        }) => {
           const last = settingSwitches.get(p.key)
           const flipAt = last && last.on !== p.on ? panelNow : (last?.at ?? 0)
           settingSwitches.set(p.key, { on: p.on, at: flipAt })
           return (
             <Box key={`${p.key}-row`} width="100%" flexDirection="row" alignItems="center" gap={1}>
               {Svg && !term ? (
-                <Box key={p.key} position="relative" flexDirection="row" alignItems="center" gap={1} paddingX={1} flexShrink={0}>
-                  <Svg source={autoSwitchSvg(p.on, panelNow - flipAt)} alt={`${p.label} ${p.on ? 'on' : 'off'}`} width={26} height={15} />
+                <Box
+                  key={p.key}
+                  position="relative"
+                  flexDirection="row"
+                  alignItems="center"
+                  gap={1}
+                  paddingX={1}
+                  flexShrink={0}
+                >
+                  <Svg
+                    source={autoSwitchSvg(p.on, panelNow - flipAt)}
+                    alt={`${p.label} ${p.on ? 'on' : 'off'}`}
+                    width={26}
+                    height={15}
+                  />
                   <Text color={p.on && !p.dim ? DASH_TEXT : DASH_DIM}>{p.label}</Text>
                   {/* The cards' cover: no-break spaces (plain ones collapse to a dot), wider than the switch and its
                       word, clipped to them, so the click reaches both edges. */}
-                  <Box position="absolute" top={0} bottom={0} left={0} right={0} flexDirection="row" alignItems="center" justifyContent="center" overflow="hidden">
+                  <Box
+                    position="absolute"
+                    top={0}
+                    bottom={0}
+                    left={0}
+                    right={0}
+                    flexDirection="row"
+                    alignItems="center"
+                    justifyContent="center"
+                    overflow="hidden"
+                  >
                     <Box flexShrink={0}>
-                      <Button key={`${p.key}-switch`} plain hover={{ backgroundColor: '#00000000' }} label={'\u00a0'.repeat(60)} onPress={p.onPress} />
+                      <Button
+                        key={`${p.key}-switch`}
+                        plain
+                        hover={{ backgroundColor: '#00000000' }}
+                        label={'\u00a0'.repeat(60)}
+                        onPress={p.onPress}
+                      />
                     </Box>
                   </Box>
                 </Box>
               ) : (
-                <Button key={`${p.key}-switch`} plain dimColor={p.dim} label={`${p.on ? '◉' : '○'} ${p.label}`} onPress={p.onPress} />
+                <Button
+                  key={`${p.key}-switch`}
+                  plain
+                  dimColor={p.dim}
+                  label={`${p.on ? '◉' : '○'} ${p.label}`}
+                  onPress={p.onPress}
+                />
               )}
-              <Text dimColor wrap="truncate">{p.about}</Text>
+              <Text dimColor wrap="truncate">
+                {p.about}
+              </Text>
             </Box>
           )
         }
         // What a subagent keeps, by the Override definitions switch (see subagentSteerable).
-        const unlessSet = shown.overrideDefinitions === 'on' ? ', unless its Agent call names one' : ', unless its definition or Agent call sets one'
-        const flip = (field: 'subagents' | 'subagentModel' | 'overrideDefinitions' | 'holdOffer') => () => set(field)(shown[field] === 'on' ? 'off' : 'on')
+        const unlessSet =
+          shown.overrideDefinitions === 'on'
+            ? ', unless its Agent call names one'
+            : ', unless its definition or Agent call sets one'
+        const flip = (field: 'subagents' | 'subagentModel' | 'overrideDefinitions' | 'holdOffer') => () =>
+          set(field)(shown[field] === 'on' ? 'off' : 'on')
         // The slider: five stops, the marker on the one in force. No animation, a click moves it.
         const track: unknown[] = []
         for (const n of [-2, -1, 0, 1, 2]) {
-          if (n > -2) track.push(<Text key={`t${n}`} dimColor>─</Text>)
-          track.push(<Button key={`bias${n + 2}`} plain label={n === shown.bias ? '◉' : '○'} onPress={() => set('bias')(String(n))} />)
+          if (n > -2)
+            track.push(
+              <Text key={`t${n}`} dimColor>
+                ─
+              </Text>,
+            )
+          track.push(
+            <Button
+              key={`bias${n + 2}`}
+              plain
+              label={n === shown.bias ? '◉' : '○'}
+              onPress={() => set('bias')(String(n))}
+            />,
+          )
         }
         // The terminal has no art and few rows: no gaps, one row under the title.
         const term = e.surface === 'terminal'
         // The terminal's dropdown opens its list inside the wrapping row, which jumps the layout and is hard to click.
         // There a short list is a row of buttons, the picked one boxed; a long one (the skills) stays a dropdown.
-        type SettingRow = { key: string; label?: string; value: string; options: { value: string; label: string }[]; onSelect: (v: string) => unknown }
-        const settingRow = (p: SettingRow) => term && p.options.length <= 5 ? (
-          <Box key={p.key} width="100%" flexDirection="row" flexWrap="wrap" columnGap={1} alignItems="center">
-            {p.label ? <Text key={`${p.key}-label`} dimColor>{p.label}</Text> : null}
-            {p.options.map(o => o.value === p.value ? (
-              <Button key={`${p.key}-${o.value}`} variant="secondary" label={o.label} onPress={() => p.onSelect(o.value)} />
-            ) : (
-              <Button key={`${p.key}-${o.value}`} plain dimColor label={o.label} onPress={() => p.onSelect(o.value)} />
-            ))}
-          </Box>
-        ) : (
-          <Select key={p.key} label={p.label} value={p.value} options={p.options} onSelect={p.onSelect} />
-        )
+        type SettingRow = {
+          key: string
+          label?: string
+          value: string
+          options: { value: string; label: string }[]
+          onSelect: (v: string) => unknown
+        }
+        const settingRow = (p: SettingRow) =>
+          term && p.options.length <= 5 ? (
+            <Box key={p.key} width="100%" flexDirection="row" flexWrap="wrap" columnGap={1} alignItems="center">
+              {p.label ? (
+                <Text key={`${p.key}-label`} dimColor>
+                  {p.label}
+                </Text>
+              ) : null}
+              {p.options.map(o =>
+                o.value === p.value ? (
+                  <Button
+                    key={`${p.key}-${o.value}`}
+                    variant="secondary"
+                    label={o.label}
+                    onPress={() => p.onSelect(o.value)}
+                  />
+                ) : (
+                  <Button
+                    key={`${p.key}-${o.value}`}
+                    plain
+                    dimColor
+                    label={o.label}
+                    onPress={() => p.onSelect(o.value)}
+                  />
+                ),
+              )}
+            </Box>
+          ) : (
+            <Select key={p.key} label={p.label} value={p.value} options={p.options} onSelect={p.onSelect} />
+          )
         // One column, a row per setting, its hint at the end. The header is three absolute layers, drawn in order (bar and
         // art, then the title, then the buttons): an absolute layer covers whatever is in the flow, so nothing of the
         // header is in the flow but a spacer that keeps its row free.
@@ -4554,26 +5626,62 @@ Saved to ${out}.md and .json` }
         const frameOnly = probeLevel === 2
         const bare = probeLevel === 3
         // Desktop keeps title and buttons as absolute layers straight under the panel; the terminal gets a wrapping row.
-        const headRow = (kids: unknown[]) => term
-          ? <Box key="settings-head" flexDirection="row" flexWrap="wrap" justifyContent="space-between" columnGap={2}>{kids}</Box>
-          : kids
+        const headRow = (kids: unknown[]) =>
+          term ? (
+            <Box key="settings-head" flexDirection="row" flexWrap="wrap" justifyContent="space-between" columnGap={2}>
+              {kids}
+            </Box>
+          ) : (
+            kids
+          )
         return (
           // The dashboard's look: the neutral band and its quiet edge, purple only on the star, no art behind the rows (it
           // made them busy). The entrance
           // sweep plays once, behind everything, as the panel opens.
-          <Box key="settings" position="relative" flexDirection="column" gap={roomy && !term ? 1 : 0} paddingX={term ? 1 : 2} overflow="hidden"
-            backgroundColor={DASH_BG} borderStyle="round" borderColor={DASH_EDGE}>
+          <Box
+            key="settings"
+            position="relative"
+            flexDirection="column"
+            gap={roomy && !term ? 1 : 0}
+            paddingX={term ? 1 : 2}
+            overflow="hidden"
+            backgroundColor={DASH_BG}
+            borderStyle="round"
+            borderColor={DASH_EDGE}
+          >
             {term ? null : introLayer({ Box, Svg }, 'settings', await introShows($, 'settings'))}
             {/* The top bar: barely a shade lighter than the band, holding the title, Save and the cross. */}
             {!term ? (
-              <Box key="settings-bar" position="absolute" top={-1} left={0} right={0} height={3.5} overflow="hidden" backgroundColor={DASH_HEAD}>
+              <Box
+                key="settings-bar"
+                position="absolute"
+                top={-1}
+                left={0}
+                right={0}
+                height={3.5}
+                overflow="hidden"
+                backgroundColor={DASH_HEAD}
+              >
                 {/* The mark, big, tilted and cut off by the bar's edges, behind the title and the buttons. */}
                 <Box key="settings-bar-mark" position="absolute" top={-2} right={20} marginTop={1}>
                   <Svg source={SETTINGS_MARK} alt="context-lens mark" width={140} height={140} />
                 </Box>
                 {/* A hairline along the bar's bottom: a one-pixel image stretched across (a Box cannot draw one pixel). */}
-                <Box key="settings-rule" position="absolute" bottom={0} left={0} right={0} height={1} alignItems="flex-end">
-                  <Svg source={`<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1" viewBox="0 0 1600 1" preserveAspectRatio="none"><rect width="1600" height="1" fill="${DASH_EDGE}"/></svg>`} alt="rule" width={1600} height={1} />
+                <Box
+                  key="settings-rule"
+                  position="absolute"
+                  bottom={0}
+                  left={0}
+                  right={0}
+                  height={1}
+                  alignItems="flex-end"
+                >
+                  <Svg
+                    source={`<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1" viewBox="0 0 1600 1" preserveAspectRatio="none"><rect width="1600" height="1" fill="${DASH_EDGE}"/></svg>`}
+                    alt="rule"
+                    width={1600}
+                    height={1}
+                  />
                 </Box>
               </Box>
             ) : null}
@@ -4581,31 +5689,56 @@ Saved to ${out}.md and .json` }
                 space above them equals the space below. The terminal has no bar: both sit in the flow on one row that
                 wraps, since two absolute layers would draw over each other in a narrow window. */}
             {headRow([
-            <Box key="settings-title" {...(term ? { flexShrink: 0 } : { position: 'absolute', top: 0, left: 2, height: 2.5 })} flexDirection="row" alignItems="center" gap={1}>
-              {term ? <Text color={ACCENT} bold>✦</Text> : null}
-              {Svg && !term ? <Svg source={SETTINGS_TITLE} alt="context-lens" width={112} height={28} /> : <Text color={DASH_TEXT} bold>context-lens</Text>}
-              {ownVersion ? <Text color="#6b6b73">v{ownVersion}</Text> : null}
-              {/* Inside a part: Back to the cards, then the part's name. */}
-              {card === null ? (
-                <Text dimColor>Settings</Text>
-              ) : (
-                <Box key="settings-trail" flexDirection="row" alignItems="center" gap={1}>
-                  {/* A real button: a dim "Settings" in a trail did not read as a way back. */}
-                  <Button key="settings-back" variant="secondary" label="← Back" onPress={openCard(null)} />
-                  <Text color={DASH_TEXT} bold>{CARDS.find(c => c.id === card)?.title}</Text>
-                </Box>
-              )}
-              {dirty ? <Text dimColor> · unsaved changes</Text> : null}
-            </Box>,
-            <Box key="settings-actions" {...(term ? { flexShrink: 1, flexWrap: 'wrap', columnGap: 2 } : { position: 'absolute', top: 0, right: 2, height: 2.5, gap: 2 })} flexDirection="row" alignItems="center">
-              {/* Grey and inert until something changed: there is nothing to save. */}
-              {dirty ? (
-                <Button key="settings-save" variant="primary" hotkey="s" label="Save" onPress={() => saveDraft($)} />
-              ) : (
-                <Button key="settings-save" variant="secondary" dimColor label="Save" onPress={() => {}} />
-              )}
-              <Button key="settings-close" plain label="✕" onPress={close} />
-            </Box>,
+              <Box
+                key="settings-title"
+                {...(term ? { flexShrink: 0 } : { position: 'absolute', top: 0, left: 2, height: 2.5 })}
+                flexDirection="row"
+                alignItems="center"
+                gap={1}
+              >
+                {term ? (
+                  <Text color={ACCENT} bold>
+                    ✦
+                  </Text>
+                ) : null}
+                {Svg && !term ? (
+                  <Svg source={SETTINGS_TITLE} alt="context-lens" width={112} height={28} />
+                ) : (
+                  <Text color={DASH_TEXT} bold>
+                    context-lens
+                  </Text>
+                )}
+                {ownVersion ? <Text color="#6b6b73">v{ownVersion}</Text> : null}
+                {/* Inside a part: Back to the cards, then the part's name. */}
+                {card === null ? (
+                  <Text dimColor>Settings</Text>
+                ) : (
+                  <Box key="settings-trail" flexDirection="row" alignItems="center" gap={1}>
+                    {/* A real button: a dim "Settings" in a trail did not read as a way back. */}
+                    <Button key="settings-back" variant="secondary" label="← Back" onPress={openCard(null)} />
+                    <Text color={DASH_TEXT} bold>
+                      {CARDS.find(c => c.id === card)?.title}
+                    </Text>
+                  </Box>
+                )}
+                {dirty ? <Text dimColor> · unsaved changes</Text> : null}
+              </Box>,
+              <Box
+                key="settings-actions"
+                {...(term
+                  ? { flexShrink: 1, flexWrap: 'wrap', columnGap: 2 }
+                  : { position: 'absolute', top: 0, right: 2, height: 2.5, gap: 2 })}
+                flexDirection="row"
+                alignItems="center"
+              >
+                {/* Grey and inert until something changed: there is nothing to save. */}
+                {dirty ? (
+                  <Button key="settings-save" variant="primary" hotkey="s" label="Save" onPress={() => saveDraft($)} />
+                ) : (
+                  <Button key="settings-save" variant="secondary" dimColor label="Save" onPress={() => {}} />
+                )}
+                <Button key="settings-close" plain label="✕" onPress={close} />
+              </Box>,
             ])}
             {term ? null : <Box key="settings-spacer" height={roomy ? 2 : 1} />}
             {frameOnly ? null : card === null ? (
@@ -4613,110 +5746,272 @@ Saved to ${out}.md and .json` }
               <Box key="settings-cards" flexDirection="row" flexWrap="wrap" columnGap={1} rowGap={term ? 0 : 1}>
                 <Box position="absolute" top={0} left={0} />
                 {CARDS.map(c => (
-                  <Box key={`card-${c.id}`} position="relative" flexDirection="column" flexGrow={1} width={0} minWidth={18}
-                    paddingX={1} borderStyle="round" borderColor={DASH_EDGE} hover={{ backgroundColor: CARD_HOVER, borderColor: CARD_HOVER_EDGE }}>
+                  <Box
+                    key={`card-${c.id}`}
+                    position="relative"
+                    flexDirection="column"
+                    flexGrow={1}
+                    width={0}
+                    minWidth={18}
+                    paddingX={1}
+                    borderStyle="round"
+                    borderColor={DASH_EDGE}
+                    hover={{ backgroundColor: CARD_HOVER, borderColor: CARD_HOVER_EDGE }}
+                  >
                     <Box flexDirection="row" gap={1} alignItems="center">
-                      {Svg && !term ? <Svg source={rowIconSvg(c.id, DASH_TEXT)} alt={c.title} width={14} height={14} /> : null}
+                      {Svg && !term ? (
+                        <Svg source={rowIconSvg(c.id, DASH_TEXT)} alt={c.title} width={14} height={14} />
+                      ) : null}
                       {/* The terminal draws the blank buttons below as real spaces over the card's text, so there the
                           title itself is the button. (Full-width padded buttons per row looked worse: a big lit block.) */}
                       {term ? (
                         <Button key={`settings-card-${c.id}`} plain label={`${c.title} ›`} onPress={openCard(c.id)} />
                       ) : (
-                        <Text color={DASH_TEXT} bold hover={{ color: '#ffffff' }}>{c.title}</Text>
+                        <Text color={DASH_TEXT} bold hover={{ color: '#ffffff' }}>
+                          {c.title}
+                        </Text>
                       )}
                     </Box>
-                    <Text dimColor wrap="truncate" hover={{ dimColor: false, color: DASH_TEXT }}>{summaries[c.id]}</Text>
+                    <Text dimColor wrap="truncate" hover={{ dimColor: false, color: DASH_TEXT }}>
+                      {summaries[c.id]}
+                    </Text>
                     {/* The click takes the whole card: a button is one line high and centred in its box, whatever the box,
                         so three blank ones are spread from the top edge to the bottom one and overlap. The card lights as a
                         whole (its own hover); two, spaced around, left its edges and a stripe between the lines dead. */}
-                    {term ? null : <Box position="absolute" top={0} bottom={0} left={0} right={0} flexDirection="column" justifyContent="space-between">
-                      {/* Each button sits in a clipping box and does not shrink: in a narrow card a shrunk button cut its
+                    {term ? null : (
+                      <Box
+                        position="absolute"
+                        top={0}
+                        bottom={0}
+                        left={0}
+                        right={0}
+                        flexDirection="column"
+                        justifyContent="space-between"
+                      >
+                        {/* Each button sits in a clipping box and does not shrink: in a narrow card a shrunk button cut its
                           blank label to "\u2026", three stacked dots on the card. 800 no-break spaces (about 2,000 px: one is ~2.6 px) cover a card alone on its row edge to edge; the box clips the rest. */}
-                      {['', '-2', '-3'].map(n => (
-                        <Box key={`settings-card-box-${c.id}${n}`} flexDirection="row" justifyContent="center" overflow="hidden">
-                          <Box flexShrink={0}>
-                            <Button key={`settings-card-${c.id}${n}`} plain hover={{ backgroundColor: '#00000000' }} label={'\u00a0'.repeat(800)} onPress={openCard(c.id)} />
+                        {['', '-2', '-3'].map(n => (
+                          <Box
+                            key={`settings-card-box-${c.id}${n}`}
+                            flexDirection="row"
+                            justifyContent="center"
+                            overflow="hidden"
+                          >
+                            <Box flexShrink={0}>
+                              <Button
+                                key={`settings-card-${c.id}${n}`}
+                                plain
+                                hover={{ backgroundColor: '#00000000' }}
+                                label={'\u00a0'.repeat(800)}
+                                onPress={openCard(c.id)}
+                              />
+                            </Box>
                           </Box>
-                        </Box>
-                      ))}
-                    </Box>}
+                        ))}
+                      </Box>
+                    )}
                   </Box>
                 ))}
               </Box>
             ) : (
               // One part: Back, its name and what it does, then its controls.
-              <Box key={`settings-${card}`} flexDirection="column" gap={roomy && !term ? 1 : 0} minHeight={term ? undefined : SETTINGS_BODY_H}>
+              <Box
+                key={`settings-${card}`}
+                flexDirection="column"
+                gap={roomy && !term ? 1 : 0}
+                minHeight={term ? undefined : SETTINGS_BODY_H}
+              >
                 {/* An empty absolute child makes the box positioned, so its rows paint, and take clicks, over the
                     entrance sweep and the art (absolute layers cover every plain box, and the sweep stays until the next
                     redraw). */}
                 <Box position="absolute" top={0} left={0} />
                 {/* What the part does; Back and its name are in the top bar's trail. */}
-                <Text dimColor wrap="truncate">{CARDS.find(c => c.id === card)?.about}</Text>
+                <Text dimColor wrap="truncate">
+                  {CARDS.find(c => c.id === card)?.about}
+                </Text>
                 <Box flexDirection="row" flexWrap="wrap" gap={1} alignItems="center">
-                  {card === 'auto' ? [
-                    <Text key="cheap" dimColor>Cheaper</Text>,
-                    <Box key="track" flexDirection="row" alignItems="center">
-                      {track}
-                    </Box>,
-                    <Text key="smart" dimColor>Smarter</Text>,
-                    ...(bare
-                      ? []
-                      : [
-                          <Box key="gap" width={2} />,
-                          settingRow({ key: 'settings-floor', label: 'Never below', value: shown.floor, options: opts(EFFORTS), onSelect: set('floor') }),
-                          settingRow({ key: 'settings-ceiling', label: 'Never above', value: shown.ceiling, options: opts(EFFORTS), onSelect: set('ceiling') }),
-                          settingSwitch({
-                            key: 'settings-hold-offer', label: 'Hold the prompt for a model offer', on: shown.holdOffer === 'on', onPress: flip('holdOffer'),
-                            about: shown.holdOffer === 'on' ? 'With model on Manual, a typed prompt waits for Switch or Keep' : 'With model on Manual, a toast suggests the model and the prompt goes on',
-                          }),
-                        ]),
-                  ] : card === 'subagents' ? (bare ? [] : [
-                    settingSwitch({
-                      key: 'settings-subagents', label: 'Effort for subagents', on: shown.subagents === 'on', onPress: flip('subagents'),
-                      about: `${shown.subagents === 'on' ? "The judge picks each subagent's effort, medium or more" : "Subagents run at the chat's effort"}${unlessSet}`,
-                    }),
-                    settingSwitch({
-                      key: 'settings-subagent-model', label: 'Cheaper model for subagents', on: shown.subagentModel === 'on', dim: shown.subagents !== 'on', onPress: flip('subagentModel'),
-                      about: shown.subagents !== 'on' ? 'Needs Effort for subagents' : shown.subagentModel === 'on' ? `A subagent the judge calls simple runs on a cheaper model, never a dearer one${unlessSet}` : 'A subagent keeps the model it was given',
-                    }),
-                    settingSwitch({
-                      key: 'settings-override-definitions', label: 'Override definitions', on: shown.overrideDefinitions === 'on', onPress: flip('overrideDefinitions'),
-                      about: shown.overrideDefinitions === 'on' ? "The judge's picks replace a definition's model and effort; an Agent call's own stay" : 'A subagent keeps the model and effort its definition sets',
-                    }),
-                  ]) : card === 'context' ? (bare ? [] : [
-                    settingRow({ key: 'settings-swamp', label: 'Context alert', value: contextAlert, options: [{ value: 'off', label: 'Off' }, ...SWAMP_STEPS.map(n => ({ value: String(n), label: `At ${n}%` }))],
-                      onSelect: async v => {
-                        await set('hide')(withPart('swamp', v === 'off'))
-                        if (v !== 'off') await set('swampAt')(v)
-                      } }),
-                    settingRow({ key: 'settings-compact-with', label: 'Compact with', value: shown.compactWith, options: [{ value: 'haiku', label: 'Haiku 5.5' }, { value: 'session', label: "Chat's model" }], onSelect: set('compactWith') }),
-                    settingRow({ key: 'settings-skill', label: 'Handoff skill', value: shown.handoffSkill || '-', options: [
-                        { value: '-', label: 'Built in' },
-                        ...[...new Set([...(shown.handoffSkill ? [shown.handoffSkill] : []), ...skillNames])].map(name => ({ value: name, label: `/${name}` })),
-                      ], onSelect: v => set('handoffSkill')(v === '-' ? '' : v) }),
-                    settingRow({ key: 'settings-handoff-button', label: 'Handoff button', value: handoffButton, options: [{ value: 'hidden', label: 'Hidden' }, { value: 'advised', label: 'When advised' }, { value: 'always', label: 'Always' }],
-                      onSelect: async v => {
-                        await set('hide')(withPart('handoff', v === 'hidden'))
-                        if (v !== 'hidden') await set('handoffButton')(v)
-                      } }),
-                  ]) : [
-                    ...(bare
-                      ? []
-                      : [
-                          settingRow({ key: 'settings-layout', label: 'Look', value: shown.layout, options: [{ value: 'default', label: 'Dashboard' }, { value: 'minimal', label: 'Minimal' }], onSelect: set('layout') }),
-                          settingRow({ key: 'settings-appearance', label: 'Appearance', value: shown.appearance, options: [{ value: 'auto', label: 'Match Claude Code' }, { value: 'dark', label: 'Dark' }, { value: 'light', label: 'Light' }], onSelect: set('appearance') }),
-                          settingRow({ key: 'settings-theme', label: 'Theme', value: shown.theme, options: THEMES.map(theme => ({ value: theme, label: THEME_LABELS[theme] })), onSelect: set('theme') }),
-                        ]),
-                    <Box key="settings-show" width="100%" flexDirection="row" flexWrap="wrap" columnGap={1} alignItems="center">
-                      <Text dimColor>Show</Text>
-                      {showParts.map(box)}
-                    </Box>,
-                    ...(bare ? [] : [
-                      <Box key="settings-uninstall-row" width="100%" flexDirection="row">
-                        {uninstallButton($, themedEls($.ui.resolve(e)))}
-                      </Box>,
-                    ]),
-                  ]}
+                  {card === 'auto'
+                    ? [
+                        <Text key="cheap" dimColor>
+                          Cheaper
+                        </Text>,
+                        <Box key="track" flexDirection="row" alignItems="center">
+                          {track}
+                        </Box>,
+                        <Text key="smart" dimColor>
+                          Smarter
+                        </Text>,
+                        ...(bare
+                          ? []
+                          : [
+                              <Box key="gap" width={2} />,
+                              settingRow({
+                                key: 'settings-floor',
+                                label: 'Never below',
+                                value: shown.floor,
+                                options: opts(EFFORTS),
+                                onSelect: set('floor'),
+                              }),
+                              settingRow({
+                                key: 'settings-ceiling',
+                                label: 'Never above',
+                                value: shown.ceiling,
+                                options: opts(EFFORTS),
+                                onSelect: set('ceiling'),
+                              }),
+                              settingSwitch({
+                                key: 'settings-hold-offer',
+                                label: 'Hold the prompt for a model offer',
+                                on: shown.holdOffer === 'on',
+                                onPress: flip('holdOffer'),
+                                about:
+                                  shown.holdOffer === 'on'
+                                    ? 'With model on Manual, a typed prompt waits for Switch or Keep'
+                                    : 'With model on Manual, a toast suggests the model and the prompt goes on',
+                              }),
+                            ]),
+                      ]
+                    : card === 'subagents'
+                      ? bare
+                        ? []
+                        : [
+                            settingSwitch({
+                              key: 'settings-subagents',
+                              label: 'Effort for subagents',
+                              on: shown.subagents === 'on',
+                              onPress: flip('subagents'),
+                              about: `${shown.subagents === 'on' ? "The judge picks each subagent's effort, medium or more" : "Subagents run at the chat's effort"}${unlessSet}`,
+                            }),
+                            settingSwitch({
+                              key: 'settings-subagent-model',
+                              label: 'Cheaper model for subagents',
+                              on: shown.subagentModel === 'on',
+                              dim: shown.subagents !== 'on',
+                              onPress: flip('subagentModel'),
+                              about:
+                                shown.subagents !== 'on'
+                                  ? 'Needs Effort for subagents'
+                                  : shown.subagentModel === 'on'
+                                    ? `A subagent the judge calls simple runs on a cheaper model, never a dearer one${unlessSet}`
+                                    : 'A subagent keeps the model it was given',
+                            }),
+                            settingSwitch({
+                              key: 'settings-override-definitions',
+                              label: 'Override definitions',
+                              on: shown.overrideDefinitions === 'on',
+                              onPress: flip('overrideDefinitions'),
+                              about:
+                                shown.overrideDefinitions === 'on'
+                                  ? "The judge's picks replace a definition's model and effort; an Agent call's own stay"
+                                  : 'A subagent keeps the model and effort its definition sets',
+                            }),
+                          ]
+                      : card === 'context'
+                        ? bare
+                          ? []
+                          : [
+                              settingRow({
+                                key: 'settings-swamp',
+                                label: 'Context alert',
+                                value: contextAlert,
+                                options: [
+                                  { value: 'off', label: 'Off' },
+                                  ...SWAMP_STEPS.map(n => ({ value: String(n), label: `At ${n}%` })),
+                                ],
+                                onSelect: async v => {
+                                  await set('hide')(withPart('swamp', v === 'off'))
+                                  if (v !== 'off') await set('swampAt')(v)
+                                },
+                              }),
+                              settingRow({
+                                key: 'settings-compact-with',
+                                label: 'Compact with',
+                                value: shown.compactWith,
+                                options: [
+                                  { value: 'haiku', label: 'Haiku 5.5' },
+                                  { value: 'session', label: "Chat's model" },
+                                ],
+                                onSelect: set('compactWith'),
+                              }),
+                              settingRow({
+                                key: 'settings-skill',
+                                label: 'Handoff skill',
+                                value: shown.handoffSkill || '-',
+                                options: [
+                                  { value: '-', label: 'Built in' },
+                                  ...[
+                                    ...new Set([...(shown.handoffSkill ? [shown.handoffSkill] : []), ...skillNames]),
+                                  ].map(name => ({ value: name, label: `/${name}` })),
+                                ],
+                                onSelect: v => set('handoffSkill')(v === '-' ? '' : v),
+                              }),
+                              settingRow({
+                                key: 'settings-handoff-button',
+                                label: 'Handoff button',
+                                value: handoffButton,
+                                options: [
+                                  { value: 'hidden', label: 'Hidden' },
+                                  { value: 'advised', label: 'When advised' },
+                                  { value: 'always', label: 'Always' },
+                                ],
+                                onSelect: async v => {
+                                  await set('hide')(withPart('handoff', v === 'hidden'))
+                                  if (v !== 'hidden') await set('handoffButton')(v)
+                                },
+                              }),
+                            ]
+                        : [
+                            ...(bare
+                              ? []
+                              : [
+                                  settingRow({
+                                    key: 'settings-layout',
+                                    label: 'Look',
+                                    value: shown.layout,
+                                    options: [
+                                      { value: 'default', label: 'Dashboard' },
+                                      { value: 'minimal', label: 'Minimal' },
+                                    ],
+                                    onSelect: set('layout'),
+                                  }),
+                                  settingRow({
+                                    key: 'settings-appearance',
+                                    label: 'Appearance',
+                                    value: shown.appearance,
+                                    options: [
+                                      { value: 'auto', label: 'Match Claude Code' },
+                                      { value: 'dark', label: 'Dark' },
+                                      { value: 'light', label: 'Light' },
+                                    ],
+                                    onSelect: set('appearance'),
+                                  }),
+                                  settingRow({
+                                    key: 'settings-theme',
+                                    label: 'Theme',
+                                    value: shown.theme,
+                                    options: THEMES.map(theme => ({ value: theme, label: THEME_LABELS[theme] })),
+                                    onSelect: set('theme'),
+                                  }),
+                                ]),
+                            <Box
+                              key="settings-show"
+                              width="100%"
+                              flexDirection="row"
+                              flexWrap="wrap"
+                              columnGap={1}
+                              alignItems="center"
+                            >
+                              <Text dimColor>Show</Text>
+                              {showParts.map(box)}
+                            </Box>,
+                            ...(bare
+                              ? []
+                              : [
+                                  <Box key="settings-uninstall-row" width="100%" flexDirection="row">
+                                    {uninstallButton($, themedEls($.ui.resolve(e)))}
+                                  </Box>,
+                                ]),
+                          ]}
                 </Box>
               </Box>
             )}
@@ -4729,10 +6024,20 @@ Saved to ${out}.md and .json` }
         const go = () => compactCold($, compactNote)
         const nowCompact = await $.clock.now()
         // One redraw once the fade is over, to drop its layer.
-        if (nowCompact - compactOpenedAt < COMPACT_FADE_MS) $.clock.after(COMPACT_FADE_MS + 150 - (nowCompact - compactOpenedAt), () => $.ui.invalidate('ui.render'))
+        if (nowCompact - compactOpenedAt < COMPACT_FADE_MS)
+          $.clock.after(COMPACT_FADE_MS + 150 - (nowCompact - compactOpenedAt), () => $.ui.invalidate('ui.render'))
         return (
-          <Box key="compact-bar" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
-            backgroundColor={BRAND_BG} borderStyle="round" borderColor={BRAND_EDGE}>
+          <Box
+            key="compact-bar"
+            position="relative"
+            flexDirection="row"
+            alignItems="center"
+            paddingX={1}
+            overflow="hidden"
+            backgroundColor={BRAND_BG}
+            borderStyle="round"
+            borderColor={BRAND_EDGE}
+          >
             <Box key="compact-art" position="absolute" top={-1} right={0} bottom={-1}>
               <Svg source={BRAND_SVG} alt="context-lens" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
             </Box>
@@ -4748,13 +6053,29 @@ Saved to ${out}.md and .json` }
               {markTitle({ Box, Text, Svg }, 'compact-title', ACCENT, '✦ Compact')}
               <Box key="compact-switch-box" position="relative" flexShrink={0} marginLeft={1}>
                 <Box position="absolute" top={0} left={0} />
-                <Button key="compact-to-handoff" plain dimColor label="Handoff instead" onPress={async () => {
-                  await update($, compactAsk, () => false)
-                  await openHandoffBar($)
-                }} />
+                <Button
+                  key="compact-to-handoff"
+                  plain
+                  dimColor
+                  label="Handoff instead"
+                  onPress={async () => {
+                    await update($, compactAsk, () => false)
+                    await openHandoffBar($)
+                  }}
+                />
               </Box>
             </Box>
-            <Box key="compact-controls" position="relative" flexGrow={1} flexShrink={1} minWidth={0} flexDirection="row" justifyContent="flex-end" alignItems="center" gap={1}>
+            <Box
+              key="compact-controls"
+              position="relative"
+              flexGrow={1}
+              flexShrink={1}
+              minWidth={0}
+              flexDirection="row"
+              justifyContent="flex-end"
+              alignItems="center"
+              gap={1}
+            >
               <Box position="absolute" top={0} left={0} />
               {/* The field shows through a window anchored right: its own Enter hint (a submit button 12 px wide, 6 px
                   after the field) is pushed past the window's right edge and clipped, whatever width the app gives the
@@ -4764,13 +6085,29 @@ Saved to ${out}.md and .json` }
               {/* It gives way before the Compact button does: in a narrow pane the field shrinks, the button stays. */}
               <Box key="compact-field" position="relative" width={48} minWidth={6} height={1} flexShrink={1}>
                 <Box position="absolute" top={-1} bottom={-1} left={0} right={0} overflow="hidden">
-                  <Box position="absolute" top={0} bottom={0} right={-3} width={60} flexDirection="row" alignItems="center" justifyContent="flex-end" paddingRight={1}>
-                    <Input key="compact-note" placeholder="Summary (optional)" submitLabel={'​'}
-                        onInput={v => { compactNote = v }}
-                        onSubmit={v => {
-                          compactNote = v
-                          void go()
-                        }} />
+                  <Box
+                    position="absolute"
+                    top={0}
+                    bottom={0}
+                    right={-3}
+                    width={60}
+                    flexDirection="row"
+                    alignItems="center"
+                    justifyContent="flex-end"
+                    paddingRight={1}
+                  >
+                    <Input
+                      key="compact-note"
+                      placeholder="Summary (optional)"
+                      submitLabel={'​'}
+                      onInput={v => {
+                        compactNote = v
+                      }}
+                      onSubmit={v => {
+                        compactNote = v
+                        void go()
+                      }}
+                    />
                   </Box>
                 </Box>
               </Box>
@@ -4779,20 +6116,58 @@ Saved to ${out}.md and .json` }
                   hairline. */}
               <Box key="compact-go-box" position="relative" flexShrink={0} flexDirection="row" alignItems="center">
                 <Box width={GO_CELLS} height={1} flexShrink={0} />
-                <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
+                <Box
+                  position="absolute"
+                  top={0}
+                  bottom={0}
+                  left={0}
+                  right={0}
+                  alignItems="center"
+                  justifyContent="center"
+                >
                   <Svg source={goPillSvg()} alt="Compact" width={GO_W} height={20} />
                 </Box>
-                <Box position="absolute" top={0} bottom={0} left={0} right={0} flexDirection="row" alignItems="center" justifyContent="center" gap={1}>
+                <Box
+                  position="absolute"
+                  top={0}
+                  bottom={0}
+                  left={0}
+                  right={0}
+                  flexDirection="row"
+                  alignItems="center"
+                  justifyContent="center"
+                  gap={1}
+                >
                   <Text color="#141416">Compact</Text>
                   <Svg source={enterSvg('#141416')} alt="Enter" width={14} height={14} />
                 </Box>
-                <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
-                  <Button key="compact-go" plain hover={{ backgroundColor: '#00000000' }} label={' '.repeat(GO_CELLS)} onPress={go} />
+                <Box
+                  position="absolute"
+                  top={0}
+                  bottom={0}
+                  left={0}
+                  right={0}
+                  alignItems="center"
+                  justifyContent="center"
+                >
+                  <Button
+                    key="compact-go"
+                    plain
+                    hover={{ backgroundColor: '#00000000' }}
+                    label={' '.repeat(GO_CELLS)}
+                    onPress={go}
+                  />
                 </Box>
               </Box>
               <Box key="compact-close-box" position="relative" flexShrink={0}>
                 <Box position="absolute" top={0} left={0} />
-                <Button key="compact-close" plain label="✕" hover={{ backgroundColor: CARD_CLOSE_HOVER }} onPress={() => update($, compactAsk, () => false)} />
+                <Button
+                  key="compact-close"
+                  plain
+                  label="✕"
+                  hover={{ backgroundColor: CARD_CLOSE_HOVER }}
+                  onPress={() => update($, compactAsk, () => false)}
+                />
               </Box>
             </Box>
           </Box>
@@ -4818,13 +6193,40 @@ Saved to ${out}.md and .json` }
           !term && Svg ? (
             <Box key="handoff-kind" position="relative" flexShrink={0} flexDirection="row" alignItems="center">
               <Box width={KIND_CELLS * 2} height={1} flexShrink={0} />
-              <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
-                <Svg source={kindSwitchSvg(choice.kind, kindNow - kindFlipAt)} alt={choice.kind === 'full' ? 'Full handoff' : 'Quick handoff'} width={KIND_W} height={KIND_H} />
+              <Box
+                position="absolute"
+                top={0}
+                bottom={0}
+                left={0}
+                right={0}
+                alignItems="center"
+                justifyContent="center"
+              >
+                <Svg
+                  source={kindSwitchSvg(choice.kind, kindNow - kindFlipAt)}
+                  alt={choice.kind === 'full' ? 'Full handoff' : 'Quick handoff'}
+                  width={KIND_W}
+                  height={KIND_H}
+                />
               </Box>
               <Box position="absolute" top={0} bottom={0} left={0} right={0} flexDirection="row" alignItems="center">
                 {(['quick', 'full'] as const).map(k => (
-                  <Box key={`handoff-kind-${k}`} flexGrow={1} width={0} flexDirection="row" alignItems="center" justifyContent="center">
-                    <Box flexShrink={0} width={2} alignItems="center"><Svg source={rowIconSvg(k, choice.kind === k ? '#141416' : DASH_DIM)} alt={k === 'quick' ? 'bolt' : 'pen'} width={14} height={14} /></Box>
+                  <Box
+                    key={`handoff-kind-${k}`}
+                    flexGrow={1}
+                    width={0}
+                    flexDirection="row"
+                    alignItems="center"
+                    justifyContent="center"
+                  >
+                    <Box flexShrink={0} width={2} alignItems="center">
+                      <Svg
+                        source={rowIconSvg(k, choice.kind === k ? '#141416' : DASH_DIM)}
+                        alt={k === 'quick' ? 'bolt' : 'pen'}
+                        width={14}
+                        height={14}
+                      />
+                    </Box>
                     <Text color={choice.kind === k ? '#141416' : DASH_DIM}>{k === 'quick' ? 'Quick' : 'Full'}</Text>
                   </Box>
                 ))}
@@ -4832,43 +6234,98 @@ Saved to ${out}.md and .json` }
               <Box position="absolute" top={0} bottom={0} left={0} right={0} flexDirection="row" alignItems="center">
                 {(['quick', 'full'] as const).map(k => (
                   <Box key={`handoff-kind-hit-${k}`} flexGrow={1} width={0} justifyContent="center">
-                    <Button key={`handoff-${k}`} plain hover={{ backgroundColor: '#00000000' }} label={' '.repeat(KIND_CELLS)} onPress={setBar({ kind: k })} />
+                    <Button
+                      key={`handoff-${k}`}
+                      plain
+                      hover={{ backgroundColor: '#00000000' }}
+                      label={' '.repeat(KIND_CELLS)}
+                      onPress={setBar({ kind: k })}
+                    />
                   </Box>
                 ))}
               </Box>
             </Box>
           ) : null,
-          term || !Svg ? (choice.kind === 'quick' ? (
-            <Button key="handoff-quick" hotkey={term ? 'q' : undefined} variant="secondary" label="Quick" onPress={setBar({ kind: 'quick' })} />
-          ) : (
-            <Button key="handoff-quick" hotkey={term ? 'q' : undefined} plain dimColor label="Quick" onPress={setBar({ kind: 'quick' })} />
-          )) : null,
-          term || !Svg ? (choice.kind === 'full' ? (
-            <Button key="handoff-full" hotkey={term ? 'f' : undefined} variant="secondary" label="Full" onPress={setBar({ kind: 'full' })} />
-          ) : (
-            <Button key="handoff-full" hotkey={term ? 'f' : undefined} plain dimColor label="Full" onPress={setBar({ kind: 'full' })} />
-          )) : null,
-          <Select key="handoff-after" value={choice.after}
+          term || !Svg ? (
+            choice.kind === 'quick' ? (
+              <Button
+                key="handoff-quick"
+                hotkey={term ? 'q' : undefined}
+                variant="secondary"
+                label="Quick"
+                onPress={setBar({ kind: 'quick' })}
+              />
+            ) : (
+              <Button
+                key="handoff-quick"
+                hotkey={term ? 'q' : undefined}
+                plain
+                dimColor
+                label="Quick"
+                onPress={setBar({ kind: 'quick' })}
+              />
+            )
+          ) : null,
+          term || !Svg ? (
+            choice.kind === 'full' ? (
+              <Button
+                key="handoff-full"
+                hotkey={term ? 'f' : undefined}
+                variant="secondary"
+                label="Full"
+                onPress={setBar({ kind: 'full' })}
+              />
+            ) : (
+              <Button
+                key="handoff-full"
+                hotkey={term ? 'f' : undefined}
+                plain
+                dimColor
+                label="Full"
+                onPress={setBar({ kind: 'full' })}
+              />
+            )
+          ) : null,
+          <Select
+            key="handoff-after"
+            value={choice.after}
             options={[
               { value: 'continue', label: 'Clear & carry on' },
               { value: 'confirm', label: 'Clear & wait' },
               { value: 'copy', label: 'Keep chat & copy' },
             ]}
-            onSelect={v => setBar({ after: v as HandoffAfter })()} />,
+            onSelect={v => setBar({ after: v as HandoffAfter })()}
+          />,
           <Button key="handoff-go" variant="primary" autoFocus label="Go" onPress={() => goHandoff($, choice)} />,
           <Button key="handoff-close" plain role="dismiss" label="✕" onPress={() => closeHandoffBar($)} />,
         ]
         // The terminal says all of it; the desktop bar only what the picked kind does: the dropdown beside it already
         // says what happens after.
-        const line = e.surface === 'terminal' ? `${what.by}. ${what.then}` : choice.kind === 'full' ? (config.handoffSkill ? `/${config.handoffSkill}` : 'Saves HANDOFF.md') : 'A few seconds'
+        const line =
+          e.surface === 'terminal'
+            ? `${what.by}. ${what.then}`
+            : choice.kind === 'full'
+              ? config.handoffSkill
+                ? `/${config.handoffSkill}`
+                : 'Saves HANDOFF.md'
+              : 'A few seconds'
         if (e.surface === 'terminal') return terminalPanel($, e, 'handoff-bar', '⇥ Handoff', line, controls)
         return (
           // The art is a still image here: an animated one sits in a frame the app rebuilds on every redraw, and the bar
           // redraws on every choice. The title over the line on what happens, on the left; the controls on the right in
           // their own absolute layer, drawn last: the app draws anything in the flow under the absolute art, where it takes
           // no clicks.
-          <Box key="handoff-bar" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
-            backgroundColor={BRAND_BG} borderStyle="round" borderColor={BRAND_EDGE}>
+          <Box
+            key="handoff-bar"
+            position="relative"
+            flexDirection="row"
+            alignItems="center"
+            paddingX={1}
+            overflow="hidden"
+            backgroundColor={BRAND_BG}
+            borderStyle="round"
+            borderColor={BRAND_EDGE}
+          >
             <Box key="handoff-art" position="absolute" top={-1} right={0} bottom={-1}>
               <Svg source={BRAND_SVG} alt="context-lens" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
             </Box>
@@ -4884,8 +6341,28 @@ Saved to ${out}.md and .json` }
               </Text>
             </Box>
             <Box flexGrow={1} minWidth={48} />
-            <Box key="handoff-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={1} alignItems="center">
-              {!term ? <Button key="handoff-to-compact" plain dimColor label="Compact instead" onPress={async () => { await closeHandoffBar($); await openCompact($, e) }} /> : null}
+            <Box
+              key="handoff-actions"
+              position="absolute"
+              top={0}
+              right={1}
+              bottom={0}
+              flexDirection="row"
+              gap={1}
+              alignItems="center"
+            >
+              {!term ? (
+                <Button
+                  key="handoff-to-compact"
+                  plain
+                  dimColor
+                  label="Compact instead"
+                  onPress={async () => {
+                    await closeHandoffBar($)
+                    await openCompact($, e)
+                  }}
+                />
+              ) : null}
               {controls}
             </Box>
           </Box>
@@ -4894,12 +6371,14 @@ Saved to ${out}.md and .json` }
       // The setup guide, one step at a time: the lean, the handoff, the look, then a word on what else is there. The
       // choices are saved together at Done or ✕ (see setupDraft). A stored step the guide does not know starts it at the lean.
       const storedStep = await read($, setupStep)
-      const step = storedStep && !(['lean', 'handoff', 'look', 'done'] as const).includes(storedStep) ? 'lean' : storedStep
+      const step =
+        storedStep && !(['lean', 'handoff', 'look', 'done'] as const).includes(storedStep) ? 'lean' : storedStep
       if (step) {
         const { Input, Select } = themedEls($.ui.resolve(e))
         const draft = await read($, setupDraft)
         const shown = setupShown(draft, config)
-        const setDraft = (field: keyof SettingsDraft, value: string) => update($, setupDraft, d => ({ ...d, [field]: value }))
+        const setDraft = (field: keyof SettingsDraft, value: string) =>
+          update($, setupDraft, d => ({ ...d, [field]: value }))
         const go = (to: SetupStep | null) => () => goSetup($, to)
         const back = setupBack(step)
         const counter = setupCounter(step)
@@ -4913,26 +6392,58 @@ Saved to ${out}.md and .json` }
         // layer, drawn last: the app draws anything in the flow under the absolute art, where it takes no clicks
         // (position="relative" does not lift it). The spacer keeps the words clear of them; room is their width in
         // columns. The art is still: every click redraws the band.
-        const band = (words: unknown, room: number, controls: unknown[]) => e.surface === 'terminal' ? (
-          terminalPanel($, e, 'setup', counter ? `✦ context-lens setup  ${counter}` : '✦ context-lens setup', words, controls)
-        ) : (
-          <Box key="setup" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
-            backgroundColor={BRAND_BG} borderStyle="round" borderColor={BRAND_EDGE}>
-            <Box key="setup-art" position="absolute" top={-1} right={0} bottom={-1}>
-              <Svg source={BRAND_SVG} alt="context-lens" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
+        const band = (words: unknown, room: number, controls: unknown[]) =>
+          e.surface === 'terminal' ? (
+            terminalPanel(
+              $,
+              e,
+              'setup',
+              counter ? `✦ context-lens setup  ${counter}` : '✦ context-lens setup',
+              words,
+              controls,
+            )
+          ) : (
+            <Box
+              key="setup"
+              position="relative"
+              flexDirection="row"
+              alignItems="center"
+              paddingX={1}
+              overflow="hidden"
+              backgroundColor={BRAND_BG}
+              borderStyle="round"
+              borderColor={BRAND_EDGE}
+            >
+              <Box key="setup-art" position="absolute" top={-1} right={0} bottom={-1}>
+                <Svg source={BRAND_SVG} alt="context-lens" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
+              </Box>
+              <Box key="setup-words" position="relative" flexDirection="column" flexShrink={1} minWidth={0}>
+                <Text color={ACCENT} bold wrap="truncate">
+                  {counter ? `✦ context-lens setup  ${counter}` : '✦ context-lens setup'}
+                </Text>
+                {typeof words === 'string' ? (
+                  <Text key="setup-what" wrap="truncate">
+                    {words}
+                  </Text>
+                ) : (
+                  words
+                )}
+              </Box>
+              <Box flexGrow={1} minWidth={room} />
+              <Box
+                key="setup-actions"
+                position="absolute"
+                top={0}
+                right={1}
+                bottom={0}
+                flexDirection="row"
+                gap={1}
+                alignItems="center"
+              >
+                {controls}
+              </Box>
             </Box>
-            <Box key="setup-words" position="relative" flexDirection="column" flexShrink={1} minWidth={0}>
-              <Text color={ACCENT} bold wrap="truncate">
-                {counter ? `✦ context-lens setup  ${counter}` : '✦ context-lens setup'}
-              </Text>
-              {typeof words === 'string' ? <Text key="setup-what" wrap="truncate">{words}</Text> : words}
-            </Box>
-            <Box flexGrow={1} minWidth={room} />
-            <Box key="setup-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={1} alignItems="center">
-              {controls}
-            </Box>
-          </Box>
-        )
+          )
         if (step === 'lean') {
           // Five stops, the marker on the one picked. The track is lit in the accent from the middle out to the marker, so it
           // shows which way it leans, and the words name the stop and say what it does.
@@ -4941,13 +6452,38 @@ Saved to ${out}.md and .json` }
           for (const n of [-2, -1, 0, 1, 2]) {
             if (n > -2) {
               const lit = lean > 0 ? n > 0 && n <= lean : lean < 0 ? n <= 0 && n > lean : false
-              track.push(lit ? <Text key={`t${n}`} color={ACCENT}>──</Text> : <Text key={`t${n}`} dimColor>──</Text>)
+              track.push(
+                lit ? (
+                  <Text key={`t${n}`} color={ACCENT}>
+                    ──
+                  </Text>
+                ) : (
+                  <Text key={`t${n}`} dimColor>
+                    ──
+                  </Text>
+                ),
+              )
             }
-            track.push(<Button key={`setup-bias${n + 2}`} plain label={n === lean ? '◉' : '○'} onPress={() => setDraft('bias', String(n))} />)
+            track.push(
+              <Button
+                key={`setup-bias${n + 2}`}
+                plain
+                label={n === lean ? '◉' : '○'}
+                onPress={() => setDraft('bias', String(n))}
+              />,
+            )
           }
           const [name, does] = LEAN_STOPS[lean + 2]
           const side = (label: string, lit: boolean) =>
-            lit ? <Text key={label} color={ACCENT}>{label}</Text> : <Text key={label} dimColor>{label}</Text>
+            lit ? (
+              <Text key={label} color={ACCENT}>
+                {label}
+              </Text>
+            ) : (
+              <Text key={label} dimColor>
+                {label}
+              </Text>
+            )
           return band(
             <Box key="setup-what" flexDirection="row" flexShrink={1} minWidth={0}>
               <Text color={ACCENT} bold wrap="truncate">{`${name}: `}</Text>
@@ -4967,12 +6503,18 @@ Saved to ${out}.md and .json` }
         if (step === 'handoff') {
           const skillNames = await read($, installedSkills)
           return band('Who writes a Full ⇥ handoff?', 48, [
-            <Select key="setup-skill" value={shown.handoffSkill || '-'}
+            <Select
+              key="setup-skill"
+              value={shown.handoffSkill || '-'}
               options={[
                 { value: '-', label: 'Built in' },
-                ...[...new Set([...(shown.handoffSkill ? [shown.handoffSkill] : []), ...skillNames])].map(name => ({ value: name, label: `/${name}` })),
+                ...[...new Set([...(shown.handoffSkill ? [shown.handoffSkill] : []), ...skillNames])].map(name => ({
+                  value: name,
+                  label: `/${name}`,
+                })),
               ]}
-              onSelect={(v: string) => setDraft('handoffSkill', v === '-' ? '' : v)} />,
+              onSelect={(v: string) => setDraft('handoffSkill', v === '-' ? '' : v)}
+            />,
             ...nav(nextButton),
           ])
         }
@@ -4981,7 +6523,12 @@ Saved to ${out}.md and .json` }
           const mode = shown.appearance
           return band('Dark or light panels?', 56, [
             ...(['auto', 'dark', 'light'] as const).map(value => (
-              <Button key={`setup-look-${value}`} plain label={`${mode === value ? '◉' : '○'} ${{ auto: 'Match Claude Code', dark: 'Dark', light: 'Light' }[value]}`} onPress={() => setDraft('appearance', value)} />
+              <Button
+                key={`setup-look-${value}`}
+                plain
+                label={`${mode === value ? '◉' : '○'} ${{ auto: 'Match Claude Code', dark: 'Dark', light: 'Light' }[value]}`}
+                onPress={() => setDraft('appearance', value)}
+              />
             )),
             ...nav(nextButton),
           ])
@@ -4995,15 +6542,36 @@ Saved to ${out}.md and .json` }
       if (downReason && downReason !== (await read($, judgeDownHidden))) {
         if (e.surface === 'terminal')
           return terminalBand($, e, {
-            key: 'down', kind: 'down', color: SLATE, bg: SLATE_BG, edge: SLATE_EDGE, title: 'Judge down',
+            key: 'down',
+            kind: 'down',
+            color: SLATE,
+            bg: SLATE_BG,
+            edge: SLATE_EDGE,
+            title: 'Judge down',
             detail: `${downReason}. The effort stays as it is.`,
             buttons: [
-              <Button key="down-close" plain role="dismiss" label="✕" onPress={() => update($, judgeDownHidden, () => downReason)} />,
+              <Button
+                key="down-close"
+                plain
+                role="dismiss"
+                label="✕"
+                onPress={() => update($, judgeDownHidden, () => downReason)}
+              />,
             ],
           })
         return (
-          <Box key="down" position="relative" flexDirection="row" gap={1} alignItems="center" paddingX={1} overflow="hidden"
-            backgroundColor={SLATE_BG} borderStyle="round" borderColor={SLATE_EDGE}>
+          <Box
+            key="down"
+            position="relative"
+            flexDirection="row"
+            gap={1}
+            alignItems="center"
+            paddingX={1}
+            overflow="hidden"
+            backgroundColor={SLATE_BG}
+            borderStyle="round"
+            borderColor={SLATE_EDGE}
+          >
             <Box key="down-art" position="absolute" top={-1} right={0} bottom={-1}>
               <Svg source={DOWN_SVG} alt="judge down" width={FROST_WIDTH} height={FROST_HEIGHT} />
             </Box>
@@ -5015,8 +6583,23 @@ Saved to ${out}.md and .json` }
             </Box>
             <Text wrap="truncate">{`${downReason}. The effort stays as it is.`}</Text>
             <Box flexGrow={1} minWidth={30} />
-            <Box key="down-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={1} alignItems="center">
-              <Button key="down-close" plain role="dismiss" label="✕" onPress={() => update($, judgeDownHidden, () => downReason)} />
+            <Box
+              key="down-actions"
+              position="absolute"
+              top={0}
+              right={1}
+              bottom={0}
+              flexDirection="row"
+              gap={1}
+              alignItems="center"
+            >
+              <Button
+                key="down-close"
+                plain
+                role="dismiss"
+                label="✕"
+                onPress={() => update($, judgeDownHidden, () => downReason)}
+              />
             </Box>
           </Box>
         )
@@ -5029,17 +6612,39 @@ Saved to ${out}.md and .json` }
         const resets = resetLabel(heat.resetsAt, await $.clock.now())
         if (e.surface === 'terminal')
           return terminalBand($, e, {
-            key: 'hot', kind: 'hot', color: EMBER, bg: EMBER_BG, edge: EMBER_EDGE, title: 'Running hot',
+            key: 'hot',
+            kind: 'hot',
+            color: EMBER,
+            bg: EMBER_BG,
+            edge: EMBER_EDGE,
+            title: 'Running hot',
             detail: `${Math.round(heat.percent)}% of your ${window} limit used${resets ? ` · resets ${resets}` : ''}`,
             buttons: [
-              <Button key="hot-save" variant="primary" hotkey="s" label={saving ? 'Save mode on' : 'Save mode'}
-                onPress={async () => { $.ui.toast(`context-lens: ${await toggleSave($)}`) }} />,
+              <Button
+                key="hot-save"
+                variant="primary"
+                hotkey="s"
+                label={saving ? 'Save mode on' : 'Save mode'}
+                onPress={async () => {
+                  $.ui.toast(`context-lens: ${await toggleSave($)}`)
+                }}
+              />,
               <Button key="hot-close" plain role="dismiss" label="✕" onPress={() => closeHot($, heat)} />,
             ],
           })
         return (
-          <Box key="hot" position="relative" flexDirection="row" gap={1} alignItems="center" paddingX={1} overflow="hidden"
-            backgroundColor={EMBER_BG} borderStyle="round" borderColor={EMBER_EDGE}>
+          <Box
+            key="hot"
+            position="relative"
+            flexDirection="row"
+            gap={1}
+            alignItems="center"
+            paddingX={1}
+            overflow="hidden"
+            backgroundColor={EMBER_BG}
+            borderStyle="round"
+            borderColor={EMBER_EDGE}
+          >
             <Box key="ember" position="absolute" top={-1} right={0} bottom={-1}>
               <Svg source={EMBER_SVG} alt="embers" width={FROST_WIDTH} height={FROST_HEIGHT} />
             </Box>
@@ -5051,7 +6656,16 @@ Saved to ${out}.md and .json` }
             </Box>
             <Text wrap="truncate">{`${Math.round(heat.percent)}% of your ${window} limit used${resets ? ` · resets ${resets}` : ''}`}</Text>
             <Box flexGrow={1} minWidth={30} />
-            <Box key="hot-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={1} alignItems="center">
+            <Box
+              key="hot-actions"
+              position="absolute"
+              top={0}
+              right={1}
+              bottom={0}
+              flexDirection="row"
+              gap={1}
+              alignItems="center"
+            >
               <Button
                 key="hot-save"
                 variant="primary"
@@ -5076,8 +6690,15 @@ Saved to ${out}.md and .json` }
       // A handoff or compact running or just done: said above the prompt, where it is seen at once.
       const compactNow = e.surface === 'terminal' ? null : await compactCard($, !!e.props.isWorking)
       if (compactNow)
-        return handoffCardTree($, e, compactNow, undefined,
-          !cardRunning(compactNow.kind) ? () => update($, handoffCard, card => (card && !cardRunning(card.kind) ? null : card)) : undefined)
+        return handoffCardTree(
+          $,
+          e,
+          compactNow,
+          undefined,
+          !cardRunning(compactNow.kind)
+            ? () => update($, handoffCard, card => (card && !cardRunning(card.kind) ? null : card))
+            : undefined,
+        )
       // The cache went cold: the next message rereads the whole chat at full price. Only worth a band on a big chat.
       const compacting = await read($, isCompacting)
       const coldTokens = compacting ? null : await coldWorth($)
@@ -5085,12 +6706,29 @@ Saved to ${out}.md and .json` }
         const line = `Next message rereads ${kTokens(coldTokens)} tokens at full price.`
         if (e.surface === 'terminal')
           return terminalBand($, e, {
-            key: 'cold', kind: 'cold', color: ICE, bg: ICE_BG, edge: ICE_EDGE, title: 'Chat went cold',
+            key: 'cold',
+            kind: 'cold',
+            color: ICE,
+            bg: ICE_BG,
+            edge: ICE_EDGE,
+            title: 'Chat went cold',
             detail: `${line} Hand off or compact first.`,
             buttons: [
-              <Button key="cold-hide" plain hotkey="n" label="Not now" onPress={() => update($, isColdHidden, () => true)} />,
+              <Button
+                key="cold-hide"
+                plain
+                hotkey="n"
+                label="Not now"
+                onPress={() => update($, isColdHidden, () => true)}
+              />,
               <Button key="cold-compact" hotkey="c" label="Compact" onPress={() => openCompact($, e)} />,
-              <Button key="cold-handoff" variant="primary" hotkey="h" label="Handoff" onPress={() => openHandoffBar($)} />,
+              <Button
+                key="cold-handoff"
+                variant="primary"
+                hotkey="h"
+                label="Handoff"
+                onPress={() => openHandoffBar($)}
+              />,
             ],
           })
         // The art is a backdrop: an absolutely placed layer behind the right side, so the words and buttons sit on it.
@@ -5112,7 +6750,12 @@ Saved to ${out}.md and .json` }
               <Svg source={FROST_SVG} alt="frost" width={FROST_WIDTH} height={FROST_HEIGHT} />
             </Box>
             <Box key="cold-glow" position="absolute" top={0} left={0} right={0} bottom={0}>
-              <Svg source={inPhase(coldGlowSvg(), (await $.clock.now()) % COLD_GLOW_MS)} alt="cold glow" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
+              <Svg
+                source={inPhase(coldGlowSvg(), (await $.clock.now()) % COLD_GLOW_MS)}
+                alt="cold glow"
+                width={AUTO_GLOW_W}
+                height={AUTO_GLOW_H}
+              />
             </Box>
             {introLayer({ Box, Svg }, 'cold', await introShows($, 'cold'), ICE, '#cfeeff')}
             <Box flexShrink={0}>
@@ -5123,7 +6766,16 @@ Saved to ${out}.md and .json` }
             <Text wrap="truncate">{line}</Text>
             {/* Room for the buttons, which sit in their own layer after the frost so they are drawn on top of it. */}
             <Box flexGrow={1} minWidth={34} />
-            <Box key="cold-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={1} alignItems="center">
+            <Box
+              key="cold-actions"
+              position="absolute"
+              top={0}
+              right={1}
+              bottom={0}
+              flexDirection="row"
+              gap={1}
+              alignItems="center"
+            >
               <Button key="cold-hide" plain label="Not now" onPress={() => update($, isColdHidden, () => true)} />
               <Button key="cold-compact" variant="secondary" label="Compact" onPress={() => openCompact($, e)} />
               <Button key="cold-handoff" variant="primary" label="Handoff" onPress={() => openHandoffBar($)} />
@@ -5134,16 +6786,37 @@ Saved to ${out}.md and .json` }
       // The context is swamped: every message re-reads all of it. Compact or hand off, right here.
       const swampTokens = await read($, swamped)
       const hiddenAt = await read($, swampHiddenAt)
-      if (swampTokens !== null && !config.hide.includes('swamp') && !turnBusy() && !compacting && (hiddenAt === null || swampTokens >= hiddenAt + SWAMP_REGROW)) {
+      if (
+        swampTokens !== null &&
+        !config.hide.includes('swamp') &&
+        !turnBusy() &&
+        !compacting &&
+        (hiddenAt === null || swampTokens >= hiddenAt + SWAMP_REGROW)
+      ) {
         const handing = (await read($, handoffStage)) !== null
         if (e.surface === 'terminal')
           return terminalBand($, e, {
-            key: 'swamp', kind: 'swamp', color: BOG, bg: BOG_BG, edge: BOG_EDGE, title: 'Chat is getting swamped',
+            key: 'swamp',
+            kind: 'swamp',
+            color: BOG,
+            bg: BOG_BG,
+            edge: BOG_EDGE,
+            title: 'Chat is getting swamped',
             detail: `${Math.round(swampTokens / 1000)}k tokens${lastContext && lastContext.window ? ` (${Math.round(lastContext.percent)}% of context)` : ''} re-read every message.`,
             buttons: [
               <Button key="swamp-compact" variant="primary" label="Compact" onPress={() => openCompact($, e)} />,
-              <Button key="swamp-handoff" label={handing ? 'Handing off…' : 'Handoff'} onPress={() => openHandoffBar($)} />,
-              <Button key="swamp-close" plain role="dismiss" label="✕" onPress={() => update($, swampHiddenAt, () => swampTokens)} />,
+              <Button
+                key="swamp-handoff"
+                label={handing ? 'Handing off…' : 'Handoff'}
+                onPress={() => openHandoffBar($)}
+              />,
+              <Button
+                key="swamp-close"
+                plain
+                role="dismiss"
+                label="✕"
+                onPress={() => update($, swampHiddenAt, () => swampTokens)}
+              />,
             ],
           })
         return (
@@ -5171,18 +6844,40 @@ Saved to ${out}.md and .json` }
             {/* How full the context is, as a ring and a figure: the tokens alone do not say how close the limit is. */}
             {lastContext && lastContext.window ? (
               <Box key="swamp-ring" flexShrink={0} flexDirection="row" gap={1} alignItems="center">
-                <Svg source={ringSvg(lastContext.percent, BOG)} alt={`${Math.round(lastContext.percent)}% of context`} width={16} height={16} />
+                <Svg
+                  source={ringSvg(lastContext.percent, BOG)}
+                  alt={`${Math.round(lastContext.percent)}% of context`}
+                  width={16}
+                  height={16}
+                />
                 <Text color={BOG}>{`${Math.round(lastContext.percent)}%`}</Text>
               </Box>
             ) : null}
-            <Text wrap="truncate">
-              {`${Math.round(swampTokens / 1000)}k tokens re-read every message.`}
-            </Text>
+            <Text wrap="truncate">{`${Math.round(swampTokens / 1000)}k tokens re-read every message.`}</Text>
             <Box flexGrow={1} minWidth={34} />
-            <Box key="swamp-actions" position="absolute" top={0} right={1} bottom={0} flexDirection="row" gap={1} alignItems="center">
+            <Box
+              key="swamp-actions"
+              position="absolute"
+              top={0}
+              right={1}
+              bottom={0}
+              flexDirection="row"
+              gap={1}
+              alignItems="center"
+            >
               <Button key="swamp-compact" variant="primary" label="Compact" onPress={() => openCompact($, e)} />
-              <Button key="swamp-handoff" label={handing ? 'Handing off…' : 'Handoff'} onPress={() => openHandoffBar($)} />
-              <Button key="swamp-close" plain role="dismiss" label="✕" onPress={() => update($, swampHiddenAt, () => swampTokens)} />
+              <Button
+                key="swamp-handoff"
+                label={handing ? 'Handing off…' : 'Handoff'}
+                onPress={() => openHandoffBar($)}
+              />
+              <Button
+                key="swamp-close"
+                plain
+                role="dismiss"
+                label="✕"
+                onPress={() => update($, swampHiddenAt, () => swampTokens)}
+              />
             </Box>
           </Box>
         )
@@ -5192,14 +6887,20 @@ Saved to ${out}.md and .json` }
         if (e.surface === 'terminal') return dashboardBand($, e)
         const { question } = await effortRows($, e)
         const dash = await dashboardBand($, e)
-        const lensBelow = await lensRow($, e, typeof e.props.bodyColumns === 'number' ? e.props.bodyColumns : 100).catch(() => null)
+        const lensBelow = await lensRow(
+          $,
+          e,
+          typeof e.props.bodyColumns === 'number' ? e.props.bodyColumns : 100,
+        ).catch(() => null)
         return question || lensBelow ? (
           <Box key="dash-col" flexDirection="column">
             {question}
             {dash}
             {lensBelow}
           </Box>
-        ) : dash
+        ) : (
+          dash
+        )
       }
       // The minimal look draws no dashboard: mark the rest here, so the next band plays its entrance.
       introKind = 'rest'

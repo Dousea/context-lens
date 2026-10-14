@@ -1,0 +1,4 @@
+.claude-plugin/
+.claude/
+bench/results/
+node_modules/
