@@ -32,6 +32,9 @@ export type Pick = {
   handoff?: string
 }
 
+/** The running-hot band closed with its cross: which window, and how full it was. */
+export type HotClosed = { window: string; percent: number }
+
 /** What follows a handoff: clear and carry on, clear and wait, or keep the chat and copy it. */
 export type HandoffAfter = 'continue' | 'confirm' | 'copy'
 
@@ -45,7 +48,7 @@ export type SettingsDraft = {
   ceiling?: string
   handoffAfter?: string
   handoffSkill?: string
-  /** Comma-separated parts switched off: handoff, cold, swamp, hot, down. */
+  /** Comma-separated parts switched off: handoff, timer, reason, swamp, hot, cold. */
   hide?: string
   swampAt?: string
   /** default (dashboard band) or minimal (footer buttons). */
@@ -155,8 +158,8 @@ declare module 'claude-code' {
       installedSkills: string[]
       /** The fullest usage window once past 80%, or null. */
       hot: { kind: string; percent: number; resetsAt: string | null } | null
-      /** Percent at which the running-hot band was closed. */
-      hotHidden: number | null
+      /** The window and percent the running-hot band was closed at, or null. */
+      hotHidden: HotClosed | null
       /** Save mode until this time (ms), or null. */
       saveUntil: number | null
       /** Context tokens read per request once the chat is swamped, else null. */
@@ -176,7 +179,7 @@ declare module 'claude-code' {
       /** What each reply's footer says (the effort and model it ran on, what it cost in weighted tokens), by the reply's duration in ms. */
       turnLines: Record<string, { effort?: Effort; model?: ModelKey; cost?: number }>
       /** The handoff card under the newest reply, from the start of a handoff until the reply after it lands. */
-      handoffCard: { kind: 'writing' | 'done' | 'copied'; full: boolean; at: number; seen: boolean } | null
+      handoffCard: { kind: 'writing' | 'done' | 'copied' | 'compacting' | 'compacted'; full: boolean; at: number; seen: boolean } | null
       /** The setup guide's step, or null when it is closed. */
       setupStep: 'lean' | 'handoff' | 'look' | 'done' | null
       /** Choices made in the setup guide, saved together at Done or the cross. */

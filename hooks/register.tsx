@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, ModelForkResult, ModelUsage, Register, RenderInput } from 'claude-code'
 
-import type { AgentCache, CacheTtl, Effort, HandoffAfter, HandoffChoice, ModelKey, Pick, SettingsDraft, Spent } from '../types'
+import type { AgentCache, CacheTtl, Effort, HandoffAfter, HandoffChoice, HotClosed, ModelKey, Pick, SettingsDraft, Spent } from '../types'
 import { ART_COLUMNS, ART_FRAME_MS, ART_MIN_WIDTH, ART_ROWS, type ArtKind, artFrame, MOVING } from './art'
 import { MARK_SVG } from './brand-mark'
 import {
@@ -95,7 +95,7 @@ const EFFORT_LABELS: Record<Effort, string> = { low: 'Low', medium: 'Medium', hi
 // Auto is two switches. `isAuto` is effort (the name stays: it is what the store and state hold);
 // `isAutoModel` lets the judge suggest another model and starts off.
 const isAuto = atom({ plugin: 'context-lens', key: 'isAuto' } as const, true)
-const EMPTY_SPENT: Spent = { prompts: 0, requests: 0, input: 0, write: 0, writeHour: 0, read: 0, out: 0, byEffort: {}, judge: { haiku: 0, ms: 0, tokens: 0 } }
+const EMPTY_SPENT: Spent = { prompts: 0, requests: 0, input: 0, write: 0, writeHour: 0, read: 0, out: 0, byEffort: {}, judge: { haiku: 0, ms: 0, tokens: 0 }, helpers: { runs: {}, requests: 0, cost: 0 } }
 const SWITCHED_MS = 2500
 // The prompt cache lives this long after the last request read or wrote it. A response may say which lifetime its
 // cache writes got (usage.cache_creation: ephemeral_1h / ephemeral_5m); until one does, 1 hour is assumed: 99% of
@@ -1264,8 +1264,7 @@ const HOT_PERCENT = 80
 // Closed, the running-hot band stays away for the rest of its window, and comes back once at this many percent.
 export const HOT_FINAL = 95
 
-/** The running-hot band closed with its cross: the window (kind and reset time) and how full it was then. */
-export type HotClosed = { window: string; percent: number }
+/** The usage window as the closed band records it: its kind and reset time. */
 const hotWindow = (heat: { kind: string; resetsAt: string | null }) =>
   // To the quarter hour: the reset time the app reports can shift by seconds between checks.
   `${heat.kind} ${heat.resetsAt ? Math.round(new Date(heat.resetsAt).getTime() / 900_000) : ''}`
