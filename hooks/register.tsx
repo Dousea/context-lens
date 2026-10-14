@@ -2473,19 +2473,26 @@ function handoffCardTree($: EngineInterface, e: RenderInput<'AssistantMessage'> 
   )
 }
 
-/** This install's version, read from its plugin.json at session start. */
+/** This install's version, read from its plugin.json when the timers start. */
 let ownVersion = ''
+function readOwnVersion($: EngineInterface) {
+  void $.fs.read(`${$.plugin.root}/.claude-plugin/plugin.json`).then(text => { ownVersion = String(JSON.parse(String(text)).version ?? '') }).catch(() => undefined)
+}
 
-/** The session's timers. A reload starts the module over, maybe with no session start (the countdown froze on "Cold"),
- * so the band's first draw starts them too. A session start always starts them: a timer started inside a request may
- * end with it. */
+/** The session's timers. A reload loads the module again with no session start, so the band's first draw starts them
+ * too; a session start restarts them, cancelling the ones the draw started. */
 let timersFrom: 'start' | 'draw' | null = null
+let tickers: { cancel: () => void }[] = []
 function startTimers($: EngineInterface, from: 'start' | 'draw') {
   if (timersFrom === 'start' || (timersFrom === 'draw' && from === 'draw')) return
   timersFrom = from
-  // The cache countdown's clock. A timer started inside a request ends with that request, so it lives here.
-  $.clock.every(CACHE_TICK_MS, () => void showCache($).catch(() => undefined))
-  $.clock.every(CACHE_TICK_MS, () => void checkSwamp($).catch(() => undefined))
+  // A timer started inside a request ends with that request, so the clocks live here.
+  tickers.forEach(ticker => ticker.cancel())
+  tickers = [
+    $.clock.every(CACHE_TICK_MS, () => void showCache($).catch(() => undefined)),
+    $.clock.every(CACHE_TICK_MS, () => void checkSwamp($).catch(() => undefined)),
+    $.clock.every(LENS_TICK_MS, () => void lensTick($).catch(() => undefined)),
+  ]
   // Read the usage at once too, so the context ring is there from the start rather than a tick later.
   void checkSwamp($).then(() => $.ui.invalidate('ui.render')).catch(() => undefined)
   // A written handoff is cleared and resent from here: a hook the turn waits on may not run commands.
@@ -3417,12 +3424,11 @@ async function lensTick($: EngineInterface): Promise<void> {
   await update($, lensNow, () => at)
 }
 
-/** The session started: the clock that redraws the countdown, and the first read of the usage. Called from the
- * dashboard's own session.start hook: one plugin may hook an event once. */
+/** The session started: the first read of the usage. Called from the dashboard's own session.start hook: one plugin
+ * may hook an event once. */
 async function lensStarted($: EngineInterface): Promise<void> {
   const at = await $.clock.now()
   await update($, lensNow, () => at)
-  $.clock.every(LENS_TICK_MS, () => void lensTick($).catch(() => undefined))
   void refreshUsage($).catch(() => undefined)
 }
 
@@ -3535,6 +3541,7 @@ export const register: Register = (on, options) => {
     return next(e)
   })
   loadedAt = Date.now()
+  timersFrom = null
   firstDrawLogged = false
   drawsTimed = 0
   config = readConfig(options)
@@ -3598,7 +3605,7 @@ export const register: Register = (on, options) => {
     // The command file lists /context-lens before the session starts; registering it here makes plain /context-lens the
     // mod's own command afterwards, instead of the file run as a skill.
     void $.command.register({ name: 'context-lens', description: 'context-lens: settings, debug, handoff, setup, bench, auto, stats.' }).catch(() => undefined)
-    void $.fs.read(`${$.plugin.root}/.claude-plugin/plugin.json`).then(t => { ownVersion = String(JSON.parse(String(t)).version ?? '') }).catch(() => undefined)
+    readOwnVersion($)
     void drainSetupSave($).catch(() => undefined)
     startTimers($, 'start')
     // Clear the status entry older versions set.
@@ -4200,6 +4207,12 @@ Saved to ${out}.md and .json` }
     await restoreCache($).catch(() => undefined)
     renderCalls++
     lastRenderAt = Date.now()
+    // A timer start is no state write, but the checks it starts are: a timer runs them once the draw is over.
+    if (timersFrom === null)
+      $.clock.after(0, () => {
+        readOwnVersion($)
+        startTimers($, 'draw')
+      })
     void refreshAppearance($).catch(() => undefined)
     lastRenderProps = JSON.stringify(e.props).slice(0, 200)
     renderLog.push(`${new Date(lastRenderAt).toISOString()} ${loadedSession} ${lastRenderProps}`)

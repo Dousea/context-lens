@@ -2122,6 +2122,18 @@ describe('swamp band and setup entry', () => {
     await band.unmount()
   })
 
+  test('a reload with no session start still runs the timers: the first draw starts them', { options: { swampAt: '20' } } as never, async ($, on) => {
+    engine(on)
+    const mocked = mock.clock(on)
+    on('session.usage', () => ({ value: { context: { tokens: 208_000, window: 1_000_000, percent: 21 } } }) as never)
+    const first = await $.ui.mount({ plugin: 'context-lens', surface: 'terminal', ...BAND })
+    await mocked.advance(16_000)
+    await first.unmount()
+    const band = await $.ui.mount(DESK_BAND)
+    expect(await drawn(band)).toContain('Chat is getting swamped')
+    await band.unmount()
+  })
+
   test('a swamped context shows Compact and Handoff above the prompt; closing hides it until the context grows', async ($, on) => {
     engine(on)
     const mocked = mock.clock(on)
