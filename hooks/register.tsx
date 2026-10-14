@@ -2096,7 +2096,7 @@ async function snap($: EngineInterface) {
 type Snap = Awaited<ReturnType<typeof snap>>
 
 /** The hover cards' text: what Auto did and why, and what the cache countdown means with the context it guards. */
-function hoverTips(v: Snap): { effort: string; cache: string } {
+export function hoverTips(v: Snap): { effort: string; cache: string } {
   const effortTip = !v.auto
     ? 'Auto is off: the effort stays as you set it. The power button turns Auto on.'
     : v.pausedNow
@@ -2110,11 +2110,13 @@ function hoverTips(v: Snap): { effort: string; cache: string } {
         ]
           .filter(Boolean)
           .join(' · ')
-  const ctx = lastContext && lastContext.window ? ` · Context ${lastContext.percent}% · ${kTokens(lastContext.tokens)}/${kTokens(lastContext.window)}` : ''
+  const ctx = lastContext && lastContext.window ? ` · Context ${Math.round(lastContext.percent)}% · ${kTokens(lastContext.tokens)}/${kTokens(lastContext.window)}` : ''
   const cacheTip =
-    v.cacheNow === 0
-      ? `Prompt cache cold: the next message reads the whole chat again at full price. Compact first to save.${ctx}`
-      : `Prompt cache warm for ${cacheLabel(v.cacheNow ?? 0)} more: the next message reads the chat from cache, cheap and fast.${ctx}`
+    v.cacheNow === null
+      ? `No prompt cache yet: the first message writes it.${ctx}`
+      : v.cacheNow === 0
+        ? `Prompt cache cold: the next message reads the whole chat again at full price. Compact first to save.${ctx}`
+        : `Prompt cache warm for ${cacheLabel(v.cacheNow)} more: the next message reads the chat from cache, cheap and fast.${ctx}`
   return { effort: effortTip, cache: cacheTip }
 }
 
@@ -4952,7 +4954,7 @@ Saved to ${out}.md and .json` }
       if (e.surface === 'terminal')
         return terminalBand($, e, {
           key: 'swamp', kind: 'swamp', color: BOG, bg: BOG_BG, edge: BOG_EDGE, title: 'Chat is getting swamped',
-          detail: `${Math.round(swampTokens / 1000)}k tokens${lastContext && lastContext.window ? ` (${lastContext.percent}% of context)` : ''} re-read every message.`,
+          detail: `${Math.round(swampTokens / 1000)}k tokens${lastContext && lastContext.window ? ` (${Math.round(lastContext.percent)}% of context)` : ''} re-read every message.`,
           buttons: [
             <Button key="swamp-compact" variant="primary" label="Compact" onPress={() => openCompact($, e)} />,
             <Button key="swamp-handoff" label={handing ? 'Handing off…' : 'Handoff'} onPress={() => openHandoffBar($)} />,
@@ -4984,8 +4986,8 @@ Saved to ${out}.md and .json` }
           {/* How full the context is, as a ring and a figure: the tokens alone do not say how close the limit is. */}
           {lastContext && lastContext.window ? (
             <Box key="swamp-ring" flexShrink={0} flexDirection="row" gap={1} alignItems="center">
-              <Svg source={ringSvg(lastContext.percent, BOG)} alt={`${lastContext.percent}% of context`} width={16} height={16} />
-              <Text color={BOG}>{`${lastContext.percent}%`}</Text>
+              <Svg source={ringSvg(lastContext.percent, BOG)} alt={`${Math.round(lastContext.percent)}% of context`} width={16} height={16} />
+              <Text color={BOG}>{`${Math.round(lastContext.percent)}%`}</Text>
             </Box>
           ) : null}
           <Text wrap="truncate">

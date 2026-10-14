@@ -1,7 +1,7 @@
 import { describe, expect, mock, test as baseTest } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
-import { helperFloor, helperModelFor, switchWorth, helperNote, priceOf, namedEffort, hotVisible, tipped, bounded, handoffEvidence, parseHandoffAnswer, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, bandFit, turnLineFor, flashColor, handoffGlowStep, weighted, handoffLook, claudeCandidates, noClaudeHint, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
+import { helperFloor, helperModelFor, switchWorth, helperNote, priceOf, namedEffort, hotVisible, tipped, bounded, handoffEvidence, parseHandoffAnswer, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, asSpent, cacheColor, cacheLabel, hoverTips, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, bandFit, turnLineFor, flashColor, handoffGlowStep, weighted, handoffLook, claudeCandidates, noClaudeHint, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
 import { ART_COLUMNS, artFrame, artPixel, MOVING } from '../hooks/art'
 import { isLight, lightHex, lightProps, setLight, setTheme, themedEls, themedSvg, tint, tintHex } from '../hooks/theme'
 import { afterPrompt, currentStep, phaseAtTurnEnd, progressShare, progressShows, progressTitle, soundArgv, stepNumber, stepsFromTodos, withTaskCreated, withTaskUpdated } from '../hooks/progress'
@@ -959,6 +959,14 @@ describe('cache countdown', () => {
     await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
   }
   const shows = (text: string) => `"children":["${text}"]`
+
+  test('the cache hover tip says there is no cache yet, not that it is cold, before the first reply', () => {
+    const before = { auto: true, current: null, pausedNow: false, modelNow: 'sonnet', shownByApp: null, cacheNow: null } as never
+    expect(hoverTips(before).cache).toContain('No prompt cache yet')
+    expect(hoverTips(before).cache).not.toContain('Cold')
+    expect(hoverTips({ ...(before as object), cacheNow: 0 } as never).cache).toContain('cold')
+    expect(hoverTips({ ...(before as object), cacheNow: 42 } as never).cache).toContain(`warm for ${cacheLabel(42)} more`)
+  })
 
   test('cacheTtlOf and cacheLabel', () => {
     expect(cacheTtlOf({ cache_creation: { ephemeral_1h_input_tokens: 900, ephemeral_5m_input_tokens: 0 } })).toBe('1h')
@@ -2131,6 +2139,21 @@ describe('swamp band and setup entry', () => {
     await first.unmount()
     const band = await $.ui.mount(DESK_BAND)
     expect(await drawn(band)).toContain('Chat is getting swamped')
+    await band.unmount()
+  })
+
+  test('the swamp band shows the context percent rounded when the app leaves it out', { options: { swampAt: '20' } } as never, async ($, on) => {
+    engine(on)
+    const mocked = mock.clock(on)
+    on('session.usage', () => ({ value: { context: { tokens: 208_000, window: 1_000_000 } } }) as never)
+    await start($, on)
+    const guide = await $.ui.mount(DESK_BAND)
+    await guide.press({ key: 'setup-close' })
+    await guide.unmount()
+    await mocked.advance(16_000)
+    const band = await $.ui.mount(DESK_BAND)
+    expect(await drawn(band)).toContain('21% of context')
+    expect(await drawn(band)).not.toContain('20.8')
     await band.unmount()
   })
 
