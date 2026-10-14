@@ -2,3 +2,4 @@
 node_modules/
 *.log
 .jev-runs/
+.claude/worktrees/
