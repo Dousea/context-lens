@@ -862,6 +862,7 @@ describe('footer text', () => {
     for (let i = 0; i < 5; i++) await rows.redraw()
     const ask = await $.ui.mount(DESK_BAND)
     expect(await ask.find({ key: 'accept' })).toBeDefined()
+    expect((await ask.find({ key: 'accept' }))?.props.hotkey).toBeUndefined()
     await rows.press({ key: 'decline' })
     await ask.unmount()
     await rows.unmount()
@@ -1203,13 +1204,31 @@ describe('footer', () => {
     const sending = $.prompt.submit({ text: 'hej', wait: false, origin: { kind: 'composer' } })
     for (let i = 0; i < 5; i++) await ui.redraw()
     expect(ran.some(c => c.startsWith('/model'))).toBe(false)
-    expect(await ui.find({ key: 'accept' })).toBeDefined()
+    expect((await ui.find({ key: 'accept' }))?.props).toMatchObject({ hotkey: '1' })
+    expect((await ui.find({ key: 'decline' }))?.props).toMatchObject({ hotkey: '2' })
 
     await ui.press({ key: 'accept' })
     await sending
     expect(ran).toEqual([])
     await step($)
     expect(sent[0].model).toBe('claude-haiku-5-5')
+    await ui.unmount()
+  })
+
+  test('an offer that holds no prompt takes no digit: a 1 typed in the composer stays the next message', async ($, on) => {
+    engine(on)
+    judgeSays(on, '{"model":"haiku","effort":"low","why":"simple"}')
+    mock.clock(on)
+    const ui = await $.ui.mount({ plugin: 'context-lens', surface: 'terminal', ...BAND })
+    await ui.press({ key: 'auto-model' })
+
+    // A report nobody typed is offered the model too, but it does not wait for the answer.
+    await $.prompt.submit({ text: 'The background task finished.', wait: false, origin: { kind: 'task-notification' } })
+    for (let i = 0; i < 5; i++) await ui.redraw()
+
+    expect(await ui.find({ key: 'accept' })).toBeDefined()
+    expect((await ui.find({ key: 'accept' }))?.props.hotkey).toBeUndefined()
+    expect((await ui.find({ key: 'decline' }))?.props.hotkey).toBeUndefined()
     await ui.unmount()
   })
 

@@ -3083,6 +3083,10 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>, opt
     settleOffer(false)
   }
 
+  // A bare digit in an empty composer presses a band Button, so a held prompt is answered with 1 or 2 without focusing
+  // the band. Only while it waits: otherwise a 1 typed to start a message would switch the model.
+  const offerKeys = offer && e.surface === 'terminal'
+
   const question = wanted ? (
     <Box flexDirection="column">
       <Box flexDirection="row" gap={1} alignItems="center">
@@ -3090,8 +3094,14 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>, opt
           {suggestedAs === 'helper' ? `Hand this to a ${MODELS.find(m => m.key === wanted)?.label} helper?` : `Switch to ${MODELS.find(m => m.key === wanted)?.label}?`}{' '}
           {offer ? 'Your prompt waits.' : 'The context reloads.'}
         </Text>
-        <Button key="accept" variant="primary" label={suggestedAs === 'helper' ? 'Hand off' : 'Switch'} onPress={acceptSuggestion(wanted)} />
-        <Button key="decline" label="Keep" onPress={dismiss} />
+        <Button
+          key="accept"
+          variant="primary"
+          hotkey={offerKeys ? '1' : undefined}
+          label={suggestedAs === 'helper' ? 'Hand off' : 'Switch'}
+          onPress={acceptSuggestion(wanted)}
+        />
+        <Button key="decline" hotkey={offerKeys ? '2' : undefined} label="Keep" onPress={dismiss} />
       </Box>
     </Box>
   ) : null
