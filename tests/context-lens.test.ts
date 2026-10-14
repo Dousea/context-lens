@@ -1,7 +1,7 @@
 import { describe, expect, mock, test as baseTest } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
-import { subagentFloor, subagentModelFor, switchWorth, subagentNote, priceOf, namedEffort, hotVisible, tipped, bounded, handoffEvidence, parseHandoffAnswer, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, asSpent, cacheColor, cacheLabel, hoverTips, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, appHintText, renamedSettings, bandFit, turnLineFor, flashColor, handoffGlowStep, weighted, handoffLook, claudeCandidates, noClaudeHint, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
+import { subagentFloor, subagentModelFor, switchWorth, subagentNote, priceOf, namedEffort, hotVisible, tipped, bounded, handoffEvidence, parseHandoffAnswer, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, asSpent, cacheColor, cacheLabel, hoverTips, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, appHintText, renamedSettings, subagentSteerable, bandFit, turnLineFor, flashColor, handoffGlowStep, weighted, handoffLook, claudeCandidates, noClaudeHint, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
 import { ART_COLUMNS, artFrame, artPixel, MOVING } from '../hooks/art'
 import { isLight, lightHex, lightProps, setLight, setTheme, themedEls, themedSvg, tint, tintHex } from '../hooks/theme'
 import { thinkingSvg } from '../hooks/thinking'
@@ -3713,6 +3713,82 @@ describe('subagent effort', () => {
     const sent = await subagentRun($, on, '{"model":"haiku","effort":"low","sure":0.9,"why":"quick search"}', 'claude-opus-5-5')
     expect(sent[0].model).toBe('claude-opus-5-5')
     expect(sent[0].effort).toBe('medium')
+  })
+
+  test('subagentSteerable: what a subagent inherits may change; its definition only with Override on; its call never', () => {
+    const chat = { model: 'opus' as const, effort: 'medium' }
+    // Inherited: the parent's model and the chat's effort.
+    expect(subagentSteerable({ model: 'opus', effort: 'medium' }, chat, undefined, false)).toEqual({ model: true, effort: true })
+    // Set by its definition: kept, unless Override definitions is on.
+    expect(subagentSteerable({ model: 'sonnet', effort: 'high' }, chat, undefined, false)).toEqual({ model: false, effort: false })
+    expect(subagentSteerable({ model: 'sonnet', effort: 'high' }, chat, undefined, true)).toEqual({ model: true, effort: true })
+    // Named by its Agent call: kept even then.
+    expect(subagentSteerable({ model: 'sonnet', effort: 'high' }, chat, { model: true, effort: true }, true)).toEqual({ model: false, effort: false })
+    // The chat's effort not seen yet: taken as inherited.
+    expect(subagentSteerable({ model: 'opus', effort: 'high' }, { model: 'opus' }, undefined, false)).toEqual({ model: true, effort: true })
+  })
+
+  // A main request first, so the chat's own effort is known; then a subagent's first request as its definition sets it.
+  const definedRun = async ($: Engine, on: On, request: { model: string; effort: string }, spawn: Record<string, unknown> = {}, call?: Record<string, unknown>) => {
+    judgeSays(on, '{"model":"haiku","effort":"low","sure":0.9,"why":"quick search"}')
+    on('agent.spawn', () => ({ agentId: 'd1', model: request.model }) as never)
+    on('turn.complete', () => ({ text: '' }))
+    const sent = recordSteps(on)
+    if (call) on('tool.call', () => ({ result: {} }) as never)
+    await start($, on)
+    for await (const _ of $.turn.step({ turnId: 't0', index: 0, model: 'claude-opus-5-5', effort: 'medium', messageCount: 1 } as never)) {
+      // drain
+    }
+    if (call) await $.tool.call({ tool: 'Agent', description: 'review', prompt: 'review the diff', ...call } as never)
+    await $.agent.spawn({ prompt: 'review the diff', description: 'review', subagentType: 'reviewer', parentModel: 'claude-opus-5-5', ...spawn } as never)
+    for await (const _ of $.turn.step({ turnId: 't1', index: 0, ...request, messageCount: 1, agentId: 'd1' } as never)) {
+      // drain
+    }
+    return sent.slice(1)
+  }
+  const ALL_ON = { subagents: 'on', subagentModel: 'on' }
+
+  test("a subagent keeps the model and effort its definition sets", { options: ALL_ON } as never, async ($, on) => {
+    const sent = await definedRun($, on, { model: 'claude-sonnet-5-5', effort: 'high' })
+    expect(sent[0]).toEqual({ model: 'claude-sonnet-5-5', effort: 'high' })
+  })
+
+  test("with Override definitions on, the judge's picks replace a definition's model and effort", { options: { ...ALL_ON, overrideDefinitions: 'on' } } as never, async ($, on) => {
+    const sent = await definedRun($, on, { model: 'claude-sonnet-5-5', effort: 'high' })
+    expect(sent[0]).toEqual({ model: 'claude-haiku-5-5', effort: 'medium' })
+  })
+
+  test("a subagent that inherits the chat's model and effort is still steered", { options: ALL_ON } as never, async ($, on) => {
+    const sent = await definedRun($, on, { model: 'claude-opus-5-5', effort: 'medium' })
+    expect(sent[0]).toEqual({ model: 'claude-haiku-5-5', effort: 'medium' })
+  })
+
+  test("a model the Agent call names stays, even with Override definitions on", { options: { ...ALL_ON, overrideDefinitions: 'on' } } as never, async ($, on) => {
+    const sent = await definedRun($, on, { model: 'claude-sonnet-5-5', effort: 'medium' }, { model: 'sonnet' })
+    expect(sent[0]).toEqual({ model: 'claude-sonnet-5-5', effort: 'medium' })
+  })
+
+  test("an effort the Agent call names stays, even with Override definitions on", { options: { ...ALL_ON, overrideDefinitions: 'on' } } as never, async ($, on) => {
+    const sent = await definedRun($, on, { model: 'claude-opus-5-5', effort: 'high' }, { tool_use_id: 'tu1' }, { tool_use_id: 'tu1', effort: 'high' })
+    // The model is inherited and may change; the effort the call named goes out as it is.
+    expect(sent[0]).toEqual({ model: 'claude-haiku-5-5', effort: 'high' })
+  })
+
+  test("with Subagents off, a subagent of a judged turn keeps the effort its definition sets", async ($, on) => {
+    engine(on)
+    on('model.complete', () => ({ value: { isAnswered: true as const, text: '{"model":"opus","effort":"xhigh","why":"hard"}', usage: USAGE } }))
+    on('agent.spawn', () => ({ agentId: 'd2', model: 'claude-opus-5-5' }) as never)
+    const sent = recordSteps(on)
+    await $.prompt.submit({ text: 'find why the relay drops messages', wait: false, origin: { kind: 'composer' } })
+    for await (const _ of $.turn.step({ turnId: 't0', index: 0, model: 'claude-opus-5-5', effort: 'medium', messageCount: 1 } as never)) {
+      // drain
+    }
+    await $.agent.spawn({ prompt: 'read relay/worker.js', description: 'read relay', subagentType: 'scout', parentModel: 'claude-opus-5-5' } as never)
+    for await (const _ of $.turn.step({ turnId: 't0', index: 0, model: 'claude-opus-5-5', effort: 'low', messageCount: 1, agentId: 'd2' } as never)) {
+      // drain
+    }
+    // The main request runs at the turn's xhigh; the subagent keeps the low its definition set.
+    expect(sent.map(s => s.effort)).toEqual(['xhigh', 'low'])
   })
 
   test('subagentModelFor: only cheaper than the given model, never Fable', () => {

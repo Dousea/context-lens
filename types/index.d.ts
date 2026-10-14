@@ -61,6 +61,8 @@ export type SettingsDraft = {
   subagents?: string
   /** on (with subagents on): a subagent the judge calls simple runs on a cheaper model than it was given; off: it keeps its own. */
   subagentModel?: string
+  /** on: the judge's picks replace the model and effort a subagent's definition sets; off: the definition's stay. */
+  overrideDefinitions?: string
   /** violet (the brand), orange (Claude's) or rose (cherry blossom). */
   theme?: string
   appearance?: string

@@ -72,7 +72,7 @@
     "subagents": {
       "type": "string",
       "title": "Effort for subagents",
-      "description": "on: every subagent the chat sends off gets an effort picked by the judge before it starts, so a quick search runs at low instead of the chat's effort. off (default): subagents run at the chat's effort.",
+      "description": "on: every subagent the chat sends off gets an effort picked by the judge before it starts, so a quick search runs at low instead of the chat's effort. off (default): subagents run at the chat's effort. Either way a subagent keeps an effort its definition or its Agent call sets, unless Override definitions is on (an Agent call's own always stays).",
       "default": "off",
       "options": [
         "on",
@@ -82,7 +82,17 @@
     "subagentModel": {
       "type": "string",
       "title": "Cheaper model for subagents",
-      "description": "on (needs Effort for subagents on): a subagent the judge is sure is simple runs on a cheaper model than the one it was given (never a dearer one, never Fable). A subagent starts with a small context and a cache of its own, so the switch costs next to nothing there. off (default): a subagent keeps the model it was given.",
+      "description": "on (needs Effort for subagents on): a subagent the judge is sure is simple runs on a cheaper model than the one it was given (never a dearer one, never Fable). A subagent starts with a small context and a cache of its own, so the switch costs next to nothing there. off (default): a subagent keeps the model it was given. A model its definition or its Agent call sets is kept, unless Override definitions is on (an Agent call's own always stays).",
+      "default": "off",
+      "options": [
+        "on",
+        "off"
+      ]
+    },
+    "overrideDefinitions": {
+      "type": "string",
+      "title": "Override definitions",
+      "description": "off (default): a subagent keeps the model and effort its definition's frontmatter sets, and context-lens steers only what it inherits. on: the judge's picks replace a definition's model and effort too. A model or effort the Agent call names itself is never replaced.",
       "default": "off",
       "options": [
         "on",

@@ -553,6 +553,8 @@ export type JudgeConfig = {
   subagents: 'on' | 'off'
   /** on (with subagents on): the judge also picks the model of each subagent, never above the one it was given. */
   subagentModel: 'on' | 'off'
+  /** on: the judge's picks replace the model and effort a subagent's definition sets. off: the definition's stay. */
+  overrideDefinitions: 'on' | 'off'
   /** on: with Auto for model off, a typed prompt waits for the answer when the judge names another model. off: a toast. */
   holdOffer: 'on' | 'off'
   /** The accent colour of everything context-lens draws: the brand violet, Claude orange or cherry-blossom rose. */
@@ -584,6 +586,7 @@ let config: JudgeConfig = {
   handoffButton: 'advised',
   subagents: 'off',
   subagentModel: 'off',
+  overrideDefinitions: 'off',
   holdOffer: 'on',
   theme: 'violet',
   appearance: 'auto',
@@ -605,6 +608,7 @@ export function readConfig(options: unknown): JudgeConfig {
     handoffButton: str(o.handoffButton) === 'always' ? 'always' : 'advised',
     subagents: str(o.subagents) === 'on' ? 'on' : 'off',
     subagentModel: str(o.subagentModel) === 'on' ? 'on' : 'off',
+    overrideDefinitions: str(o.overrideDefinitions) === 'on' ? 'on' : 'off',
     holdOffer: str(o.holdOffer) === 'off' ? 'off' : 'on',
     theme: THEMES.find(t => t === str(o.theme)) ?? 'violet',
     appearance: (['dark', 'light'] as const).find(a => a === str(o.appearance)) ?? 'auto',
@@ -1764,6 +1768,7 @@ const SETTING_FIELDS = {
   handoffButton: 'handoffButton',
   subagents: 'subagents',
   subagentModel: 'subagentModel',
+  overrideDefinitions: 'overrideDefinitions',
   holdOffer: 'holdOffer',
   theme: 'theme',
   appearance: 'appearance',
@@ -1795,6 +1800,7 @@ async function saveSetting($: EngineInterface, field: keyof typeof SETTING_FIELD
     handoffButton: config.handoffButton,
     subagents: config.subagents,
     subagentModel: config.subagentModel,
+    overrideDefinitions: config.overrideDefinitions,
     holdOffer: config.holdOffer,
     theme: config.theme,
     appearance: config.appearance,
@@ -3284,9 +3290,15 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
 // until a request from an unknown subagent claims it through $.agent.list().
 // With Cheaper model for subagents on it also holds the model the judge named, when it was sure; the step clamps it to the model the
 // subagent was given (see subagentModelFor).
+// Every spawn also leaves what its Agent call named (a model, an effort) and its parent's model, so its requests can
+// tell what the subagent inherits from what was set for it (see subagentSteerable).
 type SubagentPick = { effort: Effort; model?: ModelKey }
-const subagentPicks = new Map<string, SubagentPick>()
-let subagentWaiting: ({ description: string; type: string; parentId?: string } & SubagentPick)[] = []
+type SpawnCall = { model: boolean; effort: boolean; parentModel?: ModelKey }
+type SubagentSpawn = { pick?: SubagentPick; call: SpawnCall }
+const subagentSpawns = new Map<string, SubagentSpawn>()
+let subagentWaiting: ({ description: string; type: string; parentId?: string } & SubagentSpawn)[] = []
+// The Agent calls that named an effort, by tool_use_id, until their spawn reads them.
+const callEfforts = new Set<string>()
 
 /** How sure the judge must be of a task to give its subagent another model: the Smarter lean's own line for a close call. */
 const SUBAGENT_MODEL_SURE = 0.65
@@ -3327,17 +3339,39 @@ async function subagentEffort($: EngineInterface, prompt: string, type: string):
 }
 
 /** The effort (and model) picked for this subagent, claiming a waiting pick the first time its id is seen. */
-async function subagentPickOf($: EngineInterface, id: string): Promise<SubagentPick | undefined> {
-  const known = subagentPicks.get(id)
+async function subagentSpawnOf($: EngineInterface, id: string): Promise<SubagentSpawn | undefined> {
+  const known = subagentSpawns.get(id)
   if (known || subagentWaiting.length === 0) return known
   const info = (await $.agent.list().catch(() => [])).find(a => a.id === id)
   if (!info) return undefined
   const match = subagentWaiting.find(w => w.description === info.description && w.type === info.type && w.parentId === info.parentId)
   if (!match) return undefined
   subagentWaiting = subagentWaiting.filter(w => w !== match)
-  const pick: SubagentPick = { effort: match.effort, ...(match.model ? { model: match.model } : {}) }
-  subagentPicks.set(id, pick)
-  return pick
+  const spawn: SubagentSpawn = { pick: match.pick, call: match.call }
+  subagentSpawns.set(id, spawn)
+  return spawn
+}
+
+const subagentPickOf = async ($: EngineInterface, id: string): Promise<SubagentPick | undefined> => (await subagentSpawnOf($, id))?.pick
+
+/**
+ * What of a subagent's request the mod may change: the model and the effort it inherits from its parent, and with
+ * Override definitions on also those its definition sets; never one its Agent call named. The definition is not
+ * readable, so a model other than the parent's or an effort other than the chat's is taken as the definition's. A
+ * definition that sets the parent's own looks inherited, which changes nothing it asked for.
+ */
+export function subagentSteerable(
+  request: { model?: ModelKey; effort?: unknown },
+  parent: { model?: ModelKey; effort?: unknown },
+  call: SpawnCall | undefined,
+  override: boolean,
+): { model: boolean; effort: boolean } {
+  const modelInherited = !parent.model || !request.model || request.model === parent.model
+  const effortInherited = typeof parent.effort !== 'string' || request.effort === parent.effort
+  return {
+    model: !call?.model && (modelInherited || override),
+    effort: !call?.effort && (effortInherited || override),
+  }
 }
 
 /** The effort picked for this subagent. */
@@ -4111,16 +4145,30 @@ Saved to ${out}.md and .json` }
         return yield* send(e)
       }
     }
+    // What of a subagent's model and effort is its to keep: what its Agent call named, and its definition's unless
+    // Override definitions is on.
+    const spawned = e.agentId === undefined ? undefined : await subagentSpawnOf($, e.agentId)
+    const steer = e.agentId === undefined
+      ? null
+      : subagentSteerable(
+          { model: keyOf(e.model), effort: e.effort },
+          { model: spawned?.call.parentModel ?? keyOf(await $.session.model()), effort: engineEffort },
+          spawned?.call,
+          config.overrideDefinitions === 'on',
+        )
+    if (steer && e.index === 0 && (!steer.model || !steer.effort))
+      void proof($, `subagent ${e.agentId} keeps its own ${[!steer.model && `model ${e.model}`, !steer.effort && `effort ${e.effort}`].filter(Boolean).join(' and ')}`)
+
     // A subagent the judge picked an effort for at its spawn runs every request at it.
-    if (e.agentId !== undefined && config.subagents === 'on' && takesEffort(e.model)) {
-      const picked = await subagentPickOf($, e.agentId)
+    if (steer && config.subagents === 'on' && takesEffort(e.model)) {
+      const picked = spawned?.pick
       // With Cheaper model for subagents on, a cheaper model than the one it was given, when the judge named one.
-      const cheaper = config.subagentModel === 'on' ? subagentModelFor(picked?.model, keyOf(e.model)) : null
-      const effort = picked?.effort
-      if (effort && (typeof e.effort === 'string' || cheaper)) {
+      const cheaper = config.subagentModel === 'on' && steer.model ? subagentModelFor(picked?.model, keyOf(e.model)) : null
+      const effort = steer.effort ? picked?.effort : undefined
+      if ((effort && typeof e.effort === 'string') || cheaper) {
         const model = cheaper ? MODELS.find(m => m.key === cheaper)!.id : e.model
-        if (e.index === 0) void proof($, `subagent ${e.agentId} request 0 (${e.model}): ${cheaper ? `model -> ${model}, ` : ''}effort ${e.effort} -> ${effort}`)
-        const result = yield* send({ ...e, model, effort })
+        if (e.index === 0) void proof($, `subagent ${e.agentId} request 0 (${e.model}): ${cheaper ? `model -> ${model}, ` : ''}effort ${e.effort} -> ${effort ?? e.effort}`)
+        const result = yield* send({ ...e, model, ...(effort ? { effort } : {}) })
         if (result.usage) await subagentTally($, result.usage).catch(() => undefined)
         return result
       }
@@ -4133,10 +4181,10 @@ Saved to ${out}.md and .json` }
     // with the app already on the effort they want, the mod would never see a change to give way to.
     if (p.by !== 'manual' && !(await read($, isAuto))) return yield* send(e)
     // A subagent of a turn Auto picked for (Subagents off, or no verdict for it) runs at that turn's effort, no extra
-    // judge call, but never below medium: a subagent's answer goes back unchecked (see subagentFloor). A subagent whose
-    // definition sets its own effort cannot be told apart from one that inherits it, so it follows the turn too.
+    // judge call, but never below medium: a subagent's answer goes back unchecked (see subagentFloor). An effort the
+    // subagent keeps (see subagentSteerable) goes out as it is.
     if (e.agentId !== undefined) {
-      if (p.by === 'manual') return yield* send(e)
+      if (p.by === 'manual' || !steer?.effort) return yield* send(e)
       const floor = subagentFloor(config.floor, config.ceiling)
       const effort = EFFORTS.indexOf(p.effort) < EFFORTS.indexOf(floor) ? floor : p.effort
       if (e.index === 0) void proof($, `subagent ${e.agentId} (${e.model}): effort ${e.effort ?? 'none'} -> ${effort}, the turn's`)
@@ -4252,6 +4300,11 @@ Saved to ${out}.md and .json` }
     )
   })
 
+  on('tool.call', { tool: 'Agent' }, async ($, e, next) => {
+    if (e.tool_use_id && typeof (e as { effort?: unknown }).effort === 'string') callEfforts.add(e.tool_use_id)
+    return next(e)
+  })
+
   on('agent.spawn', async ($, e, next) => {
     // Effort for subagents: the judge reads the subagent's task before it starts (a fork shares the chat's context and
     // keeps its effort). Without a verdict it runs at the chat's effort, as with the setting off.
@@ -4260,19 +4313,20 @@ Saved to ${out}.md and .json` }
       : null
     // The model the judge named counts when Cheaper model for subagents is on and it was sure of the task.
     const named = verdict && config.subagentModel === 'on' && (verdict.sure === undefined || verdict.sure >= SUBAGENT_MODEL_SURE) ? verdict.model : undefined
-    const waiting = verdict ? { description: e.description, type: e.subagentType, parentId: e.parentAgentId, effort: verdict.effort, ...(named ? { model: named } : {}) } : null
-    if (waiting) subagentWaiting = [...subagentWaiting, waiting].slice(-20)
+    const pick: SubagentPick | undefined = verdict ? { effort: verdict.effort, ...(named ? { model: named } : {}) } : undefined
+    const call: SpawnCall = { model: e.model !== undefined, effort: callEfforts.delete(e.tool_use_id), parentModel: e.parentModel ? keyOf(e.parentModel) : undefined }
+    const waiting = { description: e.description, type: e.subagentType, parentId: e.parentAgentId, pick, call }
+    subagentWaiting = [...subagentWaiting, waiting].slice(-20)
     const result = await next(e)
-    if (waiting) {
-      subagentWaiting = subagentWaiting.filter(w => w !== waiting)
-      if ('agentId' in result && result.agentId && !subagentPicks.has(result.agentId)) subagentPicks.set(result.agentId, { effort: waiting.effort, ...(waiting.model ? { model: waiting.model } : {}) })
-      if ('agentId' in result && result.agentId) {
-        await update($, saved, old => {
-          const t = asSpent(old)
-          return { ...t, subagents: { ...t.subagents, runs: { ...t.subagents.runs, [waiting.effort]: (t.subagents.runs[waiting.effort] ?? 0) + 1 } } }
-        }).catch(() => undefined)
-        void proof($, `subagent ${e.subagentType} "${e.description}": ${waiting.effort}${waiting.model ? ` on ${waiting.model} if cheaper` : ''} (${verdict?.why})`)
-      }
+    subagentWaiting = subagentWaiting.filter(w => w !== waiting)
+    const agentId = 'agentId' in result ? result.agentId : undefined
+    if (agentId && !subagentSpawns.has(agentId)) subagentSpawns.set(agentId, { pick, call })
+    if (agentId && pick) {
+      await update($, saved, old => {
+        const t = asSpent(old)
+        return { ...t, subagents: { ...t.subagents, runs: { ...t.subagents.runs, [pick.effort]: (t.subagents.runs[pick.effort] ?? 0) + 1 } } }
+      }).catch(() => undefined)
+      void proof($, `subagent ${e.subagentType} "${e.description}": ${pick.effort}${pick.model ? ` on ${pick.model} if cheaper` : ''} (${verdict?.why})`)
     }
     return result
   })
@@ -4400,6 +4454,7 @@ Saved to ${out}.md and .json` }
           handoffButton: draft.handoffButton ?? config.handoffButton,
           subagents: draft.subagents ?? config.subagents,
           subagentModel: draft.subagentModel ?? config.subagentModel,
+          overrideDefinitions: draft.overrideDefinitions ?? config.overrideDefinitions,
           holdOffer: draft.holdOffer ?? config.holdOffer,
           theme: draft.theme ?? config.theme,
           appearance: draft.appearance ?? config.appearance,
@@ -4418,7 +4473,7 @@ Saved to ${out}.md and .json` }
         const showParts = [['timer', 'Cache timer'], ['reason', 'Judge line'], ['hot', 'Running-low alert'], ['cold', 'Cold-cache alert']] as const
         const summaries: Record<SettingsCard, string> = {
           auto: `${BIAS_WORDS[shown.bias + 2]} · ${shown.floor} to ${shown.ceiling}${shown.holdOffer === 'on' ? ' · held offers' : ''}`,
-          subagents: shown.subagents !== 'on' ? 'Off' : shown.subagentModel === 'on' ? 'Effort and cheaper model' : 'Effort picked',
+          subagents: `${shown.subagents !== 'on' ? 'Off' : shown.subagentModel === 'on' ? 'Effort and cheaper model' : 'Effort picked'} · definitions ${shown.overrideDefinitions === 'on' ? 'overridden' : 'kept'}`,
           context: `${contextAlert === 'off' ? 'Alert off' : `Alert at ${contextAlert}%`} · ${shown.compactWith === 'session' ? "Chat's model" : 'Haiku'} · ${shown.handoffSkill ? `/${shown.handoffSkill}` : 'built-in handoff'}`,
           look: `${shown.layout === 'minimal' ? 'Minimal' : 'Dashboard'} · ${THEME_LABELS[shown.theme as ThemeName] ?? shown.theme} · ${showParts.filter(([part]) => !hidden.includes(part)).length} of ${showParts.length} shown`,
         }
@@ -4459,7 +4514,9 @@ Saved to ${out}.md and .json` }
             </Box>
           )
         }
-        const flip = (field: 'subagents' | 'subagentModel' | 'holdOffer') => () => set(field)(shown[field] === 'on' ? 'off' : 'on')
+        // What a subagent keeps, by the Override definitions switch (see subagentSteerable).
+        const unlessSet = shown.overrideDefinitions === 'on' ? ', unless its Agent call names one' : ', unless its definition or Agent call sets one'
+        const flip = (field: 'subagents' | 'subagentModel' | 'overrideDefinitions' | 'holdOffer') => () => set(field)(shown[field] === 'on' ? 'off' : 'on')
         // The slider: five stops, the marker on the one in force. No animation, a click moves it.
         const track: unknown[] = []
         for (const n of [-2, -1, 0, 1, 2]) {
@@ -4616,11 +4673,15 @@ Saved to ${out}.md and .json` }
                   ] : card === 'subagents' ? (bare ? [] : [
                     settingSwitch({
                       key: 'settings-subagents', label: 'Effort for subagents', on: shown.subagents === 'on', onPress: flip('subagents'),
-                      about: shown.subagents === 'on' ? "The judge picks each subagent's effort, medium or more" : "Subagents run at the chat's effort",
+                      about: `${shown.subagents === 'on' ? "The judge picks each subagent's effort, medium or more" : "Subagents run at the chat's effort"}${unlessSet}`,
                     }),
                     settingSwitch({
                       key: 'settings-subagent-model', label: 'Cheaper model for subagents', on: shown.subagentModel === 'on', dim: shown.subagents !== 'on', onPress: flip('subagentModel'),
-                      about: shown.subagents !== 'on' ? 'Needs Effort for subagents' : shown.subagentModel === 'on' ? 'A subagent the judge calls simple runs on a cheaper model, never a dearer one' : 'A subagent keeps the model it was given',
+                      about: shown.subagents !== 'on' ? 'Needs Effort for subagents' : shown.subagentModel === 'on' ? `A subagent the judge calls simple runs on a cheaper model, never a dearer one${unlessSet}` : 'A subagent keeps the model it was given',
+                    }),
+                    settingSwitch({
+                      key: 'settings-override-definitions', label: 'Override definitions', on: shown.overrideDefinitions === 'on', onPress: flip('overrideDefinitions'),
+                      about: shown.overrideDefinitions === 'on' ? "The judge's picks replace a definition's model and effort; an Agent call's own stay" : 'A subagent keeps the model and effort its definition sets',
                     }),
                   ]) : card === 'context' ? (bare ? [] : [
                     settingRow({ key: 'settings-swamp', label: 'Context alert', value: contextAlert, options: [{ value: 'off', label: 'Off' }, ...SWAMP_STEPS.map(n => ({ value: String(n), label: `At ${n}%` }))],
