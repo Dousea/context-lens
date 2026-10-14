@@ -961,9 +961,11 @@ async function typeCommand($: EngineInterface, text: string): Promise<boolean> {
   }
 }
 
-// A prompt waiting for the answer to a model offer: who to tell, and the model offered.
-let offer: { model: ModelKey; done: (accepted: boolean) => void } | null = null
-const OFFER_HOLD_MS = 20_000
+// A prompt waiting for the answer to a model offer: who to tell, the model offered, and when the wait ends.
+let offer: { model: ModelKey; until: number; done: (accepted: boolean) => void } | null = null
+// The wait counts against the host's 10-second budget for the prompt.submit hook, which sends the prompt on its own
+// once it runs out; the hold ends well before that, so the prompt and the question end together.
+const OFFER_HOLD_MS = 8_000
 
 /** Ends the wait: true when the person took the offer, false for Keep, a timeout or anything else. */
 function settleOffer(accepted: boolean) {
@@ -975,13 +977,18 @@ function settleOffer(accepted: boolean) {
 /** Holds the prompt until the offer is answered; true when it was taken. Only one offer waits at a time. */
 async function holdForOffer($: EngineInterface, model: ModelKey): Promise<boolean> {
   settleOffer(false)
+  const until = (await $.clock.now()) + OFFER_HOLD_MS
   $.ui.invalidate('ui.render')
   return new Promise<boolean>(resolve => {
     const timer = $.clock.after(OFFER_HOLD_MS, () => settleOffer(false))
+    // A redraw a second, for the countdown in the question.
+    const tick = $.clock.every(1000, () => $.ui.invalidate('ui.render'))
     offer = {
       model,
+      until,
       done: accepted => {
         timer?.cancel?.()
+        tick?.cancel?.()
         resolve(accepted)
       },
     }
@@ -3153,7 +3160,7 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
       <Box flexDirection="row" gap={1} alignItems="center">
         <Text>
           {suggestedAs === 'helper' ? `Hand this to a ${MODELS.find(m => m.key === wanted)?.label} helper?` : `Switch to ${MODELS.find(m => m.key === wanted)?.label}?`}{' '}
-          {offer ? 'Your prompt waits.' : 'The context reloads.'}
+          {offer ? `Your prompt waits ${Math.max(1, Math.ceil((offer.until - (await $.clock.now())) / 1000))}s.` : 'The context reloads.'}
         </Text>
         <Button
           key="accept"

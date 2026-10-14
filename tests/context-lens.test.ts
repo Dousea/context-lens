@@ -484,7 +484,7 @@ describe('offer a model first', () => {
     await ui.unmount()
   })
 
-  test('offer first: nobody answers, the prompt goes after 20 seconds, the model unchanged', async ($, on) => {
+  test('offer first: nobody answers, the prompt goes after 8 seconds, the model unchanged', async ($, on) => {
     engine(on)
     judgeSays(on, '{"model":"haiku","effort":"low","why":"simple question"}')
     const ran = recordCommands(on)
@@ -493,7 +493,13 @@ describe('offer a model first', () => {
     const { through, sending } = await sendHeld($, on)
     await settle(ui)
     expect(through).toEqual([])
-    await clock.advance(20_000)
+    // The question counts the wait down, and the prompt goes when it ends: within the host's 10-second hook budget.
+    expect(await drawn(ui)).toContain('Your prompt waits 8s.')
+    await clock.advance(7_000)
+    await settle(ui)
+    expect(await drawn(ui)).toContain('Your prompt waits 1s.')
+    expect(through).toEqual([])
+    await clock.advance(1_000)
     await sending
     expect(ran).toEqual([])
     expect(through).toEqual(['vad heter mappen?'])
