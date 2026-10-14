@@ -296,7 +296,7 @@ describe('manual effort', () => {
     await drain(1, 'low')
     expect(sent[1].effort).toBe('low')
     const ui = await $.ui.mount({ plugin: 'context-lens', surface: 'terminal', ...BAND })
-    expect((await ui.find({ key: 'auto' }))?.text).toContain('Auto off')
+    expect((await ui.find({ key: 'auto' }))?.text).toContain('Manual')
     await ui.unmount()
 
     await drain(2, 'low')
@@ -338,8 +338,8 @@ describe('two autos', () => {
     const ran = recordCommands(on)
     const sent = recordSteps(on)
     const ui = await $.ui.mount({ plugin: 'context-lens', surface: 'terminal', ...BAND })
-    expect((await ui.find({ key: 'auto' }))?.text).toContain('Auto on')
-    expect((await ui.find({ key: 'auto-model' }))?.text).toContain('Auto off')
+    expect((await ui.find({ key: 'auto' }))?.text).toContain('Auto')
+    expect((await ui.find({ key: 'auto-model' }))?.text).toContain('Manual')
 
     await $.prompt.submit({ text: 'hej', wait: false, origin: { kind: 'composer' } })
     await ui.redraw()
@@ -1306,10 +1306,10 @@ describe('band', () => {
       const ran = recordCommands(on)
 
       const ui = await $.ui.mount({ plugin: 'context-lens', surface, ...BAND })
-      expect((await ui.find({ key: 'auto' }))?.text).toContain('Auto on')
+      expect((await ui.find({ key: 'auto' }))?.text).toContain('Auto')
 
       await ui.press({ key: 'e-xhigh' })
-      expect((await ui.find({ key: 'auto' }))?.text).toContain('Auto off')
+      expect((await ui.find({ key: 'auto' }))?.text).toContain('Manual')
       expect(ran).toEqual([])
 
       await $.prompt.submit({ text: 'hej', wait: false, origin: { kind: 'composer' } })
@@ -1319,7 +1319,7 @@ describe('band', () => {
       expect(sent[0]).toEqual({ model: 'claude-opus-5-5', effort: 'xhigh' })
 
       await ui.press({ key: 'auto' })
-      expect((await ui.find({ key: 'auto' }))?.text).toContain('Auto on')
+      expect((await ui.find({ key: 'auto' }))?.text).toContain('Auto')
       await ui.unmount()
     })
   }
@@ -3080,7 +3080,10 @@ describe('dashboard', () => {
     // The mark stands in for the ✦ on desktop.
     expect(await band.find({ key: 'dash-mark' })).toBeDefined()
     await band.press({ key: 'dash-auto' })
-    expect(await drawn(band)).toContain('Auto off')
+    expect(await drawn(band)).toContain('Auto effort off')
+    expect(await drawn(band)).toContain('Auto model off')
+    await band.press({ key: 'dash-auto-model' })
+    expect(await drawn(band)).toContain('Auto model on')
     // One button: Compact on a fresh chat. It opens the compact card, which can switch to Handoff.
     await band.press({ key: 'dash-handoff' })
     expect(await drawn(band)).toContain('compact-bar')
@@ -3216,12 +3219,12 @@ describe('dashboard', () => {
     await closeSetup($, at)
     const band = await $.ui.mount(at)
     const text = await drawn(band)
-    // Auto is switched in the bar, not twice: the effort row under it drops its own.
-    const before = (await band.find({ key: 'dash-auto' }))?.text
+    // Auto is switched on the Effort row, as the Model row switches its own, not in the bar.
+    expect(await band.find({ key: 'dash-auto' })).toBeUndefined()
+    const before = (await band.find({ key: 'auto' }))?.text
     expect(before).toContain('Auto')
-    expect(await band.find({ key: 'auto' })).toBeUndefined()
-    await band.press({ key: 'dash-auto' })
-    expect((await band.find({ key: 'dash-auto' }))?.text).not.toBe(before)
+    await band.press({ key: 'auto' })
+    expect((await band.find({ key: 'auto' }))?.text).toContain('Manual')
     expect(await band.find({ key: 'dash-handoff' })).toBeDefined()
     expect(text).toContain('"children":["Effort"]')
     // No still sparkles at rest: 16 by 4 pixels of them read as noise in a terminal.

@@ -1985,6 +1985,13 @@ async function toggleAutoEffort($: EngineInterface) {
   await $.store.set('isAuto', turnOn)
 }
 
+async function toggleAutoModel($: EngineInterface) {
+  const turnOn = !(await read($, isAutoModel))
+  await update($, isAutoModel, () => turnOn)
+  await $.store.set('isAutoModel', turnOn)
+  if (!turnOn) await update($, suggestion, () => null)
+}
+
 async function choose($: EngineInterface, next: Pick | null) {
   pickCarried = false
   const before = await read($, pick)
@@ -2207,7 +2214,7 @@ function terminalPanel($: EngineInterface, e: RenderInput<'AbovePrompt'>, key: s
   )
 }
 
-type TerminalBand = { key: string; kind: ArtKind; color: string; bg: string; edge: string; title: string; detail: string; buttons: unknown[]; autoInBar?: boolean; extra?: unknown; word?: { text: string; color: string; rest: string } }
+type TerminalBand = { key: string; kind: ArtKind; color: string; bg: string; edge: string; title: string; detail: string; buttons: unknown[]; extra?: unknown; word?: { text: string; color: string; rest: string } }
 
 /** What of the band fits in `maxRows` rows. The app scrolls a taller tree in a window and says "n more", so the band gives up,
  * in this order: an empty detail row (one with words is kept), the border and art, the effort row, the lens row. The effort line itself stays. */
@@ -2225,7 +2232,7 @@ export function bandFit(maxRows: number, parts: { detailText: boolean; lens: boo
  * row under it, so effort stays in sight while a band shows. */
 async function terminalBand($: EngineInterface, e: RenderInput<'AbovePrompt'>, b: TerminalBand) {
   const { Box, Text } = themedEls($.ui.resolve(e))
-  const { rows: effort, height } = await effortRows($, e, { auto: !b.autoInBar })
+  const { rows: effort, height } = await effortRows($, e)
   const maxRows = typeof e.props.maxRows === 'number' ? e.props.maxRows : 99
   // An empty detail row is kept (so a band does not move when an alert appears) until the room runs out.
   const fit = bandFit(maxRows, { detailText: Boolean(b.detail), lens: b.extra !== null, effort: height })
@@ -2772,6 +2779,8 @@ export function autoGlowSvg(on: boolean): string {
 let autoSeen: boolean | undefined
 let autoOnAt = -Infinity
 let autoFlipAt = 0
+let autoModelSeen: boolean | undefined
+let autoModelFlipAt = 0
 let helpersSeen: string | undefined
 let helpersFlipAt = 0
 
@@ -2793,6 +2802,8 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
     autoOnAt = nowMs
   }
   autoSeen = v.auto
+  if (autoModelSeen !== undefined && autoModelSeen !== v.autoModel) autoModelFlipAt = nowMs
+  autoModelSeen = v.autoModel
   // A subagent in view shows the model and effort it ran at; the chat's own come from the session.
   // One just spawned has not made a request yet: its effort is the helper pick if there is one, else unknown, never the chat's.
   const inAgent = e.props.view.agentId !== undefined
@@ -2837,13 +2848,6 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
     } else await openPluginSettings($)
   }
   const buttons = [
-    // Auto sits in the bar on both: in the terminal the effort row under the band drops its own (autoInBar), since
-    // there it was cut off at the window's foot. The hotkey only in the terminal; the app draws it faint on grey.
-    e.surface === 'terminal' ? (
-      <Button key="dash-auto" hotkey="a" variant={v.auto ? 'primary' : undefined} label={v.auto ? 'Auto on' : 'Auto off'} onPress={() => toggleAutoEffort($)} />
-    ) : (
-      <Button key="dash-auto" variant="secondary" dimColor={!v.auto} label={v.auto ? 'Auto on' : 'Auto off'} onPress={() => toggleAutoEffort($)} />
-    ),
     // Once the slot is Handoff (advised, or the setting says always), Compact stays beside it as quiet text, so both are
     // a press away. Desktop only, where there is room for it; the terminal compacts in one press from its own rows.
     ...(e.surface !== 'terminal' && 'Svg' in els && !config.hide.includes('handoff') && handoffSlot() && (typeof e.props.bodyColumns !== 'number' || e.props.bodyColumns >= COMPACT_BUTTON_MIN_COLUMNS)
@@ -2903,9 +2907,14 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
     // No-break spaces, not braille blanks: some fonts draw U+2800 as a dot.
     <Button key="dash-settings" plain label={'Svg' in els && e.surface !== 'terminal' ? '   ' : 'Settings'} onPress={toggleSettings} />,
   ].filter(Boolean)
+  // The terminal switches both Autos on the Model and Effort rows under the band; desktop has no such rows.
+  const autoButtons = [
+    <Button key="dash-auto-model" variant="secondary" dimColor={!v.autoModel} label={v.autoModel ? 'Auto model on' : 'Auto model off'} onPress={() => toggleAutoModel($)} />,
+    <Button key="dash-auto" variant="secondary" dimColor={!v.auto} label={v.auto ? 'Auto effort on' : 'Auto effort off'} onPress={() => toggleAutoEffort($)} />,
+  ]
   // The terminal flashes the effort word as the desktop does: in the accent on a change, fading back to white.
   if (e.surface === 'terminal')
-    return terminalBand($, e, { key: 'dash', kind: 'calm', color: DASH_TEXT, bg: DASH_BG, edge: DASH_EDGE, title: head.replace(/^✦ /, ''), detail, buttons, autoInBar: true, extra: lens,
+    return terminalBand($, e, { key: 'dash', kind: 'calm', color: DASH_TEXT, bg: DASH_BG, edge: DASH_EDGE, title: head.replace(/^✦ /, ''), detail, buttons, extra: lens,
       word: { text: what, color: await effortFlash($, what, judgingHere, entering), rest } })
   const Svg = 'Svg' in els ? els.Svg : undefined
   const wordColor = await effortFlash($, what, judgingHere, entering)
@@ -3011,17 +3020,22 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
       <Box minWidth={1} />
       <Box key="dash-actions" flexShrink={0} flexDirection="row" gap={1} alignItems="center" marginLeft={1}>
         <Box position="absolute" top={0} left={0} />
-        {Svg ? (
-          // Auto as a switch, drawn, with a blank button laid over it to take the click (the cog's pattern).
-          <Box key="dash-auto-switch" position="relative" flexDirection="row" alignItems="center" gap={1} paddingX={1}>
-            <Svg source={autoSwitchSvg(v.auto, nowMs - autoFlipAt)} alt={v.auto ? 'Auto on' : 'Auto off'} width={26} height={15} />
-            <Text color={v.auto ? DASH_TEXT : DASH_DIM}>Auto</Text>
-            <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
-              <Button key="dash-auto" plain label={' '.repeat(24)} onPress={() => toggleAutoEffort($)} />
-            </Box>
-          </Box>
-        ) : null}
-        {Svg ? buttons.slice(1, -1) : buttons}
+        {Svg
+          ? // Each Auto as a switch, drawn, with a blank button laid over it to take the click (the cog's pattern).
+            [
+              { key: 'dash-auto-model', word: 'model', on: v.autoModel, flipAt: autoModelFlipAt, toggle: () => toggleAutoModel($) },
+              { key: 'dash-auto', word: 'effort', on: v.auto, flipAt: autoFlipAt, toggle: () => toggleAutoEffort($) },
+            ].map(autoSwitch => (
+              <Box key={`${autoSwitch.key}-switch`} position="relative" flexDirection="row" alignItems="center" gap={1} paddingX={1}>
+                <Svg source={autoSwitchSvg(autoSwitch.on, nowMs - autoSwitch.flipAt)} alt={`Auto ${autoSwitch.word} ${autoSwitch.on ? 'on' : 'off'}`} width={26} height={15} />
+                <Text color={autoSwitch.on ? DASH_TEXT : DASH_DIM}>{`Auto ${autoSwitch.word}`}</Text>
+                <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
+                  <Button key={autoSwitch.key} plain label={' '.repeat(32)} onPress={autoSwitch.toggle} />
+                </Box>
+              </Box>
+            ))
+          : autoButtons}
+        {Svg ? buttons.slice(0, -1) : buttons}
         {Svg ? (
           // The cog sits in the flow and the button in an absolute layer after it: an absolute layer paints over plain
           // ones, and the desktop ignores position="relative" on a Box without absolute children. A Button is at most as
@@ -3038,9 +3052,9 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
   )
 }
 
-/** The terminal's rows above the prompt (Effort steps, Auto, the model row when switched on) and, on any surface, the
+/** The terminal's rows above the prompt (the Model row and the Effort row, each with its Auto) and, on any surface, the
  * judge's question when it suggests another model. The rows also sit under an alert band, so effort never goes away. */
-async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>, opts: { auto?: boolean } = {}) {
+async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
   const { Box, Text, Button } = themedEls($.ui.resolve(e))
   const v = await snap($)
   const { auto, autoModel, wanted } = v
@@ -3068,12 +3082,6 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>, opt
   const acceptSuggestion = (model: ModelKey) => async () => {
     if (offer) settleOffer(true)
     else await switchModel($, model)
-  }
-  const toggleAutoModel = async () => {
-    const turnOn = !(await read($, isAutoModel))
-    await update($, isAutoModel, () => turnOn)
-    await $.store.set('isAutoModel', turnOn)
-    if (!turnOn) await update($, suggestion, () => null)
   }
   const dismiss = async () => {
     declined = wanted
@@ -3118,11 +3126,11 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>, opt
         : auto
           ? 'Picks the effort at the next prompt'
           : 'Pick an effort'
-  const modelRow = (
-    <Box flexDirection="row" alignItems="center" gap={1}>
-      <Box flexShrink={0}>
-        <Text dimColor>Model</Text>
-      </Box>
+  // The row holds only the two pickers: under a band its detail line says why, and the minimal look puts the note on a
+  // line of its own (noteLine). Each toggle says the mode in force; a press switches to the other.
+  const modelPicker = (
+    <Box key="model-picker" flexDirection="row" alignItems="center" gap={1} flexShrink={0}>
+      <Text dimColor>Model</Text>
       {MODELS.map(m =>
         m.key === inUse ? (
           <Button key={`m-${m.key}`} variant="primary" label={m.label} onPress={setModel(m.key)} />
@@ -3130,53 +3138,42 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>, opt
           <Button key={`m-${m.key}`} plain dimColor label={m.label} onPress={setModel(m.key)} />
         ),
       )}
-      <Box flexGrow={1} />
-      <Button
-        key="auto-model"
-        hotkey="m"
-        variant={autoModel ? 'primary' : undefined}
-        label={autoModel ? 'Auto on' : 'Auto off'}
-        onPress={toggleAutoModel}
-      />
+      <Button key="auto-model" hotkey="m" variant={autoModel ? 'primary' : undefined} label={autoModel ? 'Auto' : 'Manual'} onPress={() => toggleAutoModel($)} />
     </Box>
   )
+  const effortPicker = (
+    <Box key="effort-picker" flexDirection="row" alignItems="center" gap={1} flexShrink={0}>
+      <Text dimColor>Effort</Text>
+      {EFFORTS.map(level =>
+        level === effortNow ? (
+          <Button key={`e-${level}`} variant="primary" label={level} onPress={setEffort(level)} />
+        ) : (
+          <Button key={`e-${level}`} plain dimColor label={level} onPress={setEffort(level)} />
+        ),
+      )}
+      <Button key="auto" hotkey="a" variant={auto ? 'primary' : undefined} label={auto ? 'Auto' : 'Manual'} onPress={() => toggleAutoEffort($)} />
+    </Box>
+  )
+  // Model at the left and Effort at the right; a terminal too narrow for both wraps Effort onto a line of its own.
   const rows = (
     <Box flexDirection="column">
       {question}
-      {modelRow}
-      <Box flexDirection="row" gap={1} alignItems="center">
-        {/* The word never breaks: the note at the end gives way first. */}
-        <Box flexShrink={0}>
-          <Text dimColor>Effort</Text>
-        </Box>
-        {EFFORTS.map(level =>
-          level === effortNow ? (
-            <Button key={`e-${level}`} variant="primary" label={level} onPress={setEffort(level)} />
-          ) : (
-            <Button key={`e-${level}`} plain dimColor label={level} onPress={setEffort(level)} />
-          ),
-        )}
-        <Box flexGrow={1} />
-        {opts.auto === false ? null : (
-          <Button
-            key="auto"
-            hotkey="a"
-            variant={auto ? 'primary' : undefined}
-            label={auto ? 'Auto on' : 'Auto off'}
-            onPress={() => toggleAutoEffort($)}
-          />
-        )}
-        <Box flexShrink={1} minWidth={0}>
-          <Text dimColor wrap="truncate-end">
-            {note}
-          </Text>
-        </Box>
+      <Box flexDirection="row" flexWrap="wrap" justifyContent="space-between" alignItems="center" columnGap={2}>
+        {modelPicker}
+        {effortPicker}
       </Box>
     </Box>
   )
-  // Rows it takes, for fitting the band into the room the app gives it.
-  const height = 2 + (question ? 1 : 0)
-  return { question, rows, height }
+
+  // Rows it takes, for fitting the band into the room the app gives it. A button is its label and about three cells of
+  // frame and hotkey; a toggle is counted at its wider word.
+  const pickerWidth = (word: string, labels: string[]) =>
+    word.length + [...labels, 'Manual'].reduce((sum, label) => sum + label.length + 4, 0)
+  const bothWidth = pickerWidth('Model', MODELS.map(m => m.label)) + 2 + pickerWidth('Effort', EFFORTS)
+  const columns = typeof e.props.bodyColumns === 'number' ? e.props.bodyColumns : 100
+  const height = (bothWidth > columns ? 2 : 1) + (question ? 1 : 0)
+  const noteLine = note ? <Text key="effort-note" dimColor wrap="truncate-end">{note}</Text> : null
+  return { question, rows, height, noteLine }
 }
 
 // Effort for helpers: the effort the judge picked for each subagent, by its id. A subagent's first request can come
@@ -5019,9 +5016,14 @@ Saved to ${out}.md and .json` }
       }
       // The minimal look draws no dashboard: mark the rest here, so the next band plays its entrance.
       introKind = 'rest'
-      const { question, rows } = await effortRows($, e)
+      const { question, rows, noteLine } = await effortRows($, e)
       if (e.surface !== 'terminal') return question ?? next(e)
-      return rows
+      return (
+        <Box key="rows-col" flexDirection="column">
+          {rows}
+          {noteLine}
+        </Box>
+      )
     } catch (error) {
       lastRenderError = (error instanceof Error ? error.message : String(error)).slice(0, 300)
       return next(e)
