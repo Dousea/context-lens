@@ -3061,10 +3061,10 @@ describe('dashboard', () => {
     expect(dashboardLines(base).detail).toBe('Why: a small fix')
     // The app's own model and effort, only while either differs from what goes out.
     expect(appHintText({ model: 'opus', effort: 'medium' }, { model: 'opus', effort: 'medium' })).toBe('')
-    expect(appHintText({ model: 'opus', effort: 'medium' }, { model: 'opus', effort: 'high' })).toBe('App: Opus · Medium')
-    expect(appHintText({ model: 'opus', effort: 'medium' }, { model: 'sonnet' })).toBe('App: Opus · Medium')
+    expect(appHintText({ model: 'opus', effort: 'medium' }, { model: 'opus', effort: 'high' })).toBe('App: Opus 5.5 · Medium')
+    expect(appHintText({ model: 'opus', effort: 'medium' }, { model: 'sonnet' })).toBe('App: Opus 5.5 · Medium')
     expect(appHintText({ model: 'opus', effort: null }, { model: 'opus', effort: 'high' })).toBe('')
-    expect(appHintText({ model: 'opus', effort: null }, { model: 'haiku', effort: 'high' })).toBe('App: Opus')
+    expect(appHintText({ model: 'opus', effort: null }, { model: 'haiku', effort: 'high' })).toBe('App: Opus 5.5')
     expect(dashboardLines({ ...base, model: 'Opus 5.5' }).head).toBe(`✦ Opus 5.5 · Medium · cache ${cacheLabel(42)} · 18% context`)
     expect(dashboardLines({ ...base, model: 'Opus 5.5' }).pair).toBe('Opus 5.5 · Medium')
     expect(dashboardLines({ ...base, model: 'Opus 5.5' }).rest).toBe(` · cache ${cacheLabel(42)} · 18% context`)

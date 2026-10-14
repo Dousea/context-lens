@@ -2118,14 +2118,14 @@ function effortOf(v: Snap): Effort | undefined {
   return EFFORTS.includes(v.shownByApp as Effort) ? (v.shownByApp as Effort) : undefined
 }
 
-/** "App: Opus · Medium", the app's own model and effort, while either differs from what the band sends; else empty.
+/** "App: Opus 5.5 · Medium", the app's own model and effort, while either differs from what the band sends; else empty.
  * The app's status line, /model and /effort show its own, so this says why they disagree with the band. */
 export function appHintText(app: { model?: ModelKey; effort?: unknown }, sent: { model?: ModelKey; effort?: Effort }): string {
   const appEffortKnown = EFFORTS.includes(app.effort as Effort) ? (app.effort as Effort) : undefined
   const modelDiffers = app.model && sent.model && app.model !== sent.model
   const effortDiffers = appEffortKnown && sent.effort && appEffortKnown !== sent.effort
   if (!modelDiffers && !effortDiffers) return ''
-  const parts = [MODELS.find(m => m.key === app.model)?.label, appEffortKnown && EFFORT_LABELS[appEffortKnown]]
+  const parts = [MODELS.find(m => m.key === app.model)?.long, appEffortKnown && EFFORT_LABELS[appEffortKnown]]
   return `App: ${parts.filter(Boolean).join(' · ')}`
 }
 
