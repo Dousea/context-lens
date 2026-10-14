@@ -631,15 +631,20 @@ async function judge($: EngineInterface, prompt: string, current: Pick | null): 
   return askHaiku($, prompt, current, context)
 }
 
+/**
+ * Haiku 5.5 by name: Claude Code builds that predate it map the plain alias to Haiku 4.5, at ten times the price.
+ * Where 5.5 does not answer, the alias stands in.
+ */
+async function completeWithHaiku($: EngineInterface, request: Omit<Parameters<EngineInterface['model']['complete']>[0], 'model'>) {
+  const named = await $.model.complete({ ...request, model: COMPACT_MODEL })
+  return named.isAnswered ? named : $.model.complete({ ...request, model: 'haiku' })
+}
+
 /** Haiku through the session's own login: the judge, and it needs no key. */
 async function askHaiku($: EngineInterface, prompt: string, current: Pick | null, context: string): Promise<Judged> {
   const used = lastContext && lastContext.window ? `Context used: ${Math.round(lastContext.percent)}% of the window` : ''
   const asked = [judgeQuestion(prompt, current, context), used].filter(Boolean).join('\n\n')
-  const ask = (model: string) => $.model.complete({ model, system: JUDGE_SYSTEM, prompt: asked, maxTokens: 160, effort: 'low', timeoutMs: 6000 })
-  // Haiku 5.5 by name: Claude Code builds that predate it map the plain alias to Haiku 4.5, at ten times the price.
-  // Where 5.5 does not answer, the alias stands in.
-  let r = await ask(COMPACT_MODEL)
-  if (!r.isAnswered) r = await ask('haiku')
+  const r = await completeWithHaiku($, { system: JUDGE_SYSTEM, prompt: asked, maxTokens: 160, effort: 'low', timeoutMs: 6000 })
   const verdict = r.isAnswered ? parseVerdict(r.text) : undefined
   const tokens = r.isAnswered && r.usage ? r.usage.input_tokens + r.usage.output_tokens : 0
   // The API refused or could not be reached (a login problem, no credits, a rate limit): say so once, in the
@@ -706,9 +711,7 @@ async function checkHandoff($: EngineInterface, next: string) {
   promptsSinceHandoffCheck = 0
   try {
     const evidence = handoffEvidence(await $.session.messages(), next, percent, (await cacheMinutes($)) === 0 && cacheExpires > 0)
-    const ask = (model: string) => $.model.complete({ model, system: HANDOFF_SYSTEM, prompt: evidence, maxTokens: 60, effort: 'low', timeoutMs: 8000 })
-    let r = await ask(COMPACT_MODEL)
-    if (!r.isAnswered) r = await ask('haiku')
+    const r = await completeWithHaiku($, { system: HANDOFF_SYSTEM, prompt: evidence, maxTokens: 60, effort: 'low', timeoutMs: 8000 })
     if (!r.isAnswered) return
     const reason = parseHandoffAnswer(r.text)
     void proof($, `handoff check at ${Math.round(percent)}%: ${reason ?? 'no'}`)
@@ -1799,11 +1802,10 @@ function savedCardTree($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
 /** Saves every change in the panel's draft, then closes the panel. Nothing changed applies before this. */
 async function saveDraft($: EngineInterface) {
   const draft = await read($, settingsDraft)
-  const rest = draft
   // The settings go through the store queue, since each one reloads the plugin.
   const changes: Record<string, string> = {}
   for (const field of Object.keys(SETTING_FIELDS) as (keyof typeof SETTING_FIELDS)[]) {
-    const value = rest[field]
+    const value = draft[field]
     if (value !== undefined) changes[field] = value
   }
   await update($, settingsDraft, () => ({}))
@@ -1911,14 +1913,7 @@ async function markSetupDone($: EngineInterface) {
   await Promise.all([update($, setupPending, () => false), $.store.set('setupDone', true)])
 }
 
-/** Closes the guide at its last step, saving what was picked. */
-async function finishSetup($: EngineInterface) {
-  await markSetupDone($)
-  await goSetup($, null)
-  await flushSetup($)
-}
-
-/** The ✕: closes the guide; what was picked so far is kept. */
+/** Closes the guide, at its last step or with the ✕, saving what was picked so far. */
 async function closeSetup($: EngineInterface) {
   await markSetupDone($)
   await goSetup($, null)
@@ -2916,6 +2911,9 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
   glowReadAt = Date.now()
   const glowNow = (await $.clock.now().catch(() => nowMs)) + drawLead
   const glowSource = Svg ? judgeGlowAt(judgeStartedAt, judgeEndedAt, glowNow) : null
+
+  const autoGlowing = Svg && v.auto && nowMs - autoOnAt < AUTO_GLOW_MS
+  if (autoGlowing) renderLog.push(`glow on at ${nowMs - autoOnAt} ms`)
   if (glowSource && judgeEndedAt !== null) renderLog.push(`${new Date().toISOString()} ${loadedSession} glow: fade drawn at +${Math.round(glowNow - Math.max(judgeEndedAt, judgeStartedAt + JUDGE_RISE_MS))} ms, lead ${Math.round(drawLead)} ms, ${Math.round(glowNow - drawLead - nowMs)} ms after the draw began`)
   return (
     <Box key="dash" position="relative" flexDirection="row" alignItems="center" paddingX={1} overflow="hidden"
@@ -2928,7 +2926,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
           </Box>
         ) : null
       ) : null}
-      {Svg && v.auto && nowMs - autoOnAt < AUTO_GLOW_MS && renderLog.push(`glow ${v.auto ? 'on' : 'off'} at ${nowMs - autoOnAt} ms`) ? (
+      {autoGlowing ? (
         <Box key="dash-auto-glow" position="absolute" top={0} left={0} right={0} bottom={0}>
           <Svg source={inPhase(autoGlowSvg(v.auto), nowMs - autoOnAt)} alt="auto glow" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
         </Box>
@@ -3168,7 +3166,7 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>, opt
     </Box>
   )
   // Rows it takes, for fitting the band into the room the app gives it.
-  const height = rows ? 1 + (question ? 1 : 0) + (showModel ? 1 : 0) : question ? 1 : 0
+  const height = 1 + (question ? 1 : 0) + (showModel ? 1 : 0)
   return { question, rows, height }
 }
 
@@ -3293,11 +3291,18 @@ export function compactTranscript(messages: readonly { role: string; text: strin
     .join('\n\n')
 }
 
+/** The transcript cut harder when it does not fit Haiku's window; null when it still does not. */
+function fittingTranscript(messages: Parameters<typeof compactTranscript>[0]): string | null {
+  const full = compactTranscript(messages)
+  if (full.length <= COMPACT_MAX_CHARS) return full
+  const shorter = compactTranscript(messages, 300, 4000)
+  return shorter.length <= COMPACT_MAX_CHARS ? shorter : null
+}
+
 /** Haiku's summary of the transcript, or why there is none. */
 async function haikuCompaction($: EngineInterface, messages: Parameters<typeof compactTranscript>[0], instructions?: string): Promise<{ text: string } | { fail: string }> {
-  let transcript = compactTranscript(messages)
-  if (transcript.length > COMPACT_MAX_CHARS) transcript = compactTranscript(messages, 300, 4000)
-  if (transcript.length > COMPACT_MAX_CHARS) return { fail: 'the chat is too long for Haiku' }
+  const transcript = fittingTranscript(messages)
+  if (transcript === null) return { fail: 'the chat is too long for Haiku' }
   const r = await $.model.complete({
     model: COMPACT_MODEL,
     system: COMPACT_SYSTEM,
@@ -3312,9 +3317,8 @@ async function haikuCompaction($: EngineInterface, messages: Parameters<typeof c
 
 /** The quick handoff written by Haiku from the transcript, for a chat whose cache went cold; null when it fails. */
 async function haikuHandoff($: EngineInterface, messages: Parameters<typeof compactTranscript>[0]): Promise<string | null> {
-  let transcript = compactTranscript(messages)
-  if (transcript.length > COMPACT_MAX_CHARS) transcript = compactTranscript(messages, 300, 4000)
-  if (transcript.length > COMPACT_MAX_CHARS) return null
+  const transcript = fittingTranscript(messages)
+  if (transcript === null) return null
   const r = await $.model.complete({
     model: COMPACT_MODEL,
     system: 'You read a conversation between a user and Claude Code, an AI coding agent, and write the handoff the user asks for.',
@@ -3406,16 +3410,6 @@ async function lensStarted($: EngineInterface): Promise<void> {
   const at = await $.clock.now()
   await update($, lensNow, () => at)
   void refreshUsage($).catch(() => undefined)
-}
-
-/** One answered request (the main thread's or a subagent's): its cache numbers. Called from turn.step. */
-async function lensRequest($: EngineInterface, agentId: string | undefined, usage: ModelUsage, ran?: { model?: ModelKey; effort?: Effort }): Promise<void> {
-  await recordRequest($, agentId, usage, ran)
-}
-
-/** A main-thread compaction was written (not an ahead-of-time summary, not skipped): a new cache entry starts. */
-async function lensCompacted($: EngineInterface): Promise<void> {
-  await afterCompaction($)
 }
 
 function lensCacheTime(state: Warmth, left: number | null): string {
@@ -3547,7 +3541,7 @@ export const register: Register = (on, options) => {
       ],
     }
     })()
-    if (e.agentId === undefined && e.trigger !== 'precompute' && !('skip' in result && result.skip)) await lensCompacted($).catch(() => undefined)
+    if (e.agentId === undefined && e.trigger !== 'precompute' && !('skip' in result && result.skip)) await afterCompaction($).catch(() => undefined)
     return result
   })
   on('session.start', async ($, e, next) => {
@@ -3941,7 +3935,7 @@ Saved to ${out}.md and .json` }
       if (e.agentId === undefined) ranThisTurn = { model: typeof request.model === 'string' ? keyOf(request.model) : undefined, effort: EFFORTS.find(x => x === request.effort) }
       if (e.agentId === undefined) lastRequest = { index: e.index, appModel: asked.model, appEffort: asked.effort, model: request.model, effort: request.effort, at: Date.now() }
       const answer = yield* next(request)
-      if (answer?.usage) await lensRequest($, e.agentId, answer.usage, { model: typeof request.model === 'string' ? keyOf(request.model) : undefined, effort: EFFORTS.find(x => x === request.effort) }).catch(() => undefined)
+      if (answer?.usage) await recordRequest($, e.agentId, answer.usage, { model: typeof request.model === 'string' ? keyOf(request.model) : undefined, effort: EFFORTS.find(x => x === request.effort) }).catch(() => undefined)
       // Inside the hook ($ calls after it returns are refused), and never allowed to break the request.
       if (e.agentId === undefined && answer?.usage) await cacheTouched($, answer.usage).catch(() => undefined)
       const sentModel = typeof request.model === 'string' ? keyOf(request.model) : undefined
@@ -4775,7 +4769,7 @@ Saved to ${out}.md and .json` }
         ])
       }
       return band('⏻ Auto on or off. ⚙ all settings. Auto pauses on Fable.', 24, [
-        ...nav(<Button key="setup-done" variant="primary" autoFocus label="Done" onPress={() => finishSetup($)} />),
+        ...nav(<Button key="setup-done" variant="primary" autoFocus label="Done" onPress={() => closeSetup($)} />),
       ])
     }
     // The judge is failing: the effort stays as it is until it answers again.
