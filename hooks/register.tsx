@@ -1964,7 +1964,10 @@ export function savedText(raw: Spent): string {
   return lines.join('\n')
 }
 
-/** You picked an effort (terminal rows): Auto for effort goes off and the requests follow; Enter on /effort moves the app. */
+/**
+ * You picked an effort (terminal rows): Auto for effort goes off and the requests carry the level for this session
+ * only. The app's own effort control keeps its level, so a new chat starts from that one.
+ */
 async function pickEffort($: EngineInterface, level: Effort) {
   const t0 = Date.now()
   const inUse = (await read($, model)) ?? (await sessionModel($))
@@ -1975,10 +1978,7 @@ async function pickEffort($: EngineInterface, level: Effort) {
     $.store.set('isAuto', false),
     choose($, { model: inUse, effort: level, why: 'your pick', by: 'manual' }),
   ])
-  const t2 = Date.now()
-  await typeCommand($, `/effort ${level}`)
-  const t3 = Date.now()
-  void proof($, `click ${level}: ${t3 - t0} ms (read ${t1 - t0}, state ${t2 - t1}, typed command ${t3 - t2})`)
+  void proof($, `click ${level}: ${Date.now() - t0} ms (read ${t1 - t0}, state ${Date.now() - t1})`)
 }
 
 async function toggleAutoEffort($: EngineInterface) {
@@ -3061,8 +3061,8 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>, opt
   const showModel = (await envModelUi($)) !== '0'
 
   const setEffort = (level: Effort) => () => pickEffort($, level)
-  // Picking a model yourself turns off Auto for model alone; accepting a suggestion leaves it on. Neither types /model,
-  // which would make the pick the app's default for later sessions too.
+  // Picking a model yourself turns off Auto for model alone; accepting a suggestion leaves it on. Either holds for this
+  // session only, so the app's default model for later sessions stays as it is.
   const setModel = (model: ModelKey) => async () => {
     await update($, isAutoModel, () => false)
     await $.store.set('isAutoModel', false)
@@ -3109,7 +3109,8 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>, opt
   ) : null
   if (e.surface !== 'terminal') return { question, rows: null }
 
-  const notAligned = current && shownByApp && shownByApp !== current.effort
+  // Only the judge's level is pointed out when the app runs another: one you picked differs from it on purpose.
+  const notAligned = current && current.by !== 'manual' && shownByApp && shownByApp !== current.effort
   const note = inAgent
     ? ''
     : judging
@@ -4010,8 +4011,9 @@ Saved to ${out}.md and .json` }
       }
     }
     const p = await read($, pick)
-    // Decided by the model this request names, never by a stored pick. Haiku 4.5 is not cacheSafe: it takes no effort.
-    if (!p || !cacheSafe(e.model)) return yield* send(e)
+    // Decided by the model this request names, never by a stored pick. Where an effort change rewrites the cache, only a
+    // level you picked goes out: the rewrite is your choice there, never Auto's.
+    if (!p || !takesEffort(e.model) || (!cacheSafe(e.model) && p.by !== 'manual')) return yield* send(e)
     // Auto off: the app's own effort goes out. A pick the judge made while Auto was on is not the person's choice, and
     // with the app already on the effort they want, the mod would never see a change to give way to.
     if (p.by !== 'manual' && !(await read($, isAuto))) return yield* send(e)

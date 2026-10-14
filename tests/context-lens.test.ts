@@ -603,7 +603,7 @@ describe('typed commands', () => {
     return filled
   }
 
-  test('a model click switches this session itself and types no /model, which would change the app default', async ($, on) => {
+  test('a model click switches this session only and leaves the app default as it is', async ($, on) => {
     engine(on)
     const filled = box(on, '')
     const ran = recordCommands(on)
@@ -649,7 +649,7 @@ describe('typed commands', () => {
     await ui.unmount()
   })
 
-  test('an effort click sets the effort at once and also types /effort for the app', async ($, on) => {
+  test("an effort click sets this session's effort and leaves the app's own level as it is", async ($, on) => {
     engine(on)
     const filled = box(on, '')
     const sent = recordSteps(on)
@@ -657,9 +657,25 @@ describe('typed commands', () => {
 
     await ui.press({ key: 'e-high' })
     await step($, 'medium')
+    await ui.redraw()
 
-    expect(filled).toEqual(['/effort high'])
+    expect(filled).toEqual([])
     expect(sent[0].effort).toBe('high')
+    // The app still on medium is what a pick of your own means, not a mismatch to point out.
+    expect(await drawn(ui)).not.toContain('/effort shows')
+    await ui.unmount()
+  })
+
+  test('on Fable 5.1, where Auto waits, an effort you click still goes out', async ($, on) => {
+    engine(on, {}, 'claude-fable-5-1')
+    box(on, '')
+    const sent = recordSteps(on)
+    const ui = await $.ui.mount({ plugin: 'context-lens', surface: 'terminal', ...BAND })
+
+    await ui.press({ key: 'e-high' })
+    await step($, 'medium', 'claude-fable-5-1')
+
+    expect(sent[0]).toEqual({ model: 'claude-fable-5-1', effort: 'high' })
     await ui.unmount()
   })
 })
