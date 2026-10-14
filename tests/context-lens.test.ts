@@ -2140,13 +2140,38 @@ describe('swamp band and setup entry', () => {
   test('a reload with no session start still runs the timers: the first draw starts them', { options: { swampAt: '20' } } as never, async ($, on) => {
     engine(on)
     const mocked = mock.clock(on)
-    on('session.usage', () => ({ value: { context: { tokens: 208_000, window: 1_000_000, percent: 21 } } }) as never)
+    let tokens = 208_000
+    on('session.usage', () => ({ value: { context: { tokens, window: 1_000_000, percent: tokens / 10_000 } } }) as never)
     const first = await $.ui.mount({ plugin: 'context-lens', surface: 'terminal', ...BAND })
-    await mocked.advance(16_000)
+    await mocked.advance(100)
+    const swamped = await $.ui.mount(DESK_BAND)
+    expect(await drawn(swamped)).toContain('Chat is getting swamped')
+    await swamped.unmount()
+    // Only the ticker reads the usage again: the band drops away once the next tick sees a smaller context.
+    tokens = 50_000
+    await mocked.advance(15_000)
     await first.unmount()
-    const band = await $.ui.mount(DESK_BAND)
-    expect(await drawn(band)).toContain('Chat is getting swamped')
-    await band.unmount()
+    await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
+  })
+
+  test('a session start after a draw-only load does not double the tickers', async ($, on) => {
+    engine(on)
+    const mocked = mock.clock(on)
+    let usageReads = 0
+    on('session.usage', () => {
+      usageReads++
+      return { value: { context: { tokens: 50_000, window: 1_000_000, percent: 5 } } } as never
+    })
+    on('session.start', (_$, e) => ({ cwd: e.cwd }) as never)
+    on('command.register', () => ({ value: undefined }) as never)
+    const first = await $.ui.mount({ plugin: 'context-lens', surface: 'terminal', ...BAND })
+    await mocked.advance(100)
+    await $.session.start({ cwd: '.', surface: 'terminal', isInteractive: true } as never)
+    await mocked.advance(100)
+    const before = usageReads
+    await mocked.advance(15_000)
+    expect(usageReads - before).toBe(1)
+    await first.unmount()
   })
 
   test('the swamp band shows the context percent rounded when the app leaves it out', { options: { swampAt: '20' } } as never, async ($, on) => {

@@ -558,7 +558,7 @@ export type JudgeConfig = {
 /** The swamp thresholds the settings offer, in percent of the context window. */
 export const SWAMP_STEPS = [10, 20, 30, 40, 50, 60, 70, 80] as const
 
-/** The parts of context-lens a person can switch off: the footer's (setup).
+/** The parts of context-lens a person can switch off: the Handoff button, the cache timer and the judge's reason line.
  * The context (swamp), running-low (hot) and cold-cache alerts can be switched off for good in Customize; the judge-down
  * alert always shows. Each alert also has its own ✕. */
 export const HIDEABLE = ['handoff', 'timer', 'reason', 'swamp', 'hot', 'cold'] as const
@@ -2456,6 +2456,7 @@ function readOwnVersion($: EngineInterface) {
  * too; a session start restarts them, cancelling the ones the draw started. */
 let timersFrom: 'start' | 'draw' | null = null
 let tickers: { cancel: () => void }[] = []
+let timersScheduled = false
 function startTimers($: EngineInterface, from: 'start' | 'draw') {
   if (timersFrom === 'start' || (timersFrom === 'draw' && from === 'draw')) return
   timersFrom = from
@@ -2944,8 +2945,8 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
               <Svg source={v.auto ? MARK_SVG : DASH_MARK_OFF} alt="context-lens" width={DASH_MARK_SIZE} height={DASH_MARK_SIZE} />
             </Box>
           ) : <Text color={v.auto ? ACCENT : DASH_DIM} bold>✦ </Text>}
-          {/* A new effort shows in violet, then white (effortFlash): plain text in the app's font. An animated image of the
-              word looked cheap: another font, a late start and a jump back to the text. */}
+          {/* A new effort shows in the accent, then white (effortFlash): plain text in the app's font. An animated image
+              of the word looked cheap: another font, a late start and a jump back to the text. */}
           <Text key="dash-level" color={wordColor} bold>{judgingHere && Svg ? 'Deciding' : what}</Text>
           {/* While the judge decides: thinking dots, as a plain image (its CSS still runs, and a
               redraw does not restart it the way an interactive frame does). */}
@@ -3508,6 +3509,7 @@ export const register: Register = (on, options) => {
   })
   loadedAt = Date.now()
   timersFrom = null
+  timersScheduled = false
   firstDrawLogged = false
   drawsTimed = 0
   config = readConfig(options)
@@ -4173,12 +4175,6 @@ Saved to ${out}.md and .json` }
     await restoreCache($).catch(() => undefined)
     renderCalls++
     lastRenderAt = Date.now()
-    // A timer start is no state write, but the checks it starts are: a timer runs them once the draw is over.
-    if (timersFrom === null)
-      $.clock.after(0, () => {
-        readOwnVersion($)
-        startTimers($, 'draw')
-      })
     void refreshAppearance($).catch(() => undefined)
     lastRenderProps = JSON.stringify(e.props).slice(0, 200)
     renderLog.push(`${new Date(lastRenderAt).toISOString()} ${loadedSession} ${lastRenderProps}`)
@@ -4188,6 +4184,18 @@ Saved to ${out}.md and .json` }
       void writeRenderLog($).catch(() => undefined)
     }
     try {
+      // A timer start is no state write, but the checks it starts are: a timer runs them once the draw is over. A burst
+      // of draws schedules it once; a host that refuses the timer is asked again by the next draw.
+      if (timersFrom === null && !timersScheduled) {
+        try {
+          timersScheduled = Boolean(
+            $.clock.after(0, () => {
+              readOwnVersion($)
+              startTimers($, 'draw')
+            }),
+          )
+        } catch {}
+      }
       if (e.props.hasSurvey) {
         lastRenderBranch = 'stepped aside: the app has a survey in this spot'
         return next(e)
