@@ -85,8 +85,8 @@ function recordSteps(on: On) {
 }
 
 /** One main-loop request, the engine sending `effort` as its own setting (high unless /effort set another). */
-async function step($: Engine, effort: 'low' | 'medium' | 'high' | 'xhigh' | 'max' = 'high') {
-  const stream = $.turn.step({ turnId: 't1', index: 0, model: 'claude-opus-5-5', effort, messageCount: 1 })
+async function step($: Engine, effort: 'low' | 'medium' | 'high' | 'xhigh' | 'max' = 'high', model = 'claude-opus-5-5') {
+  const stream = $.turn.step({ turnId: 't1', index: 0, model, effort, messageCount: 1 })
   for await (const _ of stream) {
     // drain
   }
@@ -444,7 +444,7 @@ describe('offer a model first', () => {
     expect(ran).toEqual([])
     expect(through).toEqual(['vad heter mappen?'])
     await step($)
-    expect(sent[0]).toEqual({ model: 'claude-haiku-5-5', effort: undefined })
+    expect(sent[0]).toEqual({ model: 'claude-haiku-5-5', effort: 'low' })
     await ui.unmount()
   })
 
@@ -734,12 +734,14 @@ describe('footer text', () => {
     await footer.unmount()
   })
 
-  test('on Haiku there is no effort to name', async ($, on) => {
+  test("on Haiku 5.5 the judge's effort is named and goes out", async ($, on) => {
     engine(on, {}, 'claude-haiku-5-5')
     judgeSays(on, '{"model":"haiku","effort":"low","why":"simple"}')
     mock.clock(on)
     on('classic.PostModelSwitch', () => ({}) as never)
+    const sent = recordSteps(on)
     const footer = await $.ui.mount(FOOTER)
+
     await $.classic.PostModelSwitch({
       from_model: 'claude-opus-5-5',
       to_model: 'claude-haiku-5-5',
@@ -748,8 +750,24 @@ describe('footer text', () => {
       context_tokens: 0,
     } as never)
     await $.prompt.submit({ text: 'hej', wait: false, origin: { kind: 'composer' } })
-    expect(await drawn(footer)).not.toContain('Low')
+    await step($, 'medium', 'claude-haiku-5-5')
+
+    expect(await drawn(footer)).toContain('Low')
+    expect(sent[0]).toEqual({ model: 'claude-haiku-5-5', effort: 'low' })
     await footer.unmount()
+  })
+
+  test('Haiku 4.5 takes no effort: its requests go out as the app sends them', async ($, on) => {
+    engine(on, {}, 'claude-haiku-4-5-20251001')
+    judgeSays(on, '{"model":"haiku","effort":"low","why":"simple"}')
+    const sent = recordSteps(on)
+
+    await $.prompt.submit({ text: 'hej', wait: false, origin: { kind: 'composer' } })
+    for await (const _ of $.turn.step({ turnId: 't1', index: 0, model: 'claude-haiku-4-5-20251001', messageCount: 1 })) {
+      // drain
+    }
+
+    expect(sent[0]).toEqual({ model: 'claude-haiku-4-5-20251001', effort: undefined })
   })
 
   test('the judge is told that scope counts: a short message can be a big job', async ($, on) => {
@@ -879,9 +897,11 @@ describe('footer text', () => {
 })
 
 describe('helpers', () => {
-  test('cacheSafe: effort may change on Opus 5.5 and Sonnet 5.5 only', () => {
+  test('cacheSafe: effort may change on Opus, Sonnet and Haiku 5.5 only', () => {
     expect(cacheSafe('claude-opus-5-5')).toBe(true)
     expect(cacheSafe('claude-sonnet-5-5[1m]')).toBe(true)
+    expect(cacheSafe('claude-haiku-5-5')).toBe(true)
+    expect(cacheSafe('claude-haiku-4-5-20251001')).toBe(false)
     expect(cacheSafe('claude-fable-5-1')).toBe(false)
     expect(cacheSafe('claude-opus-4-8')).toBe(false)
     expect(cacheSafe('claude-opus-5')).toBe(false)

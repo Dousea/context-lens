@@ -42,8 +42,11 @@ export const EFFORTS: Effort[] = ['low', 'medium', 'high', 'xhigh', 'max']
 // A write to the 1-hour cache costs twice the input price, to the 5-minute one 1.25 times.
 const WEIGHT = { input: 1, write: 1.25, write1h: 2, read: 0.1, out: 5 }
 // Changing effort between two requests keeps the prompt cache on these models only. On Fable 5.1 and older Opus
-// the next request rewrote 56-100% of the cache (measured), which costs more than any effort can save.
-export const cacheSafe = (modelId: string) => /(opus|sonnet)-5-5/.test(modelId)
+// the next request rewrote 56-100% of the cache (measured), which costs more than any effort can save. Haiku 5.5 is
+// not measured: it is taken to behave like Opus and Sonnet 5.5, and a rewrite of its cache is the cheapest there is.
+export const cacheSafe = (modelId: string) => /(opus|sonnet|haiku)-5-5/.test(modelId)
+// Haiku before 5.5 runs without an effort level.
+export const takesEffort = (modelId: string) => !/haiku-[1-4]|3-(5-)?haiku/.test(modelId)
 // The accent the effort in the footer is written in: the brand violet, or what the theme turns it to.
 let ACCENT = accent()
 /** Takes the theme the settings name; the accent and every drawing follow it. */
@@ -833,7 +836,7 @@ function keyOf(id: string): ModelKey | undefined {
 
 /** Records the model the session now runs; the pick follows it, so the band never shows a stale one. */
 async function modelIs($: EngineInterface, id: string) {
-  const pause = !cacheSafe(id) && keyOf(id) !== 'haiku'
+  const pause = !cacheSafe(id) && takesEffort(id)
   if (pause !== (await read($, paused))) await update($, paused, () => pause)
   const key = keyOf(id)
   if (!key || key === (await read($, model))) return
@@ -1985,7 +1988,7 @@ async function choose($: EngineInterface, next: Pick | null) {
   const before = await read($, pick)
   await Promise.all([update($, pick, () => next), $.store.set('pick', next)])
   // A change Auto made is shown as "Low → High" for a moment, so the switch is seen.
-  if (next && next.by !== 'manual' && before && before.model !== 'haiku' && before.effort !== next.effort) {
+  if (next && next.by !== 'manual' && before && before.effort !== next.effort) {
     const change = { from: before.effort, to: next.effort }
     await update($, switched, () => change)
     $.clock.after(SWITCHED_MS, () => void update($, switched, () => null))
@@ -2078,7 +2081,7 @@ export function hoverTips(v: Snap): { effort: string; cache: string } {
     ? 'Auto is off: the effort stays as you set it. The power button turns Auto on.'
     : v.pausedNow
       ? 'Auto waits on this model: an effort change would rewrite its prompt cache.'
-      : !effortOf(v, v.modelNow ?? 'sonnet')
+      : !effortOf(v)
         ? 'This model runs without an effort level, so Auto has nothing to set.'
       : [
           v.current ? `Auto picked ${EFFORT_LABELS[v.current.effort]}${v.current.by !== 'manual' ? ` (${v.current.by})` : ''}` : 'Auto picks the effort for each message',
@@ -2097,9 +2100,8 @@ export function hoverTips(v: Snap): { effort: string; cache: string } {
   return { effort: effortTip, cache: cacheTip }
 }
 
-/** The effort to show: yours or the judge's, else what the app itself runs with; none on Haiku. */
-function effortOf(v: Snap, inUse: ModelKey): Effort | undefined {
-  if (inUse === 'haiku') return undefined
+/** The effort to show: yours or the judge's, else what the app itself runs with. */
+function effortOf(v: Snap): Effort | undefined {
   if (v.current) return v.current.effort
   return EFFORTS.includes(v.shownByApp as Effort) ? (v.shownByApp as Effort) : undefined
 }
@@ -2796,7 +2798,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
   const shownModel: ModelKey | undefined = inAgent ? viewed?.model : (v.modelNow ?? undefined)
   const effortNow = inAgent
     ? (viewed?.effort ?? (await helperEffortOf($, e.props.view.agentId!).catch(() => undefined)))
-    : effortOf(v, v.modelNow ?? (await sessionModel($)))
+    : effortOf(v)
   const by = v.current?.by
   const reason = v.current
     ? `${by === 'manual' || by === 'named' ? 'You' : 'Why'}: ${v.current.why}`
@@ -3050,7 +3052,7 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>, opt
   const inUse = inAgent ? viewed?.model : (v.modelNow ?? (await sessionModel($)))
   const effortNow = inAgent
     ? (viewed?.effort ?? (await helperEffortOf($, agentId).catch(() => undefined)))
-    : effortOf(v, inUse!)
+    : effortOf(v)
   // The model row is paused: effort first. CONTEXT_LENS_MODEL_UI=1 brings it back.
   const showModel = (await envModelUi($)) === '1'
 
@@ -3107,7 +3109,7 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>, opt
   ) : null
   if (e.surface !== 'terminal') return { question, rows: null }
 
-  const notAligned = current && inUse !== 'haiku' && shownByApp && shownByApp !== current.effort
+  const notAligned = current && shownByApp && shownByApp !== current.effort
   const note = inAgent
     ? ''
     : judging
@@ -3808,7 +3810,7 @@ Saved to ${out}.md and .json` }
     // On a model where an effort change rewrites the cache, Auto waits instead of judging.
     const modelId = await sessionModelId($)
     await modelIs($, modelId)
-    if (!cacheSafe(modelId) && keyOf(modelId) !== 'haiku') return next(e)
+    if (!cacheSafe(modelId) && takesEffort(modelId)) return next(e)
     // "go", "ok", "yes" between two steps of work keep the effort Auto already chose; no judge is asked.
     const before = await read($, pick)
     // A message with an image is never a bare follow-up: "fix this" plus a screenshot is new work.
@@ -3834,7 +3836,7 @@ Saved to ${out}.md and .json` }
         heldPick = null
         await choose($, applied)
       }
-      await countPrompt($, inUse !== 'haiku' ? named : undefined, 'named', 0, 0)
+      await countPrompt($, takesEffort(modelId) ? named : undefined, 'named', 0, 0)
       void proof($, `named level ${named} in "${e.text.slice(0, 50)}": no judge`)
       $.ui.invalidate('ui.render')
       return next(e)
@@ -3860,7 +3862,7 @@ Saved to ${out}.md and .json` }
       })
       await endJudgeGlow($, 'verdict')
       const ms = Date.now() - startedAt
-      await countPrompt($, wantsEffort && inUse !== 'haiku' ? verdict?.effort : undefined, verdict?.by, ms, judgeTokens)
+      await countPrompt($, wantsEffort && takesEffort(modelId) ? verdict?.effort : undefined, verdict?.by, ms, judgeTokens)
       void proof(
         $,
         verdict
@@ -3934,9 +3936,9 @@ Saved to ${out}.md and .json` }
 
   on('turn.step', async function* ($, e, next) {
     const asked = { model: e.model, effort: e.effort }
-    // A taken offer's model goes out instead of the app's, and everything below decides by it. Haiku takes no effort.
+    // A taken offer's model goes out instead of the app's, and everything below decides by it.
     if (e.agentId === undefined && sessionPick && keyOf(e.model) !== sessionPick) {
-      e = { ...e, model: MODELS.find(m => m.key === sessionPick)!.id, effort: sessionPick === 'haiku' ? undefined : e.effort }
+      e = { ...e, model: MODELS.find(m => m.key === sessionPick)!.id }
     }
     // Every main-conversation response, whatever its effort, keeps the cache warm for its lifetime from now.
     const send = async function* (request: typeof e) {
@@ -3978,8 +3980,8 @@ Saved to ${out}.md and .json` }
         return yield* send(e)
       }
     }
-    // A helper the judge picked an effort for at its spawn runs every request at it. Haiku takes no effort.
-    if (e.agentId !== undefined && config.helpers === 'on' && keyOf(e.model) !== 'haiku') {
+    // A helper the judge picked an effort for at its spawn runs every request at it.
+    if (e.agentId !== undefined && config.helpers === 'on' && takesEffort(e.model)) {
       const picked = await helperPickOf($, e.agentId)
       // With Model for helpers on, a cheaper model than the one it was given, when the judge named one.
       const cheaper = config.helperModel === 'on' ? helperModelFor(picked?.model, keyOf(e.model)) : null
@@ -3993,8 +3995,8 @@ Saved to ${out}.md and .json` }
       }
     }
     const p = await read($, pick)
-    // Haiku takes no effort: decided by the model this request names, never by a stored pick.
-    if (!p || keyOf(e.model) === 'haiku' || !cacheSafe(e.model)) return yield* send(e)
+    // Decided by the model this request names, never by a stored pick. Haiku 4.5 is not cacheSafe: it takes no effort.
+    if (!p || !cacheSafe(e.model)) return yield* send(e)
     // Auto off: the app's own effort goes out. A pick the judge made while Auto was on is not the person's choice, and
     // with the app already on the effort they want, the mod would never see a change to give way to.
     if (p.by !== 'manual' && !(await read($, isAuto))) return yield* send(e)
@@ -4032,7 +4034,7 @@ Saved to ${out}.md and .json` }
     const v = await snap($)
     const handoffNow = (await read($, handoffStage)) !== null
     const needsSetup = await read($, setupPending)
-    const effortNow = effortOf(v, v.modelNow ?? 'sonnet')
+    const effortNow = effortOf(v)
     // Save mode paints the level in the running-hot band's ember until the limit resets.
     const saving = (await read($, saveUntil)) !== null
     const label = v.judging
