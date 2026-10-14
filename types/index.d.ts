@@ -1,5 +1,6 @@
 export type ModelKey = 'haiku' | 'sonnet' | 'opus' | 'fable'
 export type Effort = 'low' | 'medium' | 'high' | 'xhigh' | 'max'
+export type Steps = 'one' | 'few' | 'many'
 
 /** What the prompts Auto steered cost, measured: tokens by kind, and per effort the prompts and their weighted cost. */
 export type Spent = {
@@ -28,6 +29,8 @@ export type Pick = {
   by: 'haiku' | 'manual' | 'named'
   /** How sure the judge was of the effort, 0-1, when it said. */
   sure?: number
+  /** The judge's guess at the requests the task takes: one tool call or answer, a few, or many. */
+  steps?: Steps
   /** Haiku only: why a handoff would suit now (a few words), when it said it would. */
   handoff?: string
 }

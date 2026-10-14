@@ -12,6 +12,7 @@ import type {
   Pick,
   SettingsDraft,
   Spent,
+  Steps,
 } from '../types'
 import { ART_COLUMNS, ART_FRAME_MS, ART_MIN_WIDTH, ART_ROWS, type ArtKind, artFrame, MOVING } from './art'
 import { MARK_SVG } from './brand-mark'
@@ -47,6 +48,7 @@ export const MODELS: { key: ModelKey; label: string; long: string; id: string }[
   { key: 'fable', label: 'Fable', long: 'Fable 5.1', id: 'claude-fable-5-1' },
 ]
 export const EFFORTS: Effort[] = ['low', 'medium', 'high', 'xhigh', 'max']
+const STEPS: Steps[] = ['one', 'few', 'many']
 // What one token costs relative to an uncached input token, the same ratios on every Claude model. Measured over
 // 80k requests of real Claude Code use, cache reads are about 76% of a session's cost, cache writes 16% and output 8%: effort
 // mostly changes how many tool calls a prompt makes, not what one answer writes, so all four are counted.
@@ -482,12 +484,14 @@ If the person asks for deep thought ("think hard", "ultrathink", "be thorough"),
 
 If the message is a short follow-up to ongoing work ("yes", "go", "ok", "continue", or the same in any language), keep the current pair.
 
-Reply with JSON only: {"model":"haiku|sonnet|opus|fable","effort":"low|medium|high|xhigh|max","sure":0.0-1.0 how sure you are of the effort,"why":"at most 6 words, in the user's language"}`
+Steps: how many tool calls and replies the task takes. one: a single command, lookup or plain answer. few: a handful of reads or edits. many: a broad search, many files or long multi-step work.
+
+Reply with JSON only: {"model":"haiku|sonnet|opus|fable","effort":"low|medium|high|xhigh|max","steps":"one|few|many","sure":0.0-1.0 how sure you are of the effort,"why":"at most 6 words, in the user's language"}`
 
 /** Reads `{ model, effort, why }` out of a reply, or nothing when it doesn't hold one. */
 export function parseVerdict(
   text: string,
-): { model: ModelKey; effort: Effort; why: string; sure?: number; handoff?: string } | undefined {
+): { model: ModelKey; effort: Effort; why: string; sure?: number; steps?: Steps; handoff?: string } | undefined {
   const match = text.match(/\{[\s\S]*\}/)
   if (!match) return undefined
   let raw: unknown
@@ -497,7 +501,7 @@ export function parseVerdict(
     return undefined
   }
   if (typeof raw !== 'object' || raw === null) return undefined
-  const { model, effort, why, sure, handoff } = raw as Record<string, unknown>
+  const { model, effort, why, sure, steps, handoff } = raw as Record<string, unknown>
   const key = typeof model === 'string' ? model.toLowerCase() : ''
   const found = MODELS.find(m => key === m.key || key === m.id || key.includes(m.key))
   if (!found || !EFFORTS.includes(effort as Effort)) return undefined
@@ -509,6 +513,7 @@ export function parseVerdict(
     effort: effort as Effort,
     why: typeof why === 'string' ? why.slice(0, 60) : '',
     ...how,
+    ...(STEPS.includes(steps as Steps) ? { steps: steps as Steps } : {}),
     ...advice,
   }
 }
@@ -1137,7 +1142,7 @@ function warmTokens(key: ModelKey, now: number): number | undefined {
 
 /** The note a handed-off prompt carries: the chat's model stays, and a subagent on `model` does the task. */
 export function subagentNote(model: ModelKey): string {
-  return `\n\n[context-lens: hand this task to a subagent on ${model} (Agent tool, model: "${model}") with a complete brief, then use its result.]`
+  return `\n\n[context-lens, on my behalf: I want a subagent on ${model} to do this task (Agent tool, model: "${model}") to save my usage on the chat's model. Delegate it with a complete brief, even if it looks small, then use its result.]`
 }
 
 /**
@@ -1413,6 +1418,40 @@ export function switchWorth(
   const go = (writtenGo * write + (tokens - writtenGo) * WEIGHT.read) * priceOf(verdict, tokens)
   const gain = tokens * WEIGHT.read * (priceOf(inUse, tokens) - priceOf(verdict, tokens))
   return go - stay <= PAYBACK_REQUESTS * gain ? 'switch' : 'subagent'
+}
+
+/** The requests a task of each size makes, as the judge guesses it. */
+const STEP_REQUESTS: Record<Steps, number> = { one: 1, few: 4, many: 12 }
+/** What a subagent writes to its cache before it starts: its system prompt, tools and brief. */
+const SUBAGENT_START_TOKENS = 15_000
+/** Below this the judge is too unsure of the task to hand it off. */
+const SUBAGENT_MIN_SURE = 0.6
+
+/**
+ * Whether handing the prompt to a subagent on `verdict` pays, once switchWorth has turned the switch down. The chat
+ * still makes the request that calls the subagent and the one that reads its result, so a task of n requests spares
+ * the chat n - 1 reads of its context, against the subagent's own cold start and reads. A one-step task spares
+ * nothing. A stronger model is a quality call: it goes to a subagent for any task bigger than one step. Without
+ * the judge's steps, the effort stands in for them.
+ */
+export function subagentPays(
+  verdict: ModelKey,
+  inUse: ModelKey,
+  task: { tokens: number; effort: Effort; steps?: Steps; sure?: number },
+): boolean {
+  if (task.sure !== undefined && task.sure < SUBAGENT_MIN_SURE) return false
+  const steps = task.steps ?? (task.effort === 'low' ? 'one' : task.effort === 'medium' ? 'few' : 'many')
+  if (steps === 'one') return false
+
+  const rank = (k: ModelKey) => MODELS.findIndex(m => m.key === k)
+  if (rank(verdict) > rank(inUse)) return true
+
+  const requests = STEP_REQUESTS[steps]
+  const spared = (requests - 1) * task.tokens * WEIGHT.read * priceOf(inUse, task.tokens)
+  const started =
+    (SUBAGENT_START_TOKENS * WEIGHT.write + requests * SUBAGENT_START_TOKENS * WEIGHT.read) *
+    priceOf(verdict, SUBAGENT_START_TOKENS)
+  return spared > started
 }
 
 /** The context's tokens when the cold band is worth showing: the cache is cold, the band not closed, and the chat big
@@ -4918,15 +4957,20 @@ Saved to ${out}.md and .json`,
         // Only another model than the chat's: a switch where it pays for the cache it rewrites, else a subagent (see switchWorth).
         const cold = (await read($, cacheLeft)) === 0 || coldForced
         const now = await $.clock.now().catch(() => Date.now())
-        const worth =
+        const tokens = lastContext?.tokens ?? modelCaches.get(inUse)?.tokens
+        const offered =
           verdict.model === declined
             ? null
             : switchWorth(verdict.model, inUse, {
                 cold,
-                tokens: lastContext?.tokens ?? modelCaches.get(inUse)?.tokens,
+                tokens,
                 ttl: cacheTtl,
                 warm: warmTokens(verdict.model, now),
               })
+        const worth =
+          offered === 'subagent' && !subagentPays(verdict.model, inUse, { ...verdict, tokens: tokens ?? 0 })
+            ? null
+            : offered
         // A subagent takes a prompt the person typed, before it is sent: a note, an agent's report or a prompt already on
         // its way has nothing left to hand off.
         const typedNow = byPerson && !midTurn && !slash

@@ -5,6 +5,7 @@ import {
   subagentFloor,
   subagentModelFor,
   switchWorth,
+  subagentPays,
   subagentNote,
   priceOf,
   namedEffort,
@@ -518,6 +519,23 @@ describe('model suggestion', () => {
     expect(switchWorth('fable', 'opus', { cold: true })).toBe(null)
   })
 
+  test('subagentPays: only a task big enough to spare the chat more than the subagent costs to start', () => {
+    // One step spares the chat nothing, at any size.
+    expect(subagentPays('haiku', 'opus', { tokens: 257_000, effort: 'low', steps: 'one' })).toBe(false)
+    expect(subagentPays('sonnet', 'opus', { tokens: 500_000, effort: 'high', steps: 'one' })).toBe(false)
+    // A few steps in a big chat pay; in a small one they do not.
+    expect(subagentPays('sonnet', 'opus', { tokens: 200_000, effort: 'medium', steps: 'few' })).toBe(true)
+    expect(subagentPays('sonnet', 'opus', { tokens: 30_000, effort: 'medium', steps: 'few' })).toBe(false)
+    // Without steps the effort stands in: low is one step.
+    expect(subagentPays('haiku', 'opus', { tokens: 257_000, effort: 'low' })).toBe(false)
+    expect(subagentPays('haiku', 'opus', { tokens: 257_000, effort: 'medium' })).toBe(true)
+    // An unsure judge hands nothing off.
+    expect(subagentPays('sonnet', 'opus', { tokens: 200_000, effort: 'high', steps: 'many', sure: 0.4 })).toBe(false)
+    // A stronger model goes for anything bigger than one step.
+    expect(subagentPays('opus', 'sonnet', { tokens: 120_000, effort: 'high', steps: 'few' })).toBe(true)
+    expect(subagentPays('opus', 'sonnet', { tokens: 120_000, effort: 'high', steps: 'one' })).toBe(false)
+  })
+
   test("a stronger model than the chat's is suggested in a new chat", async ($, on) => {
     engine(on, {}, 'claude-sonnet-5-5')
     judgeSays(on, '{"model":"opus","effort":"high","why":"hard problem"}')
@@ -802,6 +820,28 @@ describe('offer a model first', () => {
 
     expect(through).toEqual([`rename the config loader${subagentNote('sonnet')}`])
     expect(toasts.join(' ')).toContain('Handed to a subagent on Sonnet: routine')
+    expect(sent.at(-1)).toBe('claude-opus-5-5')
+    await ui.unmount()
+  })
+
+  test('model on Auto: a one-step task in a big warm chat stays on the chat model, with no subagent', async ($, on) => {
+    engine(on)
+    judgeSays(on, '{"model":"haiku","effort":"low","steps":"one","why":"one command"}')
+    const toasts = toastsOf(on)
+    const sent = bigChat(on, 257_000)
+    const clock = mock.clock(on)
+    const ui = await $.ui.mount({ plugin: 'context-lens', surface: 'terminal', ...BAND })
+    await ui.press({ key: 'auto-model' })
+    await step($)
+    await clock.advance(2_000)
+    await settle(ui)
+
+    const { through, sending } = await sendHeld($, on, 'delete those branches')
+    await sending
+    await step($)
+
+    expect(through).toEqual(['delete those branches'])
+    expect(toasts.join(' ')).not.toContain('Handed to a subagent')
     expect(sent.at(-1)).toBe('claude-opus-5-5')
     await ui.unmount()
   })
@@ -3848,6 +3888,13 @@ describe('dashboard', () => {
     expect(parseVerdict(`{${base},"handoff":"   "}`)?.handoff).toBeUndefined()
     expect(parseVerdict(`{${base},"handoff":false}`)?.handoff).toBeUndefined()
     expect(parseVerdict(`{${base}}`)?.handoff).toBeUndefined()
+  })
+
+  test('parseVerdict keeps only a known number of steps', () => {
+    const base = '"model":"opus","effort":"high","why":"x"'
+    expect(parseVerdict(`{${base},"steps":"few"}`)?.steps).toBe('few')
+    expect(parseVerdict(`{${base},"steps":"lots"}`)?.steps).toBeUndefined()
+    expect(parseVerdict(`{${base}}`)?.steps).toBeUndefined()
   })
 
   test('the Handoff glow steps up every 10% from 30%', () => {
