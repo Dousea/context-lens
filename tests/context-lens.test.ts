@@ -44,8 +44,14 @@ function judgeSays(on: On, text: string) {
 const submitted: string[] = []
 
 /** What sits beneath the plugins in a session: the prompt goes through, the status line takes text. */
-function engine(on: On, env: Record<string, string> = {}, sessionModel = 'claude-opus-5-5', said: { role: string; text: string }[] = []) {
-  mock.store(on)
+function engine(
+  on: On,
+  env: Record<string, string> = {},
+  sessionModel = 'claude-opus-5-5',
+  said: { role: string; text: string }[] = [],
+  stored: Record<string, unknown> = {},
+) {
+  mock.store(on, stored)
   mock.env(on, { CONTEXT_LENS_MODEL_UI: '1', ...env })
   submitted.length = 0
   on('prompt.submit', (_$, e) => {
@@ -2887,6 +2893,44 @@ describe('dashboard', () => {
     const late = await footer(17_000)
     expect((await late.find({ key: 'turn-line' }))?.text).toContain('Low')
     await late.unmount()
+  })
+
+  test('a resumed chat draws each footer from the store, and a footer nothing knows shows no effort or model', async ($, on) => {
+    engine(on, {}, 'claude-opus-5-5', [], { turnLines: { s1: { '17000': { effort: 'low', model: 'opus', cost: 1200 } } } })
+    mock.clock(on)
+    on('session.id', () => ({ value: 's1' }) as never)
+    const footer = (ms: number) =>
+      $.ui.mount({ plugin: 'context-lens', surface: 'desktop', component: 'TurnDuration', props: { word: 'Baked', durationMs: ms } } as never)
+
+    const saved = await footer(17_000)
+    expect((await saved.find({ key: 'turn-line' }))?.text).toContain('Low')
+    expect((await saved.find({ key: 'turn-line' }))?.text).toContain('Opus 5.5')
+    await saved.unmount()
+
+    const unknown = await footer(40_000)
+    const text = (await unknown.find({ key: 'turn-line' }))?.text ?? ''
+    expect(text).toContain('Baked 40s')
+    expect(text).not.toContain('✦')
+    expect(text).not.toContain('Opus')
+    await unknown.unmount()
+  })
+
+  test('a finished turn saves its footer in the store under the session', async ($, on) => {
+    const writes: Record<string, unknown> = {}
+    on('store.set', { key: 'turnLines' } as never, (_$, e, next) => {
+      writes[e.key] = e.value
+      return next(e)
+    })
+    engine(on)
+    mock.clock(on)
+    recordSteps(on)
+    on('session.id', () => ({ value: 's1' }) as never)
+    on('turn.complete', () => ({ text: '' }))
+    await step($, 'low')
+    await $.turn.complete({ turnId: 't1', answer: 'Done.', durationMs: 9_000, isAborted: false, reason: 'answer' } as never)
+
+    const all = writes.turnLines as Record<string, Record<string, { effort?: string; model?: string }>>
+    expect(all.s1['9000']).toMatchObject({ effort: 'low', model: 'opus' })
   })
 
   test('the effort word and the figures after it are drawn apart, so the figures can be cut and the word stays whole', () => {

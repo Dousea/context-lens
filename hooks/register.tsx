@@ -189,6 +189,40 @@ const lastAnswer = atom({ plugin: 'context-lens', key: 'lastAnswer' } as const, 
 // effort or model change leaves the older footers as they were.
 const turnLines = atom({ plugin: 'context-lens', key: 'turnLines' } as const, {})
 const TURN_LINES_KEPT = 200
+type TurnLine = { effort?: Effort; model?: ModelKey; cost?: number }
+// The session's state ends with the process: the lines are kept in the store too, by session id (the transcript's name, which
+// a --resume keeps), so a restarted or resumed chat still draws what each reply ran on. The newest sessions are kept.
+const TURN_LINES_SESSIONS = 30
+let storedTurnLines: { session: string; lines: Record<string, TurnLine> } | null = null
+
+const withTurnLine = (lines: Record<string, TurnLine>, key: string, line: TurnLine) =>
+  Object.fromEntries([...Object.entries(lines).filter(([k]) => k !== key).slice(1 - TURN_LINES_KEPT), [key, line]])
+
+async function storedLinesOf($: EngineInterface): Promise<Record<string, TurnLine>> {
+  const session = await $.session.id().catch(() => '')
+  if (!session) return {}
+
+  if (storedTurnLines?.session !== session) {
+    const all = await $.store.get('turnLines').catch(() => undefined)
+    const lines = all && typeof all === 'object' ? (all as Record<string, unknown>)[session] : undefined
+    storedTurnLines = { session, lines: lines && typeof lines === 'object' ? (lines as Record<string, TurnLine>) : {} }
+  }
+  return storedTurnLines.lines
+}
+
+async function storeTurnLine($: EngineInterface, key: string, line: TurnLine) {
+  const session = await $.session.id().catch(() => '')
+  if (!session) return
+
+  const lines = withTurnLine(await storedLinesOf($), key, line)
+  const all = await $.store.get('turnLines').catch(() => undefined)
+  const others = Object.entries(all && typeof all === 'object' ? all : {})
+    .filter(([k]) => k !== session)
+    .slice(1 - TURN_LINES_SESSIONS)
+
+  await $.store.set('turnLines', Object.fromEntries([...others, [session, lines]]))
+  storedTurnLines = { session, lines }
+}
 // The weighted tokens of the requests (the chat's and its subagents') since the prompt; kept in turnLines when the turn ends.
 let turnCost = 0
 // What the reply's last main-thread request ran on: the footer's model and effort.
@@ -3614,12 +3648,14 @@ export const register: Register = (on, options) => {
     // be the next message's.
     if (!e.agentId && e.durationMs) {
       const key = String(e.durationMs)
-      const ran = ranThisTurn
       const cost = Math.round(turnCost)
-      await update($, turnLines, lines => {
-        const kept = Object.entries(lines).filter(([k]) => k !== key).slice(1 - TURN_LINES_KEPT)
-        return Object.fromEntries([...kept, [key, { ...ran, ...(cost > 0 ? { cost } : {}) }]])
-      })
+      const line = { ...ranThisTurn, ...(cost > 0 ? { cost } : {}) }
+
+      await update($, turnLines, lines => withTurnLine(lines, key, line))
+      await storeTurnLine($, key, line).catch(() => undefined)
+
+      // Saved: an older reply's footer drawn during the next turn must not take that turn's model.
+      ranThisTurn = null
     }
     // A landed handoff card stays under the first reply after it, and goes with the next.
     if (!e.agentId) {
@@ -4124,28 +4160,32 @@ Saved to ${out}.md and .json` }
     return result
   })
 
-  // Turns from before turnLines existed have no saved line: they keep what they first drew.
-  const firstDrawn = new Map<string, { effort?: Effort; model?: ModelKey; cost?: number }>()
+  // A line drawn before turn.complete saved it keeps what it first drew, should the turn end without a save.
+  const firstDrawn = new Map<string, TurnLine>()
   on('ui.render', { component: 'TurnDuration' }, async ($, e, next) => {
     if (config.hide.includes('line')) return next(e)
     const { Box, Text } = themedEls($.ui.resolve(e))
-    const v = await snap($)
     const key = String(e.props.durationMs)
-    let ran = turnLineFor(await read($, turnLines), e.props.durationMs) ?? firstDrawn.get(key)
-    if (!ran) {
-      // Drawn before turn.complete saved its line: the reply's own last request says what it ran on, not the current setting.
-      const inUse = v.modelNow ?? 'sonnet'
-      ran = ranThisTurn?.effort ? { ...ranThisTurn } : { effort: effortOf(v, inUse), model: inUse }
+    let ran =
+      turnLineFor(await read($, turnLines), e.props.durationMs) ??
+      turnLineFor(await storedLinesOf($), e.props.durationMs) ??
+      firstDrawn.get(key)
+
+    // Drawn before turn.complete saved its line: the reply's own last request says what it ran on. With none in this process
+    // nothing is known, and the line shows no effort or model rather than the current setting's.
+    if (!ran && ranThisTurn) {
+      ran = { ...ranThisTurn }
       firstDrawn.set(key, ran)
     }
-    const model = MODELS.find(m => m.key === ran.model)?.long
+
+    const model = MODELS.find(m => m.key === ran?.model)?.long
     const took = Math.max(1, Math.round(e.props.durationMs / 1000))
     return (
       <Box key="turn-line" flexDirection="row" gap={1}>
         <Text dimColor>{`${e.props.word} ${took < 60 ? `${took}s` : `${Math.floor(took / 60)}m ${took % 60}s`}`}</Text>
-        <Text color={ACCENT}>{`✦ ${ran.effort ? EFFORT_LABELS[ran.effort] : 'Auto'}`}</Text>
+        {ran ? <Text color={ACCENT}>{`✦ ${ran.effort ? EFFORT_LABELS[ran.effort] : 'Auto'}`}</Text> : null}
         {model ? <Text dimColor>{`· ${model}`}</Text> : null}
-        {ran.cost ? <Text dimColor>{`· ≈${tokens(ran.cost)} tokens`}</Text> : null}
+        {ran?.cost ? <Text dimColor>{`· ≈${tokens(ran.cost)} tokens`}</Text> : null}
       </Box>
     )
   })
