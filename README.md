@@ -38,7 +38,7 @@ This is a fork of [HeyCubit/effortless](https://github.com/HeyCubit/effortless) 
 - the Jev judge and its TypeSafe key are removed (Haiku is the only judge), and so are the agent pane, the self-update machinery and the update cards, so nothing here contacts the upstream repository (the judge is Haiku, through your own Claude login: no key, no other service);
 - the plugin, its state and its command are renamed `context-lens`, so it does not clash with an installed `effortless`. Disable one of the two: they would both draw above the prompt.
 
-Upstream's tests run here too: `claude plugin test .`. One of them (a clipboard fallback) fails on upstream's own `stable` as well, so it was failing before the fork.
+Upstream's tests run here too: `claude plugin test .` passes with no known failures.
 
 ## License
 

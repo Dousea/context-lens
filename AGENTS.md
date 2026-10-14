@@ -18,9 +18,7 @@ For the mod API (`$`, `on(...)`, `ui.render`, state, timers), load the `plugin-a
 
 ## Checks
 
-- `claude plugin test .` runs every test. The baseline is 198 pass, 2 fail; both failures predate this fork's changes and are not yours to fix unless asked:
-  - `auto > the judge never moves a prompt to a dearer model than the chat model, nor to Fable`
-  - `dashboard > desktop: Auto switched off does not light the word up: it turns Off in white`
+- `claude plugin test .` runs every test. All pass; there are no known failures, so any failure is yours.
 - `claude plugin validate .` checks the manifest and marketplace.
 - Try a change live with `CONTEXT_LENS_LOG=<file> claude --plugin-dir <repo or worktree path>`. A `--plugin-dir` copy replaces the installed `context-lens@context-lens` for that session. `/context-lens debug` shows the state, and `/reload-plugins` reloads the installed copy, not the working tree.
 
