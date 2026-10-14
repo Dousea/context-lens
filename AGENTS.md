@@ -8,7 +8,7 @@ A Claude Code plugin (a mod) that draws a band above the prompt: it sets the rea
 
 - `hooks/register.tsx`: the mod itself (handlers, band, settings, judge, model offers).
 - `hooks/model.ts`: cache-clock, re-cache and context-bar arithmetic, with no host calls.
-- `hooks/theme.ts`, `hooks/art.ts`, `hooks/progress.tsx`, `hooks/brand-mark.ts`: drawing helpers.
+- `hooks/theme.ts`, `hooks/art.ts`, `hooks/thinking.ts`, `hooks/brand-mark.ts`: drawing helpers.
 - `tests/`: `context-lens.test.ts` (the mod through the host's test harness), `model.test.ts`, `lens.test.ts`.
 - `commands/context-lens.md`: the `/context-lens` command file.
 - `bench/`: judge and helper benchmarks with their results.

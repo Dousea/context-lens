@@ -66,22 +66,6 @@ export type SettingsDraft = {
   appearance?: string
 }
 
-/** One step of the task the progress bar follows: a todo or a task. */
-export type ProgressStep = {
-  id: string
-  /** What the step is ("Run the tests"). */
-  label: string
-  /** The step while it runs ("Running the tests"). */
-  doing: string
-  status: 'pending' | 'in_progress' | 'completed'
-}
-
-/** The progress bar's state: where the task is, and its steps. */
-export type Progress = {
-  phase: 'planning' | 'working' | 'asking' | 'paused' | 'done'
-  steps: ProgressStep[]
-}
-
 export type CacheTtl = '5m' | '1h'
 
 /** One loop's prompt cache: when it was last touched and what the last request did with it. */
@@ -193,10 +177,6 @@ declare module 'claude-code' {
       appEffort: string | null
       /** The model the session runs now, as the engine last reported it (start, a switch, a request). */
       model: ModelKey | null
-      /** The task the progress bar follows, or null when there is none. */
-      progress: Progress | null
-      /** The step list the progress bar was closed for; a new list shows it again. */
-      progressHidden: string | null
       /** Context lens: the main thread's prompt cache. */
       lensMain: CacheClock
       /** Context lens: each subagent's own prompt cache. */

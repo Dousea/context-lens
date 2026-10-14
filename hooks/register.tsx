@@ -26,7 +26,7 @@ import {
   type Warmth,
 } from './model'
 import { accent, setLight, setTheme, themedEls, type ThemeName, THEMES, tintHex } from './theme'
-import { PILL_H, stepsFromTodos, thinkingSvg, THINK_W, withTaskCreated, withTaskUpdated } from './progress'
+import { PILL_H, thinkingSvg, THINK_W } from './thinking'
 
 // The ladders the two sliders walk, cheapest first.
 export const MODELS: { key: ModelKey; label: string; long: string; id: string }[] = [
@@ -582,10 +582,10 @@ export type JudgeConfig = {
 /** The swamp thresholds the settings offer, in percent of the context window. */
 export const SWAMP_STEPS = [10, 20, 30, 40, 50, 60, 70, 80] as const
 
-/** The parts of context-lens a person can switch off: the footer's (setup) and the progress bar's (setup, settings).
+/** The parts of context-lens a person can switch off: the footer's (setup).
  * The context (swamp), running-low (hot) and cold-cache alerts can be switched off for good in Customize; the judge-down
  * alert always shows. Each alert also has its own ✕. */
-export const HIDEABLE = ['handoff', 'timer', 'reason', 'progress', 'sounds', 'swamp', 'hot', 'cold'] as const
+export const HIDEABLE = ['handoff', 'timer', 'reason', 'swamp', 'hot', 'cold'] as const
 export type Hideable = (typeof HIDEABLE)[number]
 // What the app passed to register, so settings kept in the store can be laid over it at session start.
 let pluginOptions: Record<string, unknown> = {}
@@ -2986,11 +2986,11 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
           {/* A new effort shows in violet, then white (effortFlash): plain text in the app's font. An animated image of the
               word looked cheap: another font, a late start and a jump back to the text. */}
           <Text key="dash-level" color={wordColor} bold>{judgingHere && Svg ? 'Deciding' : what}</Text>
-          {/* While the judge decides: the progress bar's thinking dots, as a plain image (its CSS still runs, and a
+          {/* While the judge decides: thinking dots, as a plain image (its CSS still runs, and a
               redraw does not restart it the way an interactive frame does). */}
           {judgingHere && Svg ? (
             <Box key="dash-thinking" flexShrink={0} marginLeft={1} alignItems="center">
-              <Svg source={thinkingSvg('planning')} alt="deciding" width={THINK_W} height={PILL_H} />
+              <Svg source={thinkingSvg()} alt="deciding" width={THINK_W} height={PILL_H} />
             </Box>
           ) : null}
         </Box>
