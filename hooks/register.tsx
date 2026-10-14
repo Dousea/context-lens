@@ -239,16 +239,17 @@ const settingsDraft = atom({ plugin: 'context-lens', key: 'settingsDraft' } as c
 // Why the judge is failing, or null when it works.
 const judgeDown = atom({ plugin: 'context-lens', key: 'judgeDown' } as const, null)
 // Which part of the settings panel is open: null for the cards.
-type SettingsCard = 'effort' | 'model' | 'handoff' | 'show'
+type SettingsCard = 'auto' | 'helpers' | 'context' | 'look'
 const settingsCard = atom({ plugin: 'context-lens', key: 'settingsCard' } as const, null)
 /** The settings panel's parts: a card each on the overview, and what the part is for, said once it is open. */
 const CARDS: readonly { id: SettingsCard; title: string; about: string }[] = [
-  { id: 'effort', title: 'Effort', about: 'How hard Claude thinks. The slider tips close calls; Min and Max are hard limits.' },
-  { id: 'model', title: 'Model', about: "Which model writes a compaction's summary." },
-  { id: 'handoff', title: 'Handoff & alerts', about: 'The full handoff skill, when to suggest compacting, and which alerts show.' },
-  { id: 'show', title: 'Customize', about: 'How context-lens looks and which parts it shows. Uninstall removes it.' },
+  { id: 'auto', title: 'Auto', about: "How Auto picks. The slider tips the judge's close calls; Never below and Never above bound every pick." },
+  { id: 'helpers', title: 'Helpers', about: 'What the subagents the chat sends off run on.' },
+  { id: 'context', title: 'Context', about: 'What happens as the chat fills up: the alert, compacting and the handoff.' },
+  { id: 'look', title: 'Look', about: 'How context-lens looks and which parts of it show. Uninstall removes it.' },
 ]
 const BIAS_WORDS = ['Cheapest', 'Cheaper', 'Balanced', 'Smarter', 'Smartest'] as const
+const THEME_LABELS: Record<ThemeName, string> = { violet: 'Violet', orange: 'Claude orange', rose: 'Cherry blossom' }
 // The judge-down band was closed for this reason; a new reason shows it again.
 const judgeDownHidden = atom({ plugin: 'context-lens', key: 'judgeDownHidden' } as const, null)
 // A usage limit is close: which window, how much is used, when it resets. Null below the line.
@@ -563,9 +564,9 @@ export type JudgeConfig = {
 /** The swamp thresholds the settings offer, in percent of the context window. */
 export const SWAMP_STEPS = [10, 20, 30, 40, 50, 60, 70, 80] as const
 
-/** The parts of context-lens a person can switch off: the Handoff button, the cache timer and the judge's reason line.
- * The context (swamp), running-low (hot) and cold-cache alerts can be switched off for good in Customize; the judge-down
- * alert always shows. Each alert also has its own ✕. */
+/** The parts of context-lens a person can switch off: the Handoff button, the cache timer, the judge's reason line and
+ * the context (swamp), running-low (hot) and cold-cache alerts. The Context card switches off the button and the context
+ * alert, the Look card the rest; the judge-down alert always shows. Each alert also has its own ✕. */
 export const HIDEABLE = ['handoff', 'timer', 'reason', 'swamp', 'hot', 'cold'] as const
 export type Hideable = (typeof HIDEABLE)[number]
 // What the app passed to register, so settings kept in the store can be laid over it at session start.
@@ -1732,10 +1733,6 @@ async function openPluginSettings($: EngineInterface) {
   $.ui.invalidate('ui.render')
 }
 
-// Small marks beside the settings rows' titles: text glyphs, which draw wherever text does.
-const ICON_EFFORT = '◔'
-const ICON_HANDOFF = '⇥'
-const ICON_SHOW = '◉'
 /** The settings rows the panel changes, by field: saved as the plugin's own setting and used at once. */
 const SETTING_FIELDS = {
   bias: 'effortBias',
@@ -2035,16 +2032,16 @@ export function settingsSvg(color: string): string {
 
 /** The settings rows' icons, drawn in the cog's outline style (14 px, 1.3 stroke) rather than font glyphs, which
  * differ per font. */
-export function rowIconSvg(kind: 'effort' | 'model' | 'handoff' | 'show' | 'quick' | 'full', color: string): string {
+export function rowIconSvg(kind: SettingsCard | 'quick' | 'full', color: string): string {
   const shapes = {
     // A gauge: an open arc with a needle.
-    effort: '<path d="M2.6 10.4A5 5 0 1 1 11.4 10.4"/><path d="M7 8.2L9.6 5.2"/><circle cx="7" cy="8.6" r=".9"/>',
-    // Layers: the models, stacked.
-    model: '<path d="M7 2 12.2 4.7 7 7.4 1.8 4.7Z"/><path d="M1.8 7.3 7 10 12.2 7.3"/><path d="M1.8 9.9 7 12.6 12.2 9.9"/>',
+    auto: '<path d="M2.6 10.4A5 5 0 1 1 11.4 10.4"/><path d="M7 8.2L9.6 5.2"/><circle cx="7" cy="8.6" r=".9"/>',
+    // Layers: the subagents, stacked.
+    helpers: '<path d="M7 2 12.2 4.7 7 7.4 1.8 4.7Z"/><path d="M1.8 7.3 7 10 12.2 7.3"/><path d="M1.8 9.9 7 12.6 12.2 9.9"/>',
     // An arrow into a bar: hand off.
-    handoff: '<path d="M1.8 7H9.4M6.6 4.2L9.4 7L6.6 9.8"/><path d="M11.8 2.6V11.4"/>',
-    // A pencil: customize. The tip down left, a line across the ferrule.
-    show: '<path d="M9.6 2.1 11.9 4.4 4.9 11.4 2.1 11.9 2.6 9.1Z"/><path d="M8.1 3.6 10.4 5.9"/>',
+    context: '<path d="M1.8 7H9.4M6.6 4.2L9.4 7L6.6 9.8"/><path d="M11.8 2.6V11.4"/>',
+    // A pencil: the look. The tip down left, a line across the ferrule.
+    look: '<path d="M9.6 2.1 11.9 4.4 4.9 11.4 2.1 11.9 2.6 9.1Z"/><path d="M8.1 3.6 10.4 5.9"/>',
     // Quick and Full are drawn solid below: an outline at 14 px was too thin to read.
     quick: '',
     full: '',
@@ -2825,8 +2822,8 @@ let autoOnAt = -Infinity
 let autoFlipAt = 0
 let autoModelSeen: boolean | undefined
 let autoModelFlipAt = 0
-let helpersSeen: string | undefined
-let helpersFlipAt = 0
+// The settings switches as last drawn, and when each flipped, by key (for the slide).
+const settingSwitches = new Map<string, { on: boolean; at: number }>()
 
 /** The dashboard: what context-lens is doing, and Auto, Handoff and settings. The slot above the prompt at rest. */
 async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
@@ -4312,7 +4309,7 @@ Saved to ${out}.md and .json` }
         // The app gives this slot maxRows rows and drops a taller tree whole, without a word. With gaps the panel is 12
         // rows (2 border, 2 header, 4 settings, 4 gaps); without, 7.
         const roomy = (typeof e.props.maxRows === 'number' ? e.props.maxRows : 12) >= 12
-        const { Input, Select } = themedEls($.ui.resolve(e))
+        const { Select } = themedEls($.ui.resolve(e))
         const opts = (values: readonly string[]) => values.map(value => ({ value, label: value }))
         // The skills and commands installed here, to pick the handoff writer from: no typing, no file paths. A plugin
         // cannot open a file dialog, and a skill is run by its name anyway.
@@ -4351,10 +4348,7 @@ Saved to ${out}.md and .json` }
           theme: draft.theme ?? config.theme,
           appearance: draft.appearance ?? config.appearance,
         }
-        // The Helpers switch slides like Auto's: the time it flipped, seen by the draw after the click.
-        const helpersNow = await $.clock.now()
-        if (helpersSeen !== undefined && helpersSeen !== shown.helpers) helpersFlipAt = helpersNow
-        helpersSeen = shown.helpers
+        const panelNow = await $.clock.now()
         // Dirty only while the draft differs from what is saved: a control set back to its saved value is no change.
         const sameSet = (a: string, b: string) => a.split(',').filter(Boolean).sort().join() === b.split(',').filter(Boolean).sort().join()
         const dirty = Object.entries(draft).some(([field, value]) =>
@@ -4362,25 +4356,54 @@ Saved to ${out}.md and .json` }
           : field === 'hide' ? !sameSet(value, config.hide.join(','))
           : value !== String(config[field as Exclude<keyof SettingsDraft, 'hide'>] ?? ''))
         const hidden = (draft.hide ?? config.hide.join(',')).split(',').filter(Boolean)
+        const withPart = (part: Hideable, off: boolean) => (off ? [...new Set([...hidden, part])] : hidden.filter(h => h !== part)).join(',')
+        const contextAlert = hidden.includes('swamp') ? 'off' : shown.swampAt
+        const handoffButton = hidden.includes('handoff') ? 'hidden' : shown.handoffButton
+        const showParts = [['timer', 'Cache timer'], ['reason', 'Judge line'], ['hot', 'Running-low alert'], ['cold', 'Cold-cache alert']] as const
         const summaries: Record<SettingsCard, string> = {
-          effort: `${BIAS_WORDS[shown.bias + 2]} · ${shown.floor} to ${shown.ceiling}${shown.helpers === 'on' ? ' · helpers' : ''}`,
-          model: `${shown.compactWith === 'session' ? "Chat's model" : 'Haiku 5.5'}${shown.helperModel === 'on' ? ' · cheaper helpers' : ''}${shown.holdOffer === 'on' ? ' · held offers' : ''}`,
-          handoff: `${shown.handoffSkill ? `/${shown.handoffSkill}` : 'Built in'} · compact alert at ${shown.swampAt}%`,
-          show: `${shown.layout === 'minimal' ? 'Minimal' : 'Dashboard'} · ${2 - ['timer', 'reason'].filter(h => hidden.includes(h)).length} of 2 on`,
+          auto: `${BIAS_WORDS[shown.bias + 2]} · ${shown.floor} to ${shown.ceiling}${shown.holdOffer === 'on' ? ' · held offers' : ''}`,
+          helpers: shown.helpers !== 'on' ? 'Off' : shown.helperModel === 'on' ? 'Effort and cheaper model' : 'Effort picked',
+          context: `${contextAlert === 'off' ? 'Alert off' : `Alert at ${contextAlert}%`} · ${shown.compactWith === 'session' ? "Chat's model" : 'Haiku'} · ${shown.handoffSkill ? `/${shown.handoffSkill}` : 'built-in handoff'}`,
+          look: `${shown.layout === 'minimal' ? 'Minimal' : 'Dashboard'} · ${THEME_LABELS[shown.theme as ThemeName] ?? shown.theme} · ${showParts.filter(([part]) => !hidden.includes(part)).length} of ${showParts.length} shown`,
         }
-        // The cache timer, the judge's line (who picked and how sure) and the three alerts can be switched off here (an
-        // alert's ✕ only closes it for now); the rest is the mod itself. A ticked box in plain text, dim when off: lighter than a row of white buttons.
+        // The parts the Look card can switch off for good (an alert's ✕ only closes it for now). A ticked box in plain
+        // text, dim when off: lighter than a row of white buttons.
         const box = ([part, label]: readonly [Hideable, string]) => {
           const off = hidden.includes(part)
-          const after = off ? hidden.filter(h => h !== part) : [...hidden, part]
           return (
             <Button key={`show-box-${part}`} plain dimColor={off} label={`${off ? '☐' : '☑'}︎ ${label}`}
-              onPress={() => set('hide')(after.join(','))} />
+              onPress={() => set('hide')(withPart(part, !off))} />
           )
         }
-        const toggles = ([['timer', 'Cache timer'], ['reason', 'Judge line']] as const).map(box)
-        // The alerts sit in the Handoff card, next to the share of context the context alert waits for.
-        const alertToggles = ([['swamp', 'Context alert'], ['hot', 'Running low alert'], ['cold', 'Cold cache alert']] as const).map(box)
+        // An on/off setting on a row of its own, then what it does now. Desktop draws the dashboard's Auto switch (switch,
+        // word, slide, one blank button laid over both); the terminal a ◉ or ○ before the word. `dim` greys a switch whose
+        // setting waits on another.
+        const settingSwitch = (p: { key: string; label: string; on: boolean; dim?: boolean; about: string; onPress: () => unknown }) => {
+          const last = settingSwitches.get(p.key)
+          const flipAt = last && last.on !== p.on ? panelNow : (last?.at ?? 0)
+          settingSwitches.set(p.key, { on: p.on, at: flipAt })
+          return (
+            <Box key={`${p.key}-row`} width="100%" flexDirection="row" alignItems="center" gap={1}>
+              {Svg && !term ? (
+                <Box key={p.key} position="relative" flexDirection="row" alignItems="center" gap={1} paddingX={1} flexShrink={0}>
+                  <Svg source={autoSwitchSvg(p.on, panelNow - flipAt)} alt={`${p.label} ${p.on ? 'on' : 'off'}`} width={26} height={15} />
+                  <Text color={p.on && !p.dim ? DASH_TEXT : DASH_DIM}>{p.label}</Text>
+                  {/* The cards' cover: no-break spaces (plain ones collapse to a dot), wider than the switch and its
+                      word, clipped to them, so the click reaches both edges. */}
+                  <Box position="absolute" top={0} bottom={0} left={0} right={0} flexDirection="row" alignItems="center" justifyContent="center" overflow="hidden">
+                    <Box flexShrink={0}>
+                      <Button key={`${p.key}-switch`} plain hover={{ backgroundColor: '#00000000' }} label={'\u00a0'.repeat(60)} onPress={p.onPress} />
+                    </Box>
+                  </Box>
+                </Box>
+              ) : (
+                <Button key={`${p.key}-switch`} plain dimColor={p.dim} label={`${p.on ? '◉' : '○'} ${p.label}`} onPress={p.onPress} />
+              )}
+              <Text dimColor wrap="truncate">{p.about}</Text>
+            </Box>
+          )
+        }
+        const flip = (field: 'helpers' | 'helperModel' | 'holdOffer') => () => set(field)(shown[field] === 'on' ? 'off' : 'on')
         // The slider: five stops, the marker on the one in force. No animation, a click moves it.
         const track: unknown[] = []
         for (const n of [-2, -1, 0, 1, 2]) {
@@ -4389,24 +4412,6 @@ Saved to ${out}.md and .json` }
         }
         // The terminal has no art and few rows: no gaps, one row under the title.
         const term = e.surface === 'terminal'
-        const iconKind = { [ICON_EFFORT]: 'effort', [ICON_HANDOFF]: 'handoff', [ICON_SHOW]: 'show' } as const
-        const row = (key: string, label: string, icon: string, children: unknown[]) => (
-          <Box key={key} flexDirection="row" gap={1} alignItems="center">
-            <Box width={13} flexShrink={0} flexDirection="row" gap={1} alignItems="center">
-              <Box flexShrink={0} width={2} alignItems="center">
-                {Svg && !term ? (
-                  <Svg source={rowIconSvg(iconKind[icon as keyof typeof iconKind], DASH_DIM)} alt={label} width={14} height={14} />
-                ) : (
-                  <Text color={ACCENT}>{icon}</Text>
-                )}
-              </Box>
-              <Text dimColor>{label}</Text>
-            </Box>
-            <Box flexDirection="row" flexWrap="wrap" gap={1} alignItems="center" flexShrink={1}>
-              {children}
-            </Box>
-          </Box>
-        )
         // The terminal's dropdown opens its list inside the wrapping row, which jumps the layout and is hard to click.
         // There a short list is a row of buttons, the picked one boxed; a long one (the skills) stays a dropdown.
         type SettingRow = { key: string; label?: string; value: string; options: { value: string; label: string }[]; onSelect: (v: string) => unknown }
@@ -4421,11 +4426,6 @@ Saved to ${out}.md and .json` }
           </Box>
         ) : (
           <Select key={p.key} label={p.label} value={p.value} options={p.options} onSelect={p.onSelect} />
-        )
-        const field = (key: string, input: unknown, width: number) => (
-          <Box key={key} width={width} flexShrink={1}>
-            {input}
-          </Box>
         )
         // One column, a row per setting, its hint at the end. The header is three absolute layers, drawn in order (bar and
         // art, then the title, then the buttons): an absolute layer covers whatever is in the flow, so nothing of the
@@ -4540,7 +4540,7 @@ Saved to ${out}.md and .json` }
                 {/* What the part does; Back and its name are in the top bar's trail. */}
                 <Text dimColor wrap="truncate">{CARDS.find(c => c.id === card)?.about}</Text>
                 <Box flexDirection="row" flexWrap="wrap" gap={1} alignItems="center">
-                  {card === 'effort' ? [
+                  {card === 'auto' ? [
                     <Text key="cheap" dimColor>Cheaper</Text>,
                     <Box key="track" flexDirection="row" alignItems="center">
                       {track}
@@ -4550,58 +4550,55 @@ Saved to ${out}.md and .json` }
                       ? []
                       : [
                           <Box key="gap" width={2} />,
-                          settingRow({ key: 'settings-floor', label: 'Min', value: shown.floor, options: opts(EFFORTS), onSelect: set('floor') }),
-                          settingRow({ key: 'settings-ceiling', label: 'Max', value: shown.ceiling, options: opts(EFFORTS), onSelect: set('ceiling') }),
-                          // Effort for helpers on a row of its own: the dashboard's Auto switch exactly (switch, word, slide,
-                          // one blank button laid over both), then what it does now.
-                          <Box key="settings-helpers-row" width="100%" flexDirection="row" alignItems="center" gap={1}>
-                            {Svg && !term ? (
-                              <Box key="settings-helpers" position="relative" flexDirection="row" alignItems="center" gap={1} paddingX={1}>
-                                <Svg source={autoSwitchSvg(shown.helpers === 'on', helpersNow - helpersFlipAt)} alt={shown.helpers === 'on' ? 'Helpers on' : 'Helpers off'} width={26} height={15} />
-                                <Text color={shown.helpers === 'on' ? DASH_TEXT : DASH_DIM}>Helpers</Text>
-                                {/* The cards' cover: no-break spaces (plain ones collapse to a dot), wider than the switch and its
-                                    word, clipped to them, so the click reaches both edges. */}
-                                <Box position="absolute" top={0} bottom={0} left={0} right={0} flexDirection="row" alignItems="center" justifyContent="center" overflow="hidden">
-                                  <Box flexShrink={0}>
-                                    <Button key="settings-helpers-switch" plain hover={{ backgroundColor: '#00000000' }} label={'\u00a0'.repeat(40)} onPress={() => set('helpers')(shown.helpers === 'on' ? 'off' : 'on')} />
-                                  </Box>
-                                </Box>
-                              </Box>
-                            ) : (
-                              <Button key="settings-helpers-switch" plain label={`${shown.helpers === 'on' ? '◉' : '○'} Helpers`} onPress={() => set('helpers')(shown.helpers === 'on' ? 'off' : 'on')} />
-                            )}
-                            <Text dimColor wrap="truncate">{shown.helpers === 'on' ? "The judge picks each subagent's effort, medium or more" : "Subagents run at the chat's effort"}</Text>
-                          </Box>,
+                          settingRow({ key: 'settings-floor', label: 'Never below', value: shown.floor, options: opts(EFFORTS), onSelect: set('floor') }),
+                          settingRow({ key: 'settings-ceiling', label: 'Never above', value: shown.ceiling, options: opts(EFFORTS), onSelect: set('ceiling') }),
+                          settingSwitch({
+                            key: 'settings-hold-offer', label: 'Hold the prompt for a model offer', on: shown.holdOffer === 'on', onPress: flip('holdOffer'),
+                            about: shown.holdOffer === 'on' ? 'With model on Manual, a typed prompt waits for Switch or Keep' : 'With model on Manual, a toast suggests the model and the prompt goes on',
+                          }),
                         ]),
-                  ] : card === 'model' ? (bare ? [] : [
-                    // Which model writes a compaction's summary.
+                  ] : card === 'helpers' ? (bare ? [] : [
+                    settingSwitch({
+                      key: 'settings-helpers', label: 'Effort for helpers', on: shown.helpers === 'on', onPress: flip('helpers'),
+                      about: shown.helpers === 'on' ? "The judge picks each subagent's effort, medium or more" : "Subagents run at the chat's effort",
+                    }),
+                    settingSwitch({
+                      key: 'settings-helper-model', label: 'Cheaper model for helpers', on: shown.helperModel === 'on', dim: shown.helpers !== 'on', onPress: flip('helperModel'),
+                      about: shown.helpers !== 'on' ? 'Needs Effort for helpers' : shown.helperModel === 'on' ? 'A subagent the judge calls simple runs on a cheaper model, never a dearer one' : 'A subagent keeps the model it was given',
+                    }),
+                  ]) : card === 'context' ? (bare ? [] : [
+                    settingRow({ key: 'settings-swamp', label: 'Context alert', value: contextAlert, options: [{ value: 'off', label: 'Off' }, ...SWAMP_STEPS.map(n => ({ value: String(n), label: `At ${n}%` }))],
+                      onSelect: async v => {
+                        await set('hide')(withPart('swamp', v === 'off'))
+                        if (v !== 'off') await set('swampAt')(v)
+                      } }),
                     settingRow({ key: 'settings-compact-with', label: 'Compact with', value: shown.compactWith, options: [{ value: 'haiku', label: 'Haiku 5.5' }, { value: 'session', label: "Chat's model" }], onSelect: set('compactWith') }),
-                    <Box key="settings-helper-model" flexDirection="column">
-                      <Button key="settings-helper-model-switch" plain label={`${shown.helperModel === 'on' ? '◉' : '○'} Cheaper model for helpers`} onPress={() => set('helperModel')(shown.helperModel === 'on' ? 'off' : 'on')} />
-                      <Text dimColor wrap="wrap">{shown.helperModel === 'on' ? (shown.helpers === 'on' ? "A subagent the judge calls simple runs on a cheaper model than it was given, never a dearer one" : "Needs Helpers on (Effort card)") : "A subagent keeps the model it was given"}</Text>
-                    </Box>,
-                    <Box key="settings-hold-offer" flexDirection="column">
-                      <Button key="settings-hold-offer-switch" plain label={`${shown.holdOffer === 'on' ? '◉' : '○'} Hold the prompt for a model offer`} onPress={() => set('holdOffer')(shown.holdOffer === 'on' ? 'off' : 'on')} />
-                      <Text dimColor wrap="wrap">{shown.holdOffer === 'on' ? 'With model on Manual, a typed prompt waits for Switch or Keep when the judge names another model' : 'With model on Manual, another model is suggested in a toast and the prompt goes on'}</Text>
-                    </Box>,
-                  ]) : card === 'handoff' ? (bare ? [] : [
                     settingRow({ key: 'settings-skill', label: 'Handoff skill', value: shown.handoffSkill || '-', options: [
                         { value: '-', label: 'Built in' },
                         ...[...new Set([...(shown.handoffSkill ? [shown.handoffSkill] : []), ...skillNames])].map(name => ({ value: name, label: `/${name}` })),
                       ], onSelect: v => set('handoffSkill')(v === '-' ? '' : v) }),
-                    settingRow({ key: 'settings-swamp', label: 'Compact alert at', value: shown.swampAt, options: SWAMP_STEPS.map(n => ({ value: String(n), label: `${n}%` })), onSelect: set('swampAt') }),
-                    settingRow({ key: 'settings-handoff-button', label: 'Handoff button', value: shown.handoffButton, options: [{ value: 'advised', label: 'When advised' }, { value: 'always', label: 'Always' }], onSelect: set('handoffButton') }),
-                    ...alertToggles,
+                    settingRow({ key: 'settings-handoff-button', label: 'Handoff button', value: handoffButton, options: [{ value: 'hidden', label: 'Hidden' }, { value: 'advised', label: 'When advised' }, { value: 'always', label: 'Always' }],
+                      onSelect: async v => {
+                        await set('hide')(withPart('handoff', v === 'hidden'))
+                        if (v !== 'hidden') await set('handoffButton')(v)
+                      } }),
                   ]) : [
                     ...(bare
                       ? []
                       : [
                           settingRow({ key: 'settings-layout', label: 'Look', value: shown.layout, options: [{ value: 'default', label: 'Dashboard' }, { value: 'minimal', label: 'Minimal' }], onSelect: set('layout') }),
                           settingRow({ key: 'settings-appearance', label: 'Appearance', value: shown.appearance, options: [{ value: 'auto', label: 'Match Claude Code' }, { value: 'dark', label: 'Dark' }, { value: 'light', label: 'Light' }], onSelect: set('appearance') }),
-                          settingRow({ key: 'settings-theme', label: 'Theme', value: shown.theme, options: [{ value: 'violet', label: 'Violet' }, { value: 'orange', label: 'Claude orange' }, { value: 'rose', label: 'Cherry blossom' }], onSelect: set('theme') }),
+                          settingRow({ key: 'settings-theme', label: 'Theme', value: shown.theme, options: THEMES.map(theme => ({ value: theme, label: THEME_LABELS[theme] })), onSelect: set('theme') }),
                         ]),
-                    ...toggles,
-                    ...(bare ? [] : [uninstallButton($, themedEls($.ui.resolve(e)))]),
+                    <Box key="settings-show" width="100%" flexDirection="row" flexWrap="wrap" columnGap={1} alignItems="center">
+                      <Text dimColor>Show</Text>
+                      {showParts.map(box)}
+                    </Box>,
+                    ...(bare ? [] : [
+                      <Box key="settings-uninstall-row" width="100%" flexDirection="row">
+                        {uninstallButton($, themedEls($.ui.resolve(e)))}
+                      </Box>,
+                    ]),
                   ]}
                 </Box>
               </Box>

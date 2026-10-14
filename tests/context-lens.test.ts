@@ -2682,42 +2682,48 @@ describe('settings panel', () => {
     const panel = await $.ui.mount(DESK_BAND)
     expect(await drawn(panel)).toContain('"key":"settings-title"')
     // The panel opens on the four cards; each opens its own controls, Back returns.
-    expect(await panel.find({ key: 'settings-card-effort' })).toBeDefined()
+    expect(await panel.find({ key: 'settings-card-auto' })).toBeDefined()
     expect(await panel.find({ key: 'bias3' })).toBeUndefined()
-    await panel.press({ key: 'settings-card-effort' })
+    await panel.press({ key: 'settings-card-auto' })
     await panel.press({ key: 'bias3' })
     await panel.select({ key: 'settings-floor', value: 'medium' })
-    // Helpers: the Auto switch again, off by default.
-    expect(await drawn(panel)).toContain('Helpers off')
+    expect(await drawn(panel)).toContain('Never below')
+    expect(await panel.find({ key: 'settings-hold-offer-switch' })).toBeDefined()
+    await panel.press({ key: 'settings-back' })
+
+    // Helpers: both switches in one card; the model one waits on the effort one.
+    await panel.press({ key: 'settings-card-helpers' })
+    expect(await drawn(panel)).toContain('Effort for helpers off')
+    expect(await drawn(panel)).toContain('Needs Effort for helpers')
     await panel.press({ key: 'settings-helpers-switch' })
-    expect(await drawn(panel)).toContain('Helpers on')
-    await panel.press({ key: 'settings-back' })
-    await panel.press({ key: 'settings-card-handoff' })
-    await panel.select({ key: 'settings-skill', value: 'session-handoff' })
-    expect(await panel.find({ key: 'show-box-swamp' })).toBeDefined()
-    expect(await panel.find({ key: 'show-box-cold' })).toBeDefined()
-    await panel.press({ key: 'settings-back' })
-    // Model has its own card: the one choice there is, and the card says which is on.
-    expect(await drawn(panel)).toContain('Haiku 5.5')
-    await panel.press({ key: 'settings-card-model' })
-    // Compact with is a model choice: it lives here, not in the Handoff card.
-    expect(await panel.find({ key: 'settings-compact-with' })).toBeDefined()
-    // The prompt hold has no setting (it is always on while Auto is): only the helpers' model switch is here.
-    expect(await panel.find({ key: 'settings-hold-switch' })).toBeUndefined()
+    expect(await drawn(panel)).toContain('Effort for helpers on')
+    expect(await drawn(panel)).not.toContain('Needs Effort for helpers')
     await panel.press({ key: 'settings-helper-model-switch' })
     await panel.press({ key: 'settings-back' })
+
+    // Context: the alert, compacting and the handoff. The alert's Off and the button's Hidden switch those parts off.
+    await panel.press({ key: 'settings-card-context' })
+    await panel.select({ key: 'settings-skill', value: 'session-handoff' })
+    expect(await panel.find({ key: 'settings-compact-with' })).toBeDefined()
+    await panel.select({ key: 'settings-swamp', value: 'off' })
+    await panel.select({ key: 'settings-handoff-button', value: 'hidden' })
+    await panel.press({ key: 'settings-back' })
+
     // The cards say what is set, unsaved changes included.
-    expect(await drawn(panel)).toContain('Smarter · medium to max · helpers')
-    expect(await drawn(panel)).toContain('/session-handoff · compact alert at')
-    await panel.press({ key: 'settings-card-show' })
+    expect(await drawn(panel)).toContain('Smarter · medium to max · held offers')
+    expect(await drawn(panel)).toContain('Effort and cheaper model')
+    expect(await drawn(panel)).toContain('Alert off · Haiku · /session-handoff')
+
+    // Look: the parts that show, the alerts among them.
+    await panel.press({ key: 'settings-card-look' })
     await panel.press({ key: 'show-box-timer' })
-    expect(await panel.find({ key: 'show-box-sounds' })).toBeUndefined()
-    // The judge line starts on, so only the cache timer's box is pressed: it goes off. No progress, sounds or alert.
-    // The alerts are in the Handoff card, beside when the context alert shows.
+    expect(await panel.find({ key: 'show-box-hot' })).toBeDefined()
+    expect(await panel.find({ key: 'show-box-cold' })).toBeDefined()
     expect(await panel.find({ key: 'show-box-swamp' })).toBeUndefined()
     expect(set).toEqual([])
     await panel.press({ key: 'settings-save' })
-    expect(set).toContainEqual({ key: 'context-lens.hide', value: 'timer' })
+    const hide = set.find(s => s.key === 'context-lens.hide')?.value
+    expect(String(hide).split(',').sort()).toEqual(['handoff', 'swamp', 'timer'])
     expect(set).toContainEqual({ key: 'context-lens.handoffSkill', value: 'session-handoff' })
     expect(set).toContainEqual({ key: 'context-lens.effortBias', value: '1' })
     expect(set).toContainEqual({ key: 'context-lens.effortFloor', value: 'medium' })
@@ -2851,16 +2857,16 @@ describe('terminal bands', () => {
     const text = await drawn(panel)
     // No blank buttons laid over the cards: a terminal paints their spaces over the title and summary.
     expect(text).not.toContain(' '.repeat(800))
-    expect(text).toContain('Effort ›')
+    expect(text).toContain('Auto ›')
     // Title and buttons are in the flow, so a narrow window wraps them instead of drawing one over the other.
     expect(text).not.toMatch(/"key":"settings-(title|actions)"[^}]*"position":"absolute"/)
     expect(text).not.toContain('"href"')
-    await panel.press({ key: 'settings-card-effort' })
-    expect(await drawn(panel)).toContain('Helpers')
-    expect(await drawn(panel)).not.toContain(' '.repeat(40))
+    await panel.press({ key: 'settings-card-helpers' })
+    expect(await drawn(panel)).toContain('○ Effort for helpers')
+    expect(await drawn(panel)).not.toContain('\u00a0'.repeat(40))
     // Short choices are buttons, not a dropdown that opens inside the row: one press picks.
     await panel.press({ key: 'settings-back' })
-    await panel.press({ key: 'settings-card-show' })
+    await panel.press({ key: 'settings-card-look' })
     expect(await panel.find({ key: 'settings-theme' })).toBeDefined()
     await panel.press({ key: 'settings-theme-rose' })
     expect(await drawn(panel)).toContain('unsaved changes')
@@ -3564,7 +3570,7 @@ describe('updates', () => {
     await narrow.unmount()
   })
 
-  test('Uninstall in Customize asks for a second press, then uninstalls and reloads', DESK, async ($, on) => {
+  test('Uninstall in Look asks for a second press, then uninstalls and reloads', DESK, async ($, on) => {
     const w = world(on, { installed: '1.0.1', latest: '1.0.1' })
     on('ui.toast', () => ({ value: undefined }) as never)
     await start($)
@@ -3572,8 +3578,8 @@ describe('updates', () => {
     const ui = await $.ui.mount({ plugin: 'context-lens', surface: 'desktop', ...BAND })
     await pastSetup(ui)
     await ui.press({ key: 'dash-settings' })
-    await ui.press({ key: 'settings-card-show' })
-    expect(await drawn(ui)).toContain('Customize')
+    await ui.press({ key: 'settings-card-look' })
+    expect(await drawn(ui)).toContain('Look')
     w.ran.length = 0
     await ui.press({ key: 'settings-uninstall' })
     expect(w.ran).toEqual([])

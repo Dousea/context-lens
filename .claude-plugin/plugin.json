@@ -66,7 +66,7 @@
     "hide": {
       "type": "string",
       "title": "Switched off",
-      "description": "Comma-separated: handoff (the footer button), timer (the cache countdown), reason (the judge's line), swamp (the context alert), hot (the running-low alert), cold (the cold-cache alert). Empty shows everything.",
+      "description": "Comma-separated: handoff (the Handoff button), timer (the cache timer), reason (the judge line), swamp (the context alert), hot (the running-low alert), cold (the cold-cache alert). Empty shows everything.",
       "default": ""
     },
     "helpers": {
@@ -121,8 +121,8 @@
     },
     "swampAt": {
       "type": "string",
-      "title": "Swamped at",
-      "description": "The swamp band shows once the context fills this percent of the window.",
+      "title": "Context alert at",
+      "description": "The context alert shows once the context fills this percent of the window.",
       "default": "70",
       "options": [
         "10",
