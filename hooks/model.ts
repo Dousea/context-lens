@@ -9,9 +9,6 @@ const DAY_MS = 24 * HOUR_MS
 /** A request counts as a re-cache when it writes at least this much and reads less than it writes. */
 export const RECACHE_MIN_TOKENS = 20_000
 
-/** Main-thread contexts below this are cheap to re-cache, so they raise no expiry toasts. */
-export const TOAST_MIN_TOKENS = 50_000
-
 export const ttlMs = (ttl: CacheTtl): number => (ttl === '1h' ? 60 : 5) * MINUTE_MS
 
 /** The warning window before expiry: ten minutes of an hour, one minute of five. */

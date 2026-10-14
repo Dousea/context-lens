@@ -272,8 +272,6 @@ const FROST_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="440" height="6
 // The frost is drawn larger than the band and cut by it: wide enough for the right side, tall enough for any band.
 const FROST_WIDTH = 440
 const FROST_HEIGHT = 64
-// Claude's mark (from claude.ai) in white, drawn beside the Haiku button.
-const CLAUDE_MARK = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 248 248"><style>svg{background:transparent;display:block}</style><path d="M52.4285 162.873L98.7844 136.879L99.5485 134.602L98.7844 133.334H96.4921L88.7237 132.862L62.2346 132.153L39.3113 131.207L17.0249 130.026L11.4214 128.844L6.2 121.873L6.7094 118.447L11.4214 115.257L18.171 115.847L33.0711 116.911L55.485 118.447L71.6586 119.392L95.728 121.873H99.5485L100.058 120.337L98.7844 119.392L97.7656 118.447L74.5877 102.732L49.4995 86.1905L36.3823 76.62L29.3779 71.7757L25.8121 67.2858L24.2839 57.3608L30.6515 50.2716L39.3113 50.8623L41.4763 51.4531L50.2636 58.1879L68.9842 72.7209L93.4357 90.6804L97.0015 93.6343L98.4374 92.6652L98.6571 91.9801L97.0015 89.2625L83.757 65.2772L69.621 40.8192L63.2534 30.6579L61.5978 24.632C60.9565 22.1032 60.579 20.0111 60.579 17.4246L67.8381 7.49965L71.9133 6.19995L81.7193 7.49965L85.7946 11.0443L91.9074 24.9865L101.714 46.8451L116.996 76.62L121.453 85.4816L123.873 93.6343L124.764 96.1155H126.292V94.6976L127.566 77.9197L129.858 57.3608L132.15 30.8942L132.915 23.4505L136.608 14.4708L143.994 9.62643L149.725 12.344L154.437 19.0788L153.8 23.4505L150.998 41.6463L145.522 70.1215L141.957 89.2625H143.994L146.414 86.7813L156.093 74.0206L172.266 53.698L179.398 45.6635L187.803 36.802L193.152 32.5484H203.34L210.726 43.6549L207.415 55.1159L196.972 68.3492L188.312 79.5739L175.896 96.2095L168.191 109.585L168.882 110.689L170.738 110.53L198.755 104.504L213.91 101.787L231.994 98.7149L240.144 102.496L241.036 106.395L237.852 114.311L218.495 119.037L195.826 123.645L162.07 131.592L161.696 131.893L162.137 132.547L177.36 133.925L183.855 134.279H199.774L229.447 136.524L237.215 141.605L241.8 147.867L241.036 152.711L229.065 158.737L213.019 154.956L175.45 145.977L162.587 142.787H160.805V143.85L171.502 154.366L191.242 172.089L215.82 195.011L217.094 200.682L213.91 205.172L210.599 204.699L188.949 188.394L180.544 181.069L161.696 165.118H160.422V166.772L164.752 173.152L187.803 207.771L188.949 218.405L187.294 221.832L181.308 223.959L174.813 222.777L161.187 203.754L147.305 182.486L136.098 163.345L134.745 164.2L128.075 235.42L125.019 239.082L117.887 241.8L111.902 237.31L108.718 229.984L111.902 215.452L115.722 196.547L118.779 181.541L121.58 162.873L123.291 156.636L123.14 156.219L121.773 156.449L107.699 175.752L86.304 204.699L69.3663 222.777L65.291 224.431L58.2867 220.768L58.9235 214.27L62.8713 208.48L86.304 178.705L100.44 160.155L109.551 149.507L109.462 147.967L108.959 147.924L46.6977 188.512L35.6182 189.93L30.7788 185.44L31.4156 178.115L33.7079 175.752L52.4285 162.873Z" fill="#ffffff"/></svg>`
 // The band when the context is swamped: murky green, bubbles rising, slow ripples.
 const SWAMP_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="440" height="64" viewBox="0 0 360 30" preserveAspectRatio="xMaxYMid slice"><style>:root{color-scheme:light dark}html,body{margin:0}svg{background:transparent;display:block}.b{fill:none;stroke:#cfe8b8;stroke-width:.5;opacity:0;animation-name:rise;animation-timing-function:ease-in;animation-iteration-count:infinite}@keyframes rise{0%{opacity:0;transform:translate(0,0)}15%{opacity:.7}80%{opacity:.5}100%{opacity:0;transform:translate(3px,-30px)}}.rp{fill:none;stroke:#a7c98f;stroke-width:.4;stroke-linecap:round;opacity:.25;animation:drift 7s ease-in-out infinite}@keyframes drift{0%,100%{transform:translate(0,0);opacity:.15}50%{transform:translate(4px,0);opacity:.4}}.mk{animation:mk 8s ease-in-out infinite}@keyframes mk{0%,100%{opacity:.85}50%{opacity:1}}</style><defs><linearGradient id="bog" x1="0" x2="1"><stop offset=".43" stop-color="#4f7a3a" stop-opacity="0"/><stop offset=".62" stop-color="#4f7a3a" stop-opacity=".16"/><stop offset=".85" stop-color="#6f9a4f" stop-opacity=".32"/><stop offset="1" stop-color="#9cc27a" stop-opacity=".42"/></linearGradient><linearGradient id="silt" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity="0"/><stop offset=".6" stop-color="#2b3a1f" stop-opacity=".18"/><stop offset="1" stop-color="#1c2614" stop-opacity=".45"/></linearGradient><linearGradient id="fade" x1="0" x2="1"><stop offset=".43" stop-color="#fff" stop-opacity="0"/><stop offset=".7" stop-color="#fff" stop-opacity="1"/></linearGradient><mask id="m"><rect width="360" height="30" fill="url(#fade)"/></mask><pattern id="grain" width="2" height="2" patternUnits="userSpaceOnUse"><rect width=".6" height=".6" fill="#fff" fill-opacity=".06"/></pattern></defs><g mask="url(#m)"><rect class="mk" width="360" height="30" fill="url(#bog)"/><rect width="360" height="30" fill="url(#silt)"/><rect width="360" height="30" fill="url(#grain)"/><path class="rp" style="animation-delay:-0s" d="M190 22 q6 -2 12 0 t12 0"/><path class="rp" style="animation-delay:-2.5s" d="M226 9 q6 -2 12 0 t12 0"/><path class="rp" style="animation-delay:-5s" d="M250 18 q6 -2 12 0 t12 0"/><path class="rp" style="animation-delay:-1.5s" d="M300 24 q6 -2 12 0 t12 0"/><path class="rp" style="animation-delay:-3.8s" d="M322 7 q6 -2 12 0 t12 0"/><circle class="b" cx="168" cy="32" r="1.6" style="animation-duration:6.5s;animation-delay:-0s"/><circle class="b" cx="182" cy="32" r="1.1" style="animation-duration:8s;animation-delay:-2.1s"/><circle class="b" cx="197" cy="32" r="2.0" style="animation-duration:7s;animation-delay:-4.2s"/><circle class="b" cx="210" cy="32" r="1.3" style="animation-duration:9s;animation-delay:-1.0s"/><circle class="b" cx="224" cy="32" r="1.7" style="animation-duration:7.5s;animation-delay:-3.3s"/><circle class="b" cx="238" cy="32" r="1.0" style="animation-duration:8.5s;animation-delay:-5.1s"/><circle class="b" cx="252" cy="32" r="1.4" style="animation-duration:6.8s;animation-delay:-2.6s"/><circle class="b" cx="176" cy="32" r="0.9" style="animation-duration:9.5s;animation-delay:-6.0s"/><circle class="b" cx="232" cy="32" r="0.8" style="animation-duration:10s;animation-delay:-0.5s"/></g></svg>`
 // The band when a usage limit is close: embers, sparks rising.
@@ -369,22 +367,6 @@ const DONE_SVG = BRAND_SVG
   .replace('</g></svg>', '<path d="M323 15.5 L330 22 L345 7.5" fill="none" stroke="#0c3a20" stroke-opacity=".8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></g></svg>')
 const DONE_ACCENT = '#7fe0a4'
 const DONE_BG = '#0f1c15'
-// The Updated card: near black, a dim green edge; the green is in its title, the check and the sparkles.
-const UPDATED_BG = '#08090a'
-const UPDATED_EDGE = '#1f4a33'
-// The brand art of the offer card, mirrored to the left and turned green: the landed card keeps its texture and sparkles
-// behind the mark and title, while the links on the right stay on near black.
-const UPDATED_GLOW_SVG = BRAND_SVG
-  .replace('preserveAspectRatio="xMaxYMid slice"', 'preserveAspectRatio="xMinYMid slice"')
-  .replace('</defs>', '</defs><g transform="translate(360 0) scale(-1 1)">').replace('</svg>', '</g></svg>')
-  .replace(/#7c6cf0/g, '#2f9a5e').replace(/#8f7ff0/g, '#3fae6e').replace(/#b3a6ff/g, '#7fe0a4').replace(/#c9bdff/g, '#a8ecc2').replace(/#9a86ff/g, '#4cbf7c')
-  .replace(/stop-opacity="([0-9.]+)"/g, (_m, v: string) => `stop-opacity="${(Number(v) * 0.6).toFixed(3)}"`)
-// The Share icon: an arrow leaving a tray, white like the GitHub mark beside it.
-const SHARE_MARK_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 16 16"><path fill="none" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M8 10V1.8M4.8 4.8L8 1.6l3.2 3.2M2.5 8.5v4.8c0 .4.3.7.7.7h9.6c.4 0 .7-.3.7-.7V8.5"/></svg>`
-// A thin vertical line between the links on the Updated card.
-const DIVIDER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="1" height="18" viewBox="0 0 1 18"><rect width="1" height="18" fill="#ffffff" fill-opacity=".16"/></svg>`
-// Hover on the near-black card: a light veil (the dark one used elsewhere is invisible here).
-const UPDATED_HOVER = '#ffffff1f'
 const DONE_EDGE = '#2f7a4c'
 // The mark in the done green, for the titles of cards that have landed.
 const DONE_MARK_SVG = MARK_SVG.replace(/#7566d8/g, '#2f9a5e').replace(/#a79cf7/g, '#7fe0a4').replace(/#cfc7ff/g, '#c8f4d8')
@@ -932,7 +914,6 @@ let lastRequest: { index: number; appModel: string; appEffort: unknown; model: s
 let lastTyped = ''
 // The toast about pressing Enter is shown once; on every click it is only noise.
 let toldAboutEnter = false
-let lastFooter = ''
 // A model the person turned down; not suggested again until they pick something else.
 let declined: ModelKey | null = null
 // The model a taken offer moved this session to. Only the requests carry it: /model would also make it the app's
@@ -2376,11 +2357,6 @@ const UNINSTALL_RED = '#ff6b6b'
 function binSvg(color: string): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14"><g fill="none" stroke="${color}" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M2.2 3.8H11.8M5.4 3.8V2.4H8.6V3.8M3.4 3.8L4 12H10L10.6 3.8M5.9 6V9.8M8.1 6V9.8"/></g></svg>`
 }
-const GITHUB_MARK = 'M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z'
-const GITHUB_MARK_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path fill="#ffffff" d="${GITHUB_MARK}"/></svg>`
-// GitHub's own dark ground, and the width of the panel that carries the star link on the Updated card.
-const GITHUB_BLACK = '#000000'
-const STAR_PANEL = 32
 /** A plain /reload-plugins holds back a change that would make the next message re-read the chat without the cache; --force reloads anyway. */
 const RELOAD_ARGS = '--force'
 function uninstallButton($: EngineInterface, els: ReturnType<EngineInterface['ui']['resolve']>) {
@@ -2531,14 +2507,6 @@ function startTimers($: EngineInterface, from: 'start' | 'draw') {
   })
 }
 
-/** The line of a failed `claude plugin` run that says what went wrong: git's own `fatal:`/`error:` line, else the
- * CLI's ✘ line, else the last line. The last line alone was often the tail of a wrapped sentence. */
-export function updateFailure(output: string): string {
-  const lines = output.split(/\r?\n/).map(l => l.trim()).filter(Boolean)
-  const line = lines.find(l => /^(fatal|error):/i.test(l)) ?? lines.find(l => l.startsWith('✘')) ?? lines.at(-1) ?? ''
-  const why = line.replace(/^(fatal|error):\s*/i, '').replace(/^✘\s*/, '')
-  return why.length > 160 ? `${why.slice(0, 159)}…` : why
-}
 /**
  * Where `claude` may be: on PATH, then where the official installers put it. The desktop app starts with the PATH it
  * had at login, so a CLI installed since is not on it until the next sign-in.
@@ -2591,7 +2559,6 @@ async function compactCard($: EngineInterface, working = false) {
 
 /** The glow behind the white Handoff button. Check a change on tools/render-band before shipping: an earlier glow looked
  * tight in a preview but far bigger and blurrier in the app. */
-const HANDOFF_GLOW = true
 /** Context share from which the dashboard's Handoff button turns white: below it a handoff saves little. */
 const HANDOFF_LOUD_AT = 30
 // Handoff is calm until Haiku says a fresh chat would suit now (handoffAdvice); then it is the white box with a glow.
@@ -2897,7 +2864,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
           'Svg' in els && e.surface !== 'terminal' ? (
             <Box key="dash-handoff-wrap" flexShrink={0} flexDirection="row">
               {/* No glow while a reply runs: the band redraws then, and each redraw restarted the glow, so it flickered. */}
-              {HANDOFF_GLOW && handoffLoud() && !e.props.isWorking ? (
+              {handoffLoud() && !e.props.isWorking ? (
                 <Box key="dash-glow" position="absolute" top={0} bottom={0} left={-2} right={-2} alignItems="center" justifyContent="center">
                   <els.Svg source={handoffGlowSvg(handoffGlowStep(handoffLevel()), nowMs)} alt="handoff glow" width={GLOW_W} height={GLOW_H} />
                 </Box>
