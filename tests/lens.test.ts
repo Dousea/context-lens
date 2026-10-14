@@ -66,7 +66,7 @@ function engine(on: On) {
   const toasts: string[] = []
   // What the dashboard around the lens needs beneath it: a store, the environment, the prompt and the session's model.
   mock.store(on)
-  mock.env(on, { CONTEXT_LENS_MODEL_UI: '1' })
+  mock.env(on, {})
   on('prompt.submit', (_$, e) => ({ text: e.text }))
   on('ui.status', () => ({ value: undefined }))
   on('session.messages', () => ({ value: [] }) as never)

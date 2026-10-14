@@ -52,7 +52,7 @@ function engine(
   stored: Record<string, unknown> = {},
 ) {
   mock.store(on, stored)
-  mock.env(on, { CONTEXT_LENS_MODEL_UI: '1', ...env })
+  mock.env(on, env)
   submitted.length = 0
   on('prompt.submit', (_$, e) => {
     submitted.push(e.text)
@@ -917,15 +917,6 @@ describe('footer text', () => {
     await rows.press({ key: 'decline' })
     await ask.unmount()
     await rows.unmount()
-  })
-
-  test('CONTEXT_LENS_MODEL_UI=0 leaves the band to effort alone', async ($, on) => {
-    engine(on, { CONTEXT_LENS_MODEL_UI: '0' })
-    const ui = await $.ui.mount({ plugin: 'context-lens', surface: 'terminal', ...BAND })
-    expect(await ui.find({ key: 'e-high' })).toBeDefined()
-    expect(await ui.find({ key: 'm-opus' })).toBeUndefined()
-    expect(await ui.find({ key: 'auto-model' })).toBeUndefined()
-    await ui.unmount()
   })
 })
 
@@ -1844,7 +1835,7 @@ describe('handoff', () => {
 
   function handoffEngine(on: On, said: { role: string; text: string }[] = []) {
     mock.store(on)
-    mock.env(on, { CONTEXT_LENS_MODEL_UI: '1' })
+    mock.env(on, {})
     on('ui.status', () => ({ value: undefined }))
     on('session.messages', () => ({ value: said }) as never)
     on('session.model', () => ({ value: 'claude-opus-5-5' }))
@@ -2059,7 +2050,7 @@ describe('handoff', () => {
 
   test('the handoff is written by a fork: no turn in the chat, then cleared and sent', async ($, on) => {
     mock.store(on)
-    mock.env(on, { CONTEXT_LENS_MODEL_UI: '1' })
+    mock.env(on, {})
     on('ui.status', () => ({ value: undefined }))
     on('session.messages', () => ({ value: [] }) as never)
     on('session.model', () => ({ value: 'claude-opus-5-5' }))
@@ -2097,7 +2088,7 @@ describe('handoff', () => {
   test('without a fork (no reply yet, or it failed) the handoff is written as a turn, then cleared and sent', async ($, on) => {
     // engine() without its prompt.submit, so this test can see what the mod sends.
     mock.store(on)
-    mock.env(on, { CONTEXT_LENS_MODEL_UI: '1' })
+    mock.env(on, {})
     on('ui.status', () => ({ value: undefined }))
     on('session.messages', () => ({ value: [] }) as never)
     on('session.model', () => ({ value: 'claude-opus-5-5' }))
@@ -2131,7 +2122,7 @@ describe('handoff', () => {
 
   test('a fork that writes nothing says why: in a toast and in /context-lens debug, and the turn takes over', async ($, on) => {
     mock.store(on)
-    mock.env(on, { CONTEXT_LENS_MODEL_UI: '1' })
+    mock.env(on, {})
     on('ui.status', () => ({ value: undefined }))
     on('session.messages', () => ({ value: [] }) as never)
     on('session.model', () => ({ value: 'claude-opus-5-5' }))

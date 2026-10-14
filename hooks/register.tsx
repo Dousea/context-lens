@@ -869,7 +869,6 @@ type EnvAsk = Promise<string | undefined> | undefined
 let askLog: EnvAsk
 let askTemp: EnvAsk
 let askTmpdir: EnvAsk
-let askModelUi: EnvAsk
 let askUserProfile: EnvAsk
 let askHome: EnvAsk
 let askCacheTtl: EnvAsk
@@ -879,7 +878,6 @@ let askEnable1h: EnvAsk
 const envLog = ($: EngineInterface) => (askLog = askLog ?? $.env.get('CONTEXT_LENS_LOG'))
 const envTemp = ($: EngineInterface) => (askTemp = askTemp ?? $.env.get('TEMP'))
 const envTmpdir = ($: EngineInterface) => (askTmpdir = askTmpdir ?? $.env.get('TMPDIR'))
-const envModelUi = ($: EngineInterface) => (askModelUi = askModelUi ?? $.env.get('CONTEXT_LENS_MODEL_UI'))
 const envUserProfile = ($: EngineInterface) => (askUserProfile = askUserProfile ?? $.env.get('USERPROFILE'))
 const envHome = ($: EngineInterface) => (askHome = askHome ?? $.env.get('HOME'))
 const envCacheTtl = ($: EngineInterface) => (askCacheTtl = askCacheTtl ?? $.env.get('CLAUDE_CODE_PROMPT_CACHE_TTL'))
@@ -3057,8 +3055,6 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>, opt
   const effortNow = inAgent
     ? (viewed?.effort ?? (await helperEffortOf($, agentId).catch(() => undefined)))
     : effortOf(v)
-  // CONTEXT_LENS_MODEL_UI=0 leaves the band to effort alone.
-  const showModel = (await envModelUi($)) !== '0'
 
   const setEffort = (level: Effort) => () => pickEffort($, level)
   // Picking a model yourself turns off Auto for model alone; accepting a suggestion leaves it on. Either holds for this
@@ -3147,7 +3143,7 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>, opt
   const rows = (
     <Box flexDirection="column">
       {question}
-      {showModel ? modelRow : null}
+      {modelRow}
       <Box flexDirection="row" gap={1} alignItems="center">
         {/* The word never breaks: the note at the end gives way first. */}
         <Box flexShrink={0}>
@@ -3179,7 +3175,7 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>, opt
     </Box>
   )
   // Rows it takes, for fitting the band into the room the app gives it.
-  const height = 1 + (question ? 1 : 0) + (showModel ? 1 : 0)
+  const height = 2 + (question ? 1 : 0)
   return { question, rows, height }
 }
 
