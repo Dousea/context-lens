@@ -484,7 +484,7 @@ If the person asks for deep thought ("think hard", "ultrathink", "be thorough"),
 
 If the message is a short follow-up to ongoing work ("yes", "go", "ok", "continue", or the same in any language), keep the current pair. Thanks or praise with no new request ("ok perfect, thanks") is not a follow-up: it is low and one step.
 
-Steps: how many tool calls and replies the task takes. one: a single command, lookup or plain answer. few: a handful of reads or edits. many: a broad search, many files or long multi-step work.
+Steps: how many tool calls and replies the task takes. one: a single command, lookup or plain answer, even when the command acts on several items ("delete those branches", "rename it in this file"). few: a handful of reads or edits. many: a broad search, many files or long multi-step work.
 
 Reply with JSON only: {"model":"haiku|sonnet|opus|fable","effort":"low|medium|high|xhigh|max","steps":"one|few|many","sure":0.0-1.0 how sure you are of the effort,"why":"at most 6 words, in the user's language"}`
 
@@ -1462,23 +1462,23 @@ export function switchWorth(
 const STEP_REQUESTS: Record<Steps, number> = { one: 1, few: 4, many: 12 }
 /** What a subagent writes to its cache before it starts: its system prompt, tools and brief. */
 const SUBAGENT_START_TOKENS = 15_000
-/** Below this the judge is too unsure of the task to hand it off. */
-const SUBAGENT_MIN_SURE = 0.6
 
 /**
  * Whether handing the prompt to a subagent on `verdict` pays, once switchWorth has turned the switch down. The chat
  * still makes the request that calls the subagent and the one that reads its result, so a task of n requests spares
  * the chat n - 1 reads of its context, against the subagent's own cold start and reads. A one-step task spares
- * nothing. A stronger model is a quality call: it goes to a subagent for any task bigger than one step. Without
- * the judge's steps, the effort stands in for them.
+ * nothing. A stronger model is a quality call: it goes to a subagent for any task bigger than one step.
+ *
+ * The task's size is the smaller of the judge's steps and the size its effort implies: the judge counts one command
+ * on several items ("delete those branches") as a few steps, but it rates the effort of such a task low.
  */
 export function subagentPays(
   verdict: ModelKey,
   inUse: ModelKey,
-  task: { tokens: number; effort: Effort; steps?: Steps; sure?: number },
+  task: { tokens: number; effort: Effort; steps?: Steps },
 ): boolean {
-  if (task.sure !== undefined && task.sure < SUBAGENT_MIN_SURE) return false
-  const steps = task.steps ?? (task.effort === 'low' ? 'one' : task.effort === 'medium' ? 'few' : 'many')
+  const byEffort: Steps = task.effort === 'low' ? 'one' : task.effort === 'medium' ? 'few' : 'many'
+  const steps = STEPS[Math.min(STEPS.indexOf(task.steps ?? byEffort), STEPS.indexOf(byEffort))]
   if (steps === 'one') return false
 
   const rank = (k: ModelKey) => MODELS.findIndex(m => m.key === k)

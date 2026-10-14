@@ -530,8 +530,9 @@ describe('model suggestion', () => {
     // Without steps the effort stands in: low is one step.
     expect(subagentPays('haiku', 'opus', { tokens: 257_000, effort: 'low' })).toBe(false)
     expect(subagentPays('haiku', 'opus', { tokens: 257_000, effort: 'medium' })).toBe(true)
-    // An unsure judge hands nothing off.
-    expect(subagentPays('sonnet', 'opus', { tokens: 200_000, effort: 'high', steps: 'many', sure: 0.4 })).toBe(false)
+    // The smaller of the steps and the effort counts: one command on several items is a few steps at low effort.
+    expect(subagentPays('haiku', 'opus', { tokens: 257_000, effort: 'low', steps: 'few' })).toBe(false)
+    expect(subagentPays('sonnet', 'opus', { tokens: 200_000, effort: 'medium', steps: 'many' })).toBe(true)
     // A stronger model goes for anything bigger than one step.
     expect(subagentPays('opus', 'sonnet', { tokens: 120_000, effort: 'high', steps: 'few' })).toBe(true)
     expect(subagentPays('opus', 'sonnet', { tokens: 120_000, effort: 'high', steps: 'one' })).toBe(false)
