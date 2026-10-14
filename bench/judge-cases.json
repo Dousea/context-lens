@@ -1,5 +1,5 @@
 {
-  "about": "Labelled prompts for /context-lens bench. `ok` lists every effort a careful person would accept for the message on `current.model`; the first is the cheapest acceptable. `context` is what the judge sees of the conversation (the last user message and the end of the assistant's reply). Cases marked holdout were written before the judge prompts were tuned on the rest and are never tuned against; report both sets.",
+  "about": "Labelled prompts for /context-lens bench. `ok` lists every effort a careful person would accept for the message on `current.model`; the first is the cheapest acceptable. `context` is what the judge sees of the conversation (the last user message and the end of the assistant's reply). Cases marked holdout were written before the judge prompts were tuned on the rest and are never tuned against; report both sets. `steps` lists every task size a careful person would accept: one (a single command, lookup or plain answer), few (a handful of reads or edits) or many (a broad search, many files or long multi-step work).",
   "cases": [
     {
       "id": "t01",
@@ -9,7 +9,8 @@
         "effort": "medium"
       },
       "message": "what does the -r flag do in cp?",
-      "ok": ["low"]
+      "ok": ["low"],
+      "steps": ["one"]
     },
     {
       "id": "t02",
@@ -19,7 +20,8 @@
         "effort": "medium"
       },
       "message": "rename the variable usr to user in auth.ts",
-      "ok": ["low"]
+      "ok": ["low"],
+      "steps": ["one", "few"]
     },
     {
       "id": "t03",
@@ -29,7 +31,8 @@
         "effort": "high"
       },
       "message": "fix the typo in the README title, it says 'Instalation'",
-      "ok": ["low"]
+      "ok": ["low"],
+      "steps": ["one", "few"]
     },
     {
       "id": "t04",
@@ -39,7 +42,8 @@
         "effort": "medium"
       },
       "message": "thanks, that worked!",
-      "ok": ["low"]
+      "ok": ["low"],
+      "steps": ["one"]
     },
     {
       "id": "t05",
@@ -49,7 +53,8 @@
         "effort": "medium"
       },
       "message": "what time zone is CET in UTC terms?",
-      "ok": ["low"]
+      "ok": ["low"],
+      "steps": ["one"]
     },
     {
       "id": "t06",
@@ -59,7 +64,8 @@
         "effort": "medium"
       },
       "message": "vad heter kommandot för att lista git-grenar?",
-      "ok": ["low"]
+      "ok": ["low"],
+      "steps": ["one"]
     },
     {
       "id": "t07",
@@ -69,7 +75,8 @@
         "effort": "medium"
       },
       "message": "bump the version in package.json to 2.4.1",
-      "ok": ["low"]
+      "ok": ["low"],
+      "steps": ["one", "few"]
     },
     {
       "id": "t08",
@@ -79,7 +86,8 @@
         "effort": "high"
       },
       "message": "show me the last 5 commits",
-      "ok": ["low"]
+      "ok": ["low"],
+      "steps": ["one"]
     },
     {
       "id": "n01",
@@ -89,7 +97,8 @@
         "effort": "medium"
       },
       "message": "add a dark mode toggle to the settings page, it should persist in localStorage",
-      "ok": ["medium", "high"]
+      "ok": ["medium", "high"],
+      "steps": ["few", "many"]
     },
     {
       "id": "n02",
@@ -99,7 +108,8 @@
         "effort": "low"
       },
       "message": "write unit tests for the parseDate helper in utils/date.ts",
-      "ok": ["medium"]
+      "ok": ["medium"],
+      "steps": ["few"]
     },
     {
       "id": "n03",
@@ -109,7 +119,8 @@
         "effort": "medium"
       },
       "message": "explain how the caching layer in src/cache works",
-      "ok": ["medium", "low"]
+      "ok": ["medium", "low"],
+      "steps": ["few"]
     },
     {
       "id": "n04",
@@ -119,7 +130,8 @@
         "effort": "medium"
       },
       "message": "the login button does nothing on mobile safari, can you look?",
-      "ok": ["medium", "high"]
+      "ok": ["medium", "high"],
+      "steps": ["few", "many"]
     },
     {
       "id": "n05",
@@ -129,7 +141,8 @@
         "effort": "medium"
       },
       "message": "add pagination to the /api/orders endpoint, 50 per page",
-      "ok": ["medium", "high"]
+      "ok": ["medium", "high"],
+      "steps": ["few"]
     },
     {
       "id": "n06",
@@ -139,7 +152,8 @@
         "effort": "medium"
       },
       "message": "skriv en kort produkttext för vår nya proteinpulver-smak, mango, max 60 ord",
-      "ok": ["low", "medium"]
+      "ok": ["low", "medium"],
+      "steps": ["one"]
     },
     {
       "id": "n07",
@@ -149,7 +163,8 @@
         "effort": "high"
       },
       "message": "convert this component from a class to hooks",
-      "ok": ["medium"]
+      "ok": ["medium"],
+      "steps": ["few"]
     },
     {
       "id": "n08",
@@ -159,7 +174,8 @@
         "effort": "medium"
       },
       "message": "make the footer sticky and match the header colors",
-      "ok": ["low", "medium"]
+      "ok": ["low", "medium"],
+      "steps": ["few"]
     },
     {
       "id": "n09",
@@ -169,7 +185,8 @@
         "effort": "medium"
       },
       "message": "draft an email to our supplier asking to move the delivery to next Friday",
-      "ok": ["low", "medium"]
+      "ok": ["low", "medium"],
+      "steps": ["one"]
     },
     {
       "id": "n10",
@@ -179,7 +196,8 @@
         "effort": "low"
       },
       "message": "why is this test flaky? it passes locally but fails in CI about 1 in 5 runs",
-      "ok": ["medium", "high"]
+      "ok": ["medium", "high"],
+      "steps": ["few", "many"]
     },
     {
       "id": "b01",
@@ -189,7 +207,8 @@
         "effort": "medium"
       },
       "message": "migrate the whole app from REST to GraphQL, keep the old endpoints working until clients move",
-      "ok": ["high", "xhigh"]
+      "ok": ["high", "xhigh"],
+      "steps": ["many"]
     },
     {
       "id": "b02",
@@ -199,7 +218,8 @@
         "effort": "medium"
       },
       "message": "we're leaking memory in production, heap grows ~200MB/hour. find it",
-      "ok": ["high", "xhigh"]
+      "ok": ["high", "xhigh"],
+      "steps": ["many"]
     },
     {
       "id": "b03",
@@ -209,7 +229,8 @@
         "effort": "medium"
       },
       "message": "review the entire repo for security issues before we go public",
-      "ok": ["high", "xhigh"]
+      "ok": ["high", "xhigh"],
+      "steps": ["many"]
     },
     {
       "id": "b04",
@@ -219,7 +240,8 @@
         "effort": "low"
       },
       "message": "design the database schema and sync protocol for offline-first multi-device editing",
-      "ok": ["high", "xhigh"]
+      "ok": ["high", "xhigh"],
+      "steps": ["many"]
     },
     {
       "id": "b05",
@@ -229,7 +251,8 @@
         "effort": "medium"
       },
       "message": "refactor the payment module into separate services, there are 40 files touching it",
-      "ok": ["high", "xhigh"]
+      "ok": ["high", "xhigh"],
+      "steps": ["many"]
     },
     {
       "id": "b06",
@@ -239,7 +262,8 @@
         "effort": "medium"
       },
       "message": "race condition: two workers sometimes process the same job twice. only under load. fix it properly",
-      "ok": ["high", "xhigh"]
+      "ok": ["high", "xhigh"],
+      "steps": ["many"]
     },
     {
       "id": "s01",
@@ -249,7 +273,8 @@
         "effort": "low"
       },
       "message": "clean up my whole drive",
-      "ok": ["high", "medium"]
+      "ok": ["high", "medium"],
+      "steps": ["many"]
     },
     {
       "id": "s02",
@@ -259,7 +284,8 @@
         "effort": "low"
       },
       "message": "migrate everything to typescript",
-      "ok": ["high", "xhigh"]
+      "ok": ["high", "xhigh"],
+      "steps": ["many"]
     },
     {
       "id": "s03",
@@ -269,7 +295,8 @@
         "effort": "low"
       },
       "message": "make it production ready",
-      "ok": ["high", "xhigh"]
+      "ok": ["high", "xhigh"],
+      "steps": ["many"]
     },
     {
       "id": "s04",
@@ -279,7 +306,8 @@
         "effort": "low"
       },
       "message": "gör om hela sajten mobilanpassad",
-      "ok": ["high", "medium"]
+      "ok": ["high", "medium"],
+      "steps": ["many"]
     },
     {
       "id": "s05",
@@ -289,7 +317,8 @@
         "effort": "low"
       },
       "message": "fix all failing tests",
-      "ok": ["medium", "high"]
+      "ok": ["medium", "high"],
+      "steps": ["few", "many"]
     },
     {
       "id": "a01",
@@ -300,7 +329,8 @@
       },
       "context": "user: we need a pricing section on the landing page\nassistant: Three ways to build it:\nA) a static three-column table, 20 minutes\nB) a dynamic section pulling plans from Stripe with a monthly/yearly toggle, currency detection and a comparison drawer\nC) skip it and link to a separate page\nWhich one?",
       "message": "B",
-      "ok": ["high", "medium"]
+      "ok": ["high", "medium"],
+      "steps": ["few", "many"]
     },
     {
       "id": "a02",
@@ -311,7 +341,8 @@
       },
       "context": "user: tidy up the old branches\nassistant: Done. The branch feature/old-nav is merged and stale. Should I archive it?",
       "message": "yes",
-      "ok": ["low"]
+      "ok": ["low"],
+      "steps": ["one"]
     },
     {
       "id": "a03",
@@ -322,7 +353,8 @@
       },
       "context": "user: the importer is slow\nassistant: Two options: 1) add an index on orders.created_at (one migration), or 2) rewrite the importer as a streaming pipeline with batching, retries and a progress bar. Which do you want?",
       "message": "2",
-      "ok": ["high", "medium"]
+      "ok": ["high", "medium"],
+      "steps": ["few", "many"]
     },
     {
       "id": "a04",
@@ -333,7 +365,8 @@
       },
       "context": "user: set up the logger\nassistant: Should the log level default to info or debug?",
       "message": "info",
-      "ok": ["low"]
+      "ok": ["low"],
+      "steps": ["one", "few"]
     },
     {
       "id": "a05",
@@ -344,7 +377,8 @@
       },
       "context": "user: plan the auth work\nassistant: Plan: 1) passwordless email codes, 2) device keys signing every request, 3) account recovery, 4) migrate existing users. Want me to build all four now?",
       "message": "ja kör alla fyra",
-      "ok": ["high", "xhigh"]
+      "ok": ["high", "xhigh"],
+      "steps": ["many"]
     },
     {
       "id": "a06",
@@ -355,7 +389,8 @@
       },
       "context": "user: what font for the headings?\nassistant: Inter or Söhne would both fit. Inter is free. Which one?",
       "message": "inter",
-      "ok": ["low"]
+      "ok": ["low"],
+      "steps": ["one", "few"]
     },
     {
       "id": "a07",
@@ -366,7 +401,8 @@
       },
       "context": "user: the dashboard is slow\nassistant: I found the cause: every widget refetches all data on each render. Should I rewrite the data layer to a shared cache with subscriptions? It touches about 25 components.",
       "message": "do it",
-      "ok": ["high", "medium"]
+      "ok": ["high", "medium"],
+      "steps": ["many"]
     },
     {
       "id": "f01",
@@ -377,7 +413,8 @@
       },
       "context": "user: refactor the sync engine\nassistant: Step 1 of 3 done (extracted the queue). Continue with step 2?",
       "message": "go",
-      "ok": ["high"]
+      "ok": ["high"],
+      "steps": ["few", "many"]
     },
     {
       "id": "f02",
@@ -388,7 +425,8 @@
       },
       "context": "user: rename x to count\nassistant: Renamed in 3 places. Also rename it in the tests?",
       "message": "yes",
-      "ok": ["low"]
+      "ok": ["low"],
+      "steps": ["one", "few"]
     },
     {
       "id": "f03",
@@ -399,7 +437,8 @@
       },
       "context": "user: add the export button\nassistant: Added the button. Next I'll wire it to the CSV writer.",
       "message": "continue",
-      "ok": ["medium"]
+      "ok": ["medium"],
+      "steps": ["few"]
     },
     {
       "id": "f04",
@@ -410,7 +449,8 @@
       },
       "context": "user: hunt down the memory leak\nassistant: Narrowed it to the websocket handlers. Keep going?",
       "message": "kör",
-      "ok": ["high"]
+      "ok": ["high"],
+      "steps": ["few", "many"]
     },
     {
       "id": "o01",
@@ -420,7 +460,8 @@
         "effort": "medium"
       },
       "message": "add pagination to the /api/orders endpoint, 50 per page",
-      "ok": ["low", "medium"]
+      "ok": ["low", "medium"],
+      "steps": ["few"]
     },
     {
       "id": "o02",
@@ -430,7 +471,8 @@
         "effort": "medium"
       },
       "message": "we're leaking memory in production, heap grows ~200MB/hour. find it",
-      "ok": ["medium", "high"]
+      "ok": ["medium", "high"],
+      "steps": ["many"]
     },
     {
       "id": "o03",
@@ -440,7 +482,8 @@
         "effort": "high"
       },
       "message": "rename the variable usr to user in auth.ts",
-      "ok": ["low"]
+      "ok": ["low"],
+      "steps": ["one", "few"]
     },
     {
       "id": "o04",
@@ -450,7 +493,8 @@
         "effort": "low"
       },
       "message": "refactor the payment module into separate services, there are 40 files touching it",
-      "ok": ["medium", "high"]
+      "ok": ["medium", "high"],
+      "steps": ["many"]
     },
     {
       "id": "x01",
@@ -460,7 +504,8 @@
         "effort": "medium"
       },
       "message": "go through all my Notion tasks and tell me what's overdue",
-      "ok": ["medium", "low"]
+      "ok": ["medium", "low"],
+      "steps": ["few"]
     },
     {
       "id": "x02",
@@ -470,7 +515,8 @@
         "effort": "medium"
       },
       "message": "research the top 5 competitors in Nordic sports nutrition and compare pricing, with sources",
-      "ok": ["high", "medium"]
+      "ok": ["high", "medium"],
+      "steps": ["many"]
     },
     {
       "id": "x03",
@@ -480,7 +526,8 @@
         "effort": "medium"
       },
       "message": "summarize this meeting note in 3 bullets",
-      "ok": ["low"]
+      "ok": ["low"],
+      "steps": ["one"]
     },
     {
       "id": "x04",
@@ -490,7 +537,8 @@
         "effort": "low"
       },
       "message": "plan our next three product drops with deadlines, assets and who does what",
-      "ok": ["medium", "high"]
+      "ok": ["medium", "high"],
+      "steps": ["few"]
     },
     {
       "id": "x05",
@@ -500,7 +548,8 @@
         "effort": "high"
       },
       "message": "translate this paragraph to Swedish",
-      "ok": ["low"]
+      "ok": ["low"],
+      "steps": ["one"]
     },
     {
       "id": "m01",
@@ -510,7 +559,8 @@
         "effort": "medium"
       },
       "message": "what effort are you using?",
-      "ok": ["low"]
+      "ok": ["low"],
+      "steps": ["one"]
     },
     {
       "id": "m02",
@@ -520,7 +570,8 @@
         "effort": "medium"
       },
       "message": "how much effort should I use for a big refactor?",
-      "ok": ["low"]
+      "ok": ["low"],
+      "steps": ["one"]
     },
     {
       "id": "m03",
@@ -530,7 +581,8 @@
         "effort": "low"
       },
       "message": "think really hard about this: why does our churn spike every March? here's 2 years of data in data/churn.csv",
-      "ok": ["high", "xhigh"]
+      "ok": ["high", "xhigh"],
+      "steps": ["few", "many"]
     },
     {
       "id": "h01",
@@ -541,7 +593,8 @@
         "effort": "medium"
       },
       "message": "what's the shortcut to comment a line in VS Code?",
-      "ok": ["low"]
+      "ok": ["low"],
+      "steps": ["one"]
     },
     {
       "id": "h02",
@@ -552,7 +605,8 @@
         "effort": "high"
       },
       "message": "delete the unused import on line 3 of main.py",
-      "ok": ["low"]
+      "ok": ["low"],
+      "steps": ["one", "few"]
     },
     {
       "id": "h03",
@@ -563,7 +617,8 @@
         "effort": "high"
       },
       "message": "ok perfect, thank you so much",
-      "ok": ["low"]
+      "ok": ["low"],
+      "steps": ["one"]
     },
     {
       "id": "h04",
@@ -574,7 +629,8 @@
         "effort": "medium"
       },
       "message": "add input validation to the signup form: email format, password min 8 chars, show errors inline",
-      "ok": ["medium"]
+      "ok": ["medium"],
+      "steps": ["few"]
     },
     {
       "id": "h05",
@@ -585,7 +641,8 @@
         "effort": "medium"
       },
       "message": "the CSV export puts dates in the wrong timezone, fix it",
-      "ok": ["medium", "high"]
+      "ok": ["medium", "high"],
+      "steps": ["few"]
     },
     {
       "id": "h06",
@@ -596,7 +653,8 @@
         "effort": "medium"
       },
       "message": "write a README section explaining how to run the project locally",
-      "ok": ["low", "medium"]
+      "ok": ["low", "medium"],
+      "steps": ["few"]
     },
     {
       "id": "h07",
@@ -607,7 +665,8 @@
         "effort": "medium"
       },
       "message": "our checkout drops ~3% of orders silently, nothing in the logs. figure out why",
-      "ok": ["high", "xhigh"]
+      "ok": ["high", "xhigh"],
+      "steps": ["many"]
     },
     {
       "id": "h08",
@@ -618,7 +677,8 @@
         "effort": "low"
       },
       "message": "port the whole iOS app's networking layer to async/await, ~60 files",
-      "ok": ["high", "xhigh"]
+      "ok": ["high", "xhigh"],
+      "steps": ["many"]
     },
     {
       "id": "h09",
@@ -629,7 +689,8 @@
         "effort": "low"
       },
       "message": "rewrite the backend in Go",
-      "ok": ["high", "xhigh"]
+      "ok": ["high", "xhigh"],
+      "steps": ["many"]
     },
     {
       "id": "h10",
@@ -640,7 +701,8 @@
         "effort": "low"
       },
       "message": "audit all our dependencies",
-      "ok": ["medium", "high"]
+      "ok": ["medium", "high"],
+      "steps": ["few", "many"]
     },
     {
       "id": "h11",
@@ -652,7 +714,8 @@
       },
       "message": "no",
       "ok": ["low"],
-      "context": "user: clean up the logs folder\nassistant: Removed 40 old log files. Should I also delete the archived ones from 2024?"
+      "context": "user: clean up the logs folder\nassistant: Removed 40 old log files. Should I also delete the archived ones from 2024?",
+      "steps": ["one"]
     },
     {
       "id": "h12",
@@ -664,7 +727,8 @@
       },
       "message": "the second one",
       "ok": ["high", "medium"],
-      "context": "user: we need search\nassistant: Options: 1) a simple LIKE query on titles, 2) full-text search with Postgres tsvector, ranking, highlighting and a background reindex job. Which?"
+      "context": "user: we need search\nassistant: Options: 1) a simple LIKE query on titles, 2) full-text search with Postgres tsvector, ranking, highlighting and a background reindex job. Which?",
+      "steps": ["few", "many"]
     },
     {
       "id": "h13",
@@ -676,7 +740,8 @@
       },
       "message": "blue",
       "ok": ["low"],
-      "context": "user: style the primary button\nassistant: Should the primary button be blue or green?"
+      "context": "user: style the primary button\nassistant: Should the primary button be blue or green?",
+      "steps": ["one", "few"]
     },
     {
       "id": "h14",
@@ -688,7 +753,8 @@
       },
       "message": "yes all of it",
       "ok": ["high", "medium"],
-      "context": "user: plan the migration\nassistant: Plan: move 12 services to the new queue, add retries, backfill old jobs, update dashboards. Start now?"
+      "context": "user: plan the migration\nassistant: Plan: move 12 services to the new queue, add retries, backfill old jobs, update dashboards. Start now?",
+      "steps": ["many"]
     },
     {
       "id": "h15",
@@ -700,7 +766,8 @@
       },
       "message": "next",
       "ok": ["high"],
-      "context": "user: migrate the services one by one\nassistant: Service 3 of 12 migrated and tests pass. Moving on to service 4."
+      "context": "user: migrate the services one by one\nassistant: Service 3 of 12 migrated and tests pass. Moving on to service 4.",
+      "steps": ["few", "many"]
     },
     {
       "id": "h16",
@@ -711,7 +778,8 @@
         "effort": "medium"
       },
       "message": "write tests for the parseDate helper",
-      "ok": ["low", "medium"]
+      "ok": ["low", "medium"],
+      "steps": ["few"]
     },
     {
       "id": "h17",
@@ -722,7 +790,8 @@
         "effort": "medium"
       },
       "message": "write a polite reply declining the meeting on Thursday",
-      "ok": ["low"]
+      "ok": ["low"],
+      "steps": ["one"]
     },
     {
       "id": "h18",
@@ -733,7 +802,8 @@
         "effort": "medium"
       },
       "message": "analyse last quarter's sales in sales.xlsx and tell me which products are dropping and why",
-      "ok": ["medium", "high"]
+      "ok": ["medium", "high"],
+      "steps": ["few"]
     },
     {
       "id": "h19",
@@ -744,7 +814,8 @@
         "effort": "low"
       },
       "message": "ultrathink: is our caching strategy going to survive 10x traffic? look at src/cache and the infra config",
-      "ok": ["high", "xhigh"]
+      "ok": ["high", "xhigh"],
+      "steps": ["few", "many"]
     },
     {
       "id": "h20",
@@ -755,7 +826,8 @@
         "effort": "high"
       },
       "message": "quick question, no need to dig: is redis single-threaded?",
-      "ok": ["low"]
+      "ok": ["low"],
+      "steps": ["one"]
     },
     {
       "id": "a08",
@@ -766,7 +838,8 @@
       },
       "context": "user: the shapes could build something, a park scene, while the contact question appears\nassistant: The shapes stop being confetti: they scatter in, then move into place and build a small park scene. One question before I build it: how literal should the scene be?\n1. Flat and abstract (my pick): the logo is the trunk, a circle the crown, a bar the bench, a circle on a rectangle a person.\n2. Slightly drawn: plus a ground line, a second tree and a lamp post.\n3. Turns into a photo: the scene builds, then cross-fades into a project photo.\nI'll start on 1 unless you pick otherwise.",
       "message": "The same shapes, 100%",
-      "ok": ["medium", "high"]
+      "ok": ["medium", "high"],
+      "steps": ["few", "many"]
     },
     {
       "id": "a09",
@@ -777,7 +850,8 @@
       },
       "context": "user: a handoff button: write the handoff, open a new chat with it and archive this one, or clear and auto-send it. One click.\nassistant: I checked what the mod can do. Run the handoff, catch the text, /clear, auto-send: yes. Open a new chat and archive the old one: no, the mod API has no access to the app's chat list. So option 2 works fully. First question: what should write the handoff by default?",
       "message": "Yes, but it can probably archive the one you're at and create a new one, but not show the new one directly. It can create it and show you that this one is archived, and then you can get to the next session. Maybe a button in the UI that opens that session.",
-      "ok": ["medium", "high"]
+      "ok": ["medium", "high"],
+      "steps": ["few"]
     },
     {
       "id": "a10",
@@ -788,7 +862,21 @@
       },
       "context": "user: anything more before you build the rate-limit band?\nassistant: Two things to settle first. 1. Which band wins when several apply: setup, judge down, running hot, cold, swamped. 2. What Running hot does: shows at 80% of the 5h or weekly limit, text with reset time, a Save mode button that caps Auto at medium until the reset, embers theme with rising sparks. Is that OK? Then I'll build Judge down and Running hot.",
       "message": "yes",
-      "ok": ["medium", "high"]
+      "ok": ["medium", "high"],
+      "steps": ["many"]
+    },
+    {
+      "id": "h21",
+      "kind": "trivial",
+      "holdout": true,
+      "current": {
+        "model": "opus",
+        "effort": "medium"
+      },
+      "context": "user: which branches are merged? assistant: fix/offer-hold and feat/settings-layout are both merged into main and were never pushed. Delete them?",
+      "message": "Delete those branches.",
+      "ok": ["low"],
+      "steps": ["one"]
     }
   ]
 }

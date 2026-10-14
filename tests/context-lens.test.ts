@@ -24,6 +24,7 @@ import {
   keepsEffort,
   benchGrade,
   benchReport,
+  stepsGrade,
   judgeFailure,
   contextFrom,
   readConfig,
@@ -1987,6 +1988,25 @@ describe('judge benchmark', () => {
     ])
     expect(report).toContain('| haiku | 50% | 1 | 0 | 0 | 500 |')
     expect(report).toContain('haiku b: said medium, wanted high')
+  })
+
+  test('task sizes are graded and reported for the cases labelled with them', () => {
+    const sized = (id: string, steps: ('one' | 'few' | 'many')[]) => ({ ...(c(id, ['low']) as object), steps }) as never
+    expect(stepsGrade(sized('a', ['one', 'few']), 'few')).toBe('hit')
+    expect(stepsGrade(sized('a', ['one']), 'many')).toBe('over')
+    expect(stepsGrade(sized('a', ['many']), 'one')).toBe('under')
+    expect(stepsGrade(c('a', ['low']), 'one')).toBe('none')
+
+    const report = benchReport(
+      [sized('a', ['one']), sized('b', ['many']), c('c', ['low'])],
+      [
+        { id: 'a', judge: 'haiku', effort: 'low', steps: 'few', ms: 300, tokens: 10 },
+        { id: 'b', judge: 'haiku', effort: 'low', steps: 'many', ms: 300, tokens: 10 },
+        { id: 'c', judge: 'haiku', effort: 'low', steps: 'one', ms: 300, tokens: 10 },
+      ],
+    )
+    expect(report).toContain('| haiku | 50% | 0 | 1 | 0 |')
+    expect(report).toContain('haiku a: said few steps, wanted one')
   })
 
   test('/context-lens bench runs every case through Haiku, keeps follow-ups, and writes the report', async ($, on) => {
