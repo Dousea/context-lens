@@ -2321,18 +2321,19 @@ export function dashboardLines(d: {
   /** A subagent is in view: the word is its effort alone, none of the chat's Auto state. */
   agent?: boolean
   effort: Effort | undefined
-  /** The model's long name ("Opus 5.5"), written after the effort; none when unknown. */
+  /** The model's long name ("Opus 5.5"), written before the effort; none when unknown. */
   model?: string
   cacheNow: number | null
   contextPercent: number | null
   reason: string
-}): { head: string; what: string; rest: string; detail: string } {
+}): { head: string; what: string; pair: string; rest: string; detail: string } {
   const level = d.effort ? EFFORT_LABELS[d.effort] : 'Auto'
   // Auto on or off is the button's to say (and the terminal's effort row's), not the text's.
   const what = d.agent ? (d.effort ? level : 'Subagent') : d.judging ? 'Deciding…' : !d.auto ? 'Off' : d.paused ? `${level} · Auto paused` : level
+  // The model and the effort read as one pair, coloured together.
+  const pair = d.model ? `${d.model} · ${what}` : what
   const head = [
-    `✦ ${what}`,
-    d.model ?? null,
+    `✦ ${pair}`,
     d.cacheNow === null ? null : `cache ${cacheLabel(d.cacheNow)}`,
     d.contextPercent === null ? null : `${Math.round(d.contextPercent)}% context`,
   ]
@@ -2340,6 +2341,7 @@ export function dashboardLines(d: {
   return {
     head: shown.join(' · '),
     what,
+    pair,
     rest: shown.slice(1).map(part => ` · ${part}`).join(''),
     detail: d.reason,
   }
@@ -2869,13 +2871,14 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
   const lens = await lensRow($, e, Math.max(20, columns - 4)).catch(() => null)
   const judgingHere = !inAgent && Boolean(v.judging)
   const hint = inAgent ? '' : await appHint($, v)
-  const { head, what, rest, detail } = dashboardLines({
+  const modelName = MODELS.find(m => m.key === shownModel)?.long
+  const { head, what, pair, rest, detail } = dashboardLines({
     auto: v.auto,
     paused: Boolean(v.pausedNow),
     judging: judgingHere,
     agent: inAgent,
     effort: effortNow,
-    model: MODELS.find(m => m.key === shownModel)?.long,
+    model: modelName,
     cacheNow: drawn || lens ? null : cacheShown,
     // Desktop draws the context as a ring and a figure (as the swamp band does); the terminal says it in words.
     contextPercent: !lens && e.surface === 'terminal' && lastContext && lastContext.window ? lastContext.percent : null,
@@ -2962,7 +2965,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
   // The terminal flashes the effort word as the desktop does: in the accent on a change, fading back to white.
   if (e.surface === 'terminal')
     return terminalBand($, e, { key: 'dash', kind: 'calm', color: DASH_TEXT, bg: DASH_BG, edge: DASH_EDGE, title: head.replace(/^✦ /, ''), detail, hint, buttons, extra: lens,
-      word: { text: what, color: await effortFlash($, what, judgingHere, entering), rest } })
+      word: { text: pair, color: await effortFlash($, what, judgingHere, entering), rest } })
   const Svg = 'Svg' in els ? els.Svg : undefined
   const wordColor = await effortFlash($, what, judgingHere, entering)
   glowReadAt = Date.now()
@@ -3007,7 +3010,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
           ) : <Text color={v.auto ? ACCENT : DASH_DIM} bold>✦ </Text>}
           {/* A new effort shows in the accent, then white (effortFlash): plain text in the app's font. An animated image
               of the word looked cheap: another font, a late start and a jump back to the text. */}
-          <Text key="dash-level" color={wordColor} bold>{judgingHere && Svg ? 'Deciding' : what}</Text>
+          <Text key="dash-level" color={wordColor} bold>{judgingHere && Svg ? (modelName ? `${modelName} · Deciding` : 'Deciding') : pair}</Text>
           {/* While the judge decides: thinking dots, as a plain image (its CSS still runs, and a
               redraw does not restart it the way an interactive frame does). */}
           {judgingHere && Svg ? (
@@ -4245,14 +4248,13 @@ Saved to ${out}.md and .json` }
     return (
       <Box key="turn-line" flexDirection="row" gap={1}>
         <Text dimColor>{`${e.props.word} ${took < 60 ? `${took}s` : `${Math.floor(took / 60)}m ${took % 60}s`}`}</Text>
-        {ran ? <Text color={ACCENT}>{`✦ ${ran.effort ? EFFORT_LABELS[ran.effort] : 'Auto'}`}</Text> : null}
-        {model ? <Text dimColor>{`· ${model}`}</Text> : null}
+        {ran ? <Text color={ACCENT}>{`✦ ${model ? `${model} · ` : ''}${ran.effort ? EFFORT_LABELS[ran.effort] : 'Auto'}`}</Text> : null}
         {ran?.cost ? <Text dimColor>{`· ≈${tokens(ran.cost)} tokens`}</Text> : null}
       </Box>
     )
   })
 
-  // Above the prompt: the terminal's rows (effort steps, Auto, and the model row when it is switched on).
+  // Above the prompt: the terminal's Model and Effort pickers.
   // On desktop nothing is drawn here, except the question when the judge suggests another model.
   // Draws the bands and the settings panel. Counted and guarded so /context-lens debug can say whether the app asks
   // for it at all and whether drawing failed: an error here otherwise only leaves the slot empty.

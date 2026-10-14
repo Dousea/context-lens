@@ -3065,8 +3065,9 @@ describe('dashboard', () => {
     expect(appHintText({ model: 'opus', effort: 'medium' }, { model: 'sonnet' })).toBe('App: Opus · Medium')
     expect(appHintText({ model: 'opus', effort: null }, { model: 'opus', effort: 'high' })).toBe('')
     expect(appHintText({ model: 'opus', effort: null }, { model: 'haiku', effort: 'high' })).toBe('App: Opus')
-    expect(dashboardLines({ ...base, model: 'Opus 5.5' }).head).toBe(`✦ Medium · Opus 5.5 · cache ${cacheLabel(42)} · 18% context`)
-    expect(dashboardLines({ ...base, model: 'Opus 5.5' }).rest).toBe(` · Opus 5.5 · cache ${cacheLabel(42)} · 18% context`)
+    expect(dashboardLines({ ...base, model: 'Opus 5.5' }).head).toBe(`✦ Opus 5.5 · Medium · cache ${cacheLabel(42)} · 18% context`)
+    expect(dashboardLines({ ...base, model: 'Opus 5.5' }).pair).toBe('Opus 5.5 · Medium')
+    expect(dashboardLines({ ...base, model: 'Opus 5.5' }).rest).toBe(` · cache ${cacheLabel(42)} · 18% context`)
     expect(dashboardLines({ ...base, auto: false }).head).toBe(`✦ Off · cache ${cacheLabel(42)} · 18% context`)
     expect(dashboardLines({ ...base, cacheNow: null, contextPercent: null }).head).toBe('✦ Medium')
     expect(weighted({ input_tokens: 10, output_tokens: 2, cache_read_input_tokens: 1000, cache_creation_input_tokens: 4 })).toBe(10 + 10 + 100 + 5)
@@ -3103,8 +3104,7 @@ describe('dashboard', () => {
     const footer = (ms: number) =>
       $.ui.mount({ plugin: 'context-lens', surface: 'desktop', component: 'TurnDuration', props: { word: 'Baked', durationMs: ms } } as never)
     const early = await footer(17_000)
-    expect((await early.find({ key: 'turn-line' }))?.text).toContain('Low')
-    expect((await early.find({ key: 'turn-line' }))?.text).toContain('Opus 5.5')
+    expect((await early.find({ key: 'turn-line' }))?.text).toContain('✦ Opus 5.5 · Low')
     await early.unmount()
     await $.turn.complete({ turnId: 't1', answer: 'Done.', durationMs: 17_000, isAborted: false, reason: 'answer' } as never)
     await step($, 'high')
@@ -3121,8 +3121,7 @@ describe('dashboard', () => {
       $.ui.mount({ plugin: 'context-lens', surface: 'desktop', component: 'TurnDuration', props: { word: 'Baked', durationMs: ms } } as never)
 
     const saved = await footer(17_000)
-    expect((await saved.find({ key: 'turn-line' }))?.text).toContain('Low')
-    expect((await saved.find({ key: 'turn-line' }))?.text).toContain('Opus 5.5')
+    expect((await saved.find({ key: 'turn-line' }))?.text).toContain('✦ Opus 5.5 · Low')
     await saved.unmount()
 
     const unknown = await footer(40_000)
@@ -3182,7 +3181,7 @@ describe('dashboard', () => {
     await rows.press({ key: 'e-low' })
     await rows.unmount()
     const band = await $.ui.mount(DESK_BAND)
-    expect(await drawn(band)).toMatch(/"color":"#d4d4d8"[^{}]*\},"children":\["Off"\]/)
+    expect(await drawn(band)).toMatch(/"color":"#d4d4d8"[^{}]*\},"children":\["(?:[^"]* · )?Off"\]/)
     await band.unmount()
   })
 
