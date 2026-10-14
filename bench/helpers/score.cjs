@@ -1,13 +1,13 @@
 // Grades the runs bench/helpers/run.sh made: cost, whether each answer is right, and the effort each helper got.
 const fs = require('fs'), path = require('path'), cp = require('child_process')
-const B = process.env.EFFORTLESS_BENCH_DIR || path.join(process.env.TEMP || '/tmp', 'effbench')
+const B = process.env.CONTEXT_LENS_BENCH_DIR || path.join(process.env.TEMP || '/tmp', 'context-lens-bench')
 const pristine = f => fs.readFileSync(path.join(B, 'pristine', f), 'utf8')
 const walk = (d, base = d) => fs.readdirSync(d, { withFileTypes: true }).flatMap(e =>
   e.isDirectory() ? (['node_modules', '.git', '.claude'].includes(e.name) ? [] : walk(path.join(d, e.name), base))
     : [path.relative(base, path.join(d, e.name)).replace(/\\/g, '/')])
 const pristineFiles = new Set(walk(path.join(B, 'pristine')))
 const changed = dir => walk(dir).filter(f => !pristineFiles.has(f) || fs.readFileSync(path.join(dir, f), 'utf8') !== pristine(f))
-const trueTests = (pristine('tests/effortless.test.ts').match(/(^|[^.\w])test\(/gm) || []).length
+const trueTests = (pristine('tests/context-lens.test.ts').match(/(^|[^.\w])test\(/gm) || []).length
 const trueHooks = fs.readdirSync(path.join(B, 'pristine', 'hooks')).filter(f => /\.tsx?$/.test(f)).length
 const rows = []
 for (const f of fs.readdirSync(path.join(B, 'r')).filter(f => f.startsWith('hb-') && f.endsWith('.json'))) {
@@ -22,7 +22,7 @@ for (const f of fs.readdirSync(path.join(B, 'r')).filter(f => f.startsWith('hb-'
   if (task === 's1') { ok = ch.length === 0 && /COLD_MIN_TOKENS/.test(text) && /SWAMP_TOKENS/.test(text); why = ch.length ? 'changed files' : ok ? '' : 'missed a constant' }
   if (task === 's2') { ok = ch.length === 0 && new RegExp('\\b' + trueTests + '\\b').test(text); why = ok ? '' : `truth ${trueTests}` }
   if (task === 's3') {
-    const need = [/runUpdate/, /syncRunningCopy|syncPlan/, /reload-plugins|RELOAD_ARGS|--force/]
+    const need = [/goHandoff/, /startHandoff/, /writeHandoff/, /finishHandoff/]
     const missing = need.filter(r => !r.test(text)).map(String)
     ok = ch.length === 0 && missing.length === 0
     why = ch.length ? 'changed files' : missing.length ? 'missing ' + missing.join(' ') : ''

@@ -14,19 +14,11 @@
     "id": "b2",
     "difficulty": "easy",
     "file": "hooks/register.tsx",
-    "find": "if ((pa[i] ?? 0) !== (pb[i] ?? 0)) return (pa[i] ?? 0) > (pb[i] ?? 0)",
-    "replace": "if ((pa[i] ?? 0) !== (pb[i] ?? 0)) return (pa[i] ?? 0) < (pb[i] ?? 0)",
-    "report": "The update check is backwards. When a newer version is out, Check for updates says I'm up to date and no update card shows up. But when the published version is older than the one I have installed, it offers me that older one as an update.",
+    "find": "return at.getTime() - now < 20 * 3600_000 ? hm",
+    "replace": "return at.getTime() - now > 20 * 3600_000 ? hm",
+    "report": "The reset times in the running-hot warning are the wrong way round. A limit that resets this afternoon shows a weekday in front of the time, and the weekly one that resets in four days shows only the hour, with no day.",
     "fails": [
-      "updates > versions compare by number and releases.json gives its newest entry",
-      "updates > Check for updates in Settings looks now, past a Later, and offers the install in the same place",
-      "updates > a version found earlier is not offered once the installed one is as new",
-      "updates > Check for updates trusts git over a web answer that lags behind",
-      "updates > Check for updates looks again while an earlier Updated card is still up",
-      "updates > a newer version is offered; ✕ puts it away for a day, then it is offered again",
-      "updates > Update runs the two claude plugin commands, reloads, and the new version says Updated with a link",
-      "updates > a failed update says why and offers to try again",
-      "updates > the update reaches GitHub over HTTPS, so users without an SSH key there can update"
+      "running hot and judge down > save mode caps at medium, and reset times read short"
     ]
   },
   {
@@ -49,7 +41,7 @@
     "replace": "(Math.abs(bias) === 1 ? 0.85 : 0.65)",
     "report": "The effort slider's notches feel swapped. One notch toward smarter already moves picks the judge was fairly sure about, and the outer notch moves fewer picks than the first one does. I'd expect the outer notch to tip more close calls, not fewer.",
     "fails": [
-      "settings panel > the slider tips only close calls; floor and ceiling clamp; the key line is set in place"
+      "settings panel > the slider tips only close calls; floor and ceiling clamp"
     ]
   },
   {
@@ -78,12 +70,11 @@
     "id": "b7",
     "difficulty": "medium",
     "file": "hooks/register.tsx",
-    "find": "(?! +(problem|worries|thanks|thank|need|rush|hurry))",
-    "replace": "(?! +(worries|thanks|thank|need|rush|hurry))",
-    "report": "When I reply \"no problem\" (say after Claude apologizes), effortless treats it as if I said the last answer was wrong: with model Auto on, the next few prompts stay on the bigger model as for a redo, and stats count it as redone. \"no worries\" and \"no thanks\" don't do this.",
+    "find": "/\\b(not|no|don'?t|never|without|instead of)\\b/",
+    "replace": "/\\b(not|no|never|without|instead of)\\b/",
+    "report": "If I write \"don't use max effort for this\", context-lens skips the judge and runs the prompt at max. \"no need for high effort here\" and \"not max effort\" are fine: they go to the judge like they should.",
     "fails": [
-      "dashboard > looksLikeRedo: a correction after a cheaper answer, not a thank-you or a new task",
-      "dashboard > a thank-you after a cheaper answer is not a redo"
+      "named level > namedEffort: a level said with the word effort, or xhigh, counts; other senses and negations do not"
     ]
   },
   {
@@ -94,19 +85,19 @@
     "replace": "const i = Math.max(Math.min(EFFORTS.indexOf(floor), EFFORTS.indexOf(ceiling)), EFFORTS.indexOf('medium'))",
     "report": "I set Max effort to low. The main chat respects it, but with Helpers on, subagents still run at medium. Nothing should go above my Max.",
     "fails": [
-      "agent panel > helperFloor: medium, the person's Min when higher, never above their Max"
+      "subagent effort > helperFloor: medium, the person's Min when higher, never above their Max"
     ]
   },
   {
     "id": "b9",
     "difficulty": "hard",
     "file": "hooks/register.tsx",
-    "find": "const stay = contextTokens * MODEL_PRICE[inUse] * (warm.inUse ? WEIGHT.read : write)",
-    "replace": "const stay = contextTokens * MODEL_PRICE[inUse] * (warm.to ? WEIGHT.read : write)",
-    "report": "With model Auto on, effortless moves prompts to a cheaper model even when that model's prompt cache is cold and the chat is big, while my main model's cache is still warm. That writes the whole chat into the cold cache and costs more than staying would. It should only switch when the switch comes out cheaper.",
+    "find": "const writtenGo = Math.max(0, tokens - Math.min(tokens, chat.warm ?? 0))",
+    "replace": "const writtenGo = Math.max(0, tokens - Math.min(tokens, chat.warm ?? tokens))",
+    "report": "On a big chat whose cache is still warm, context-lens offers to switch to Sonnet as if the switch cost nothing, even though this chat never ran on Sonnet and its whole history would have to be written into Sonnet's cache. When I did use the other model a few minutes ago, the offers look right.",
     "fails": [
-      "auto > routeWorth: a switch to a cold model pays only when it still comes out cheaper",
-      "dashboard > cache-aware routing, live through the hooks: a cold Sonnet is skipped on a big warm Opus chat, Haiku moves, a cold chat moves, and a routed reply leaves the countdown alone"
+      "model suggestion > switchWorth: a switch where the rewritten cache is cheap or pays back, a helper otherwise",
+      "offer a model first > offer first: in a big warm chat a switch that does not pay back becomes a helper, and the chat keeps its model"
     ]
   },
   {
@@ -115,7 +106,7 @@
     "file": "hooks/register.tsx",
     "find": "const reply = context.split('\\nassistant: ').pop() ?? ''",
     "replace": "const reply = context.split('\\nassistant: ')[0] ?? ''",
-    "report": "When Claude's reply ends with a question like \"Should I archive it?\" and I answer \"yes\", effortless just keeps the previous effort instead of judging the work my answer starts. And the other way round: if my own previous message had a question mark in it, a plain \"go\" between two steps gets judged even though Claude didn't ask anything.",
+    "report": "When Claude's reply ends with a question like \"Should I archive it?\" and I answer \"yes\", context-lens just keeps the previous effort instead of judging the work my answer starts. And the other way round: if my own previous message had a question mark in it, a plain \"go\" between two steps gets judged even though Claude didn't ask anything.",
     "fails": [
       "short answers to a question > a short reply after a question goes to the judge; between two steps it keeps the effort"
     ]

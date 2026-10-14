@@ -2,31 +2,33 @@
 
 Three benchmarks, each one you can run again. None is a lab result: small task sets, few runs. Read the limits under each.
 
-## 1. How much does effortless save? (`bash bench/agentic/run.sh`)
+Every figure below was measured before the fork, on the upstream plugin context-lens started from (versions 1.5 to 1.69). The scripts run against context-lens now; rerun them for its own figures. Two more are not written up here: `bench/helpers/` (effort for subagents, raw results in `bench/results/helpers-2026-10-10.md`) and `bench/hard/` (planted bugs, see its README). The paid ones read `ANTHROPIC_API_KEY` from `~/.config/context-lens-bench.env`.
 
-The question people ask: same work, with effortless on and with it off, what does it cost and is the answer still right?
+## 1. How much does context-lens save? (`bash bench/agentic/run.sh`)
 
-Four coding tasks in a fresh copy of this repo: find and explain a setting, add doc comments without touching code, write and run a small script, and trace a flow through several files. Each ran 3 times per setup, on Opus 5.5 and Sonnet 5.5, through Anthropic's API (an API key, so the cost is real list price). Without effortless the app sat at medium, high or xhigh. With it, the app started on medium and effortless picked the effort for each prompt. Every answer was checked: the right fact, no file touched that should not be, the script printing the right number. Run 2026-10-10, 96 runs.
+The question people ask: same work, with context-lens on and with it off, what does it cost and is the answer still right?
+
+Four coding tasks in a fresh copy of this repo: find and explain a setting, add doc comments without touching code, write and run a small script, and trace a flow through several files. Each ran 3 times per setup, on Opus 5.5 and Sonnet 5.5, through Anthropic's API (an API key, so the cost is real list price). Without context-lens the app sat at medium, high or xhigh. With it, the app started on medium and context-lens picked the effort for each prompt. Every answer was checked: the right fact, no file touched that should not be, the script printing the right number. Run 2026-10-10, 96 runs.
 
 **Opus 5.5**
 
 | Setup | Correct | Cost per task | Requests per task | Time per task |
 | --- | --- | --- | --- | --- |
-| medium (Anthropic's recommendation), no effortless | 12 of 12 | $0.190 | 7.3 | 24 s |
-| high, no effortless | 12 of 12 | $0.209 | 8.0 | 27 s |
-| xhigh, no effortless | 12 of 12 | $0.257 | 9.9 | 44 s |
-| **effortless on** | **12 of 12** | **$0.149** | **5.8** | **20 s** |
+| medium (Anthropic's recommendation), no context-lens | 12 of 12 | $0.190 | 7.3 | 24 s |
+| high, no context-lens | 12 of 12 | $0.209 | 8.0 | 27 s |
+| xhigh, no context-lens | 12 of 12 | $0.257 | 9.9 | 44 s |
+| **context-lens on** | **12 of 12** | **$0.149** | **5.8** | **20 s** |
 
-effortless saved **21%** against medium, **29%** against high and **42%** against xhigh, with every answer still right. It picked low 9 times and medium 3 times.
+context-lens saved **21%** against medium, **29%** against high and **42%** against xhigh, with every answer still right. It picked low 9 times and medium 3 times.
 
 **Sonnet 5.5**
 
 | Setup | Correct | Cost per task | Requests per task | Time per task |
 | --- | --- | --- | --- | --- |
-| medium, no effortless | 12 of 12 | $0.092 | 6.4 | 15 s |
-| high, no effortless | 12 of 12 | $0.107 | 8.8 | 20 s |
-| xhigh, no effortless | 12 of 12 | $0.146 | 11.4 | 31 s |
-| **effortless on** | **12 of 12** | **$0.096** | **7.5** | **18 s** |
+| medium, no context-lens | 12 of 12 | $0.092 | 6.4 | 15 s |
+| high, no context-lens | 12 of 12 | $0.107 | 8.8 | 20 s |
+| xhigh, no context-lens | 12 of 12 | $0.146 | 11.4 | 31 s |
+| **context-lens on** | **12 of 12** | **$0.096** | **7.5** | **18 s** |
 
 On Sonnet it came out even against medium (4% more, inside the noise), and saved **10%** against high and **35%** against xhigh.
 
@@ -37,14 +39,14 @@ What it says:
 
 Limits:
 - Four tasks, three runs each. The percentages could move a few points on a rerun.
-- Mostly easy tasks, where effortless goes low and saves the most. On hard tasks it picks more effort and saves less; not measured here.
+- Mostly easy tasks, where context-lens goes low and saves the most. On hard tasks it picks more effort and saves less; not measured here.
 - The checks test the right fact, file or number, not how well an answer is written.
 - Fresh chats through the API. Long chats in the app, and plan usage, were not measured.
 - The judge (Haiku) adds about $0.001 to $0.002 per prompt and is not in the figures.
 
 Every run: `bench/results/agentic-2026-10-10.md` and `.json`.
 
-## 2. Is the judge right? (`/effortless bench`)
+## 2. Is the judge right? (`/context-lens bench`)
 
 73 hand-labelled prompts (20 held out), version 1.5.1. A case is "right" when the judge's effort is one a careful person would accept.
 
@@ -77,6 +79,6 @@ An earlier version also moved simple prompts to Haiku or Sonnet. This benchmark 
 
 Those prompts started with no chat history, and that is what made the switch look cheap. In a real chat the context sits in the chat model's prompt cache, and each model keeps its own. A prompt moved to another model has to write the whole chat into that model's cache first, at twice the input price (Claude Code writes the 1-hour cache). Measured on 2026-10-10 with an 80k-token chat: from a warm Opus chat, one prompt on Haiku costs about 5 times what staying on Opus does, and about 10 times on Sonnet. Switching only pays once the chat model's cache has gone cold, or for a long run of prompts on the cheaper model.
 
-So "Cheaper model when it can" is off by default since 1.68.9 and marked experimental. The saving that holds up in a real chat is effort: benchmark 1.
+So upstream turned "Cheaper model when it can" off by default in 1.68.9, and context-lens removed it: prompts run on the chat's model, and another model is only offered, weighed against the cache it would rewrite. The saving that holds up in a real chat is effort: benchmark 1.
 
 Details per case: `bench/results/quality-202610091528.md` (vs high) and `quality-202610091911-vs-opus-medium.md`, with the .json beside each.
