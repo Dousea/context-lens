@@ -2115,6 +2115,44 @@ function effortOf(v: Snap): Effort | undefined {
   return EFFORTS.includes(v.shownByApp as Effort) ? (v.shownByApp as Effort) : undefined
 }
 
+/** "App: Opus · Medium", the app's own model and effort, while either differs from what the band sends; else empty.
+ * The app's status line, /model and /effort show its own, so this says why they disagree with the band. */
+export function appHintText(app: { model?: ModelKey; effort?: unknown }, sent: { model?: ModelKey; effort?: Effort }): string {
+  const appEffortKnown = EFFORTS.includes(app.effort as Effort) ? (app.effort as Effort) : undefined
+  const modelDiffers = app.model && sent.model && app.model !== sent.model
+  const effortDiffers = appEffortKnown && sent.effort && appEffortKnown !== sent.effort
+  if (!modelDiffers && !effortDiffers) return ''
+  const parts = [MODELS.find(m => m.key === app.model)?.label, appEffortKnown && EFFORT_LABELS[appEffortKnown]]
+  return `App: ${parts.filter(Boolean).join(' · ')}`
+}
+
+/** A line with the app hint at the left and `words` at the right end. */
+function hintLine(els: { Box: unknown; Text: unknown }, hint: string, words: string, key: string) {
+  const { Box, Text } = els as unknown as { Box: (p: Record<string, unknown>) => unknown; Text: (p: Record<string, unknown>) => unknown }
+  return (
+    <Box key={key} flexDirection="row" justifyContent="space-between" columnGap={2}>
+      {hint ? (
+        <Box flexShrink={0}>
+          <Text dimColor>{hint}</Text>
+        </Box>
+      ) : null}
+      <Box flexShrink={1} minWidth={0}>
+        <Text dimColor wrap="truncate-end">{words}</Text>
+      </Box>
+    </Box>
+  )
+}
+
+/** The chat's app hint: the model a taken offer or a click sends against the app's, and the pick's effort against the
+ * app's when the pick goes out (the send path's rule: yours always, the judge's with Auto on where the cache allows). */
+async function appHint($: EngineInterface, v: Snap): Promise<string> {
+  const pickGoesOut = v.current && (v.current.by === 'manual' || (v.auto && !v.pausedNow))
+  return appHintText(
+    { model: keyOf(await $.session.model()), effort: v.shownByApp },
+    { model: await sessionModel($), effort: pickGoesOut ? v.current!.effort : undefined },
+  )
+}
+
 // For /context-lens debug: how often the app asked for the band, when, and the last error drawing it.
 // /context-lens probe N: 1 a bare box, 2 the panel's frame and header only, 3 the panel without pickers or fields.
 let probeLevel = 0
@@ -2214,7 +2252,7 @@ function terminalPanel($: EngineInterface, e: RenderInput<'AbovePrompt'>, key: s
   )
 }
 
-type TerminalBand = { key: string; kind: ArtKind; color: string; bg: string; edge: string; title: string; detail: string; buttons: unknown[]; extra?: unknown; word?: { text: string; color: string; rest: string } }
+type TerminalBand = { key: string; kind: ArtKind; color: string; bg: string; edge: string; title: string; detail: string; hint?: string; buttons: unknown[]; extra?: unknown; word?: { text: string; color: string; rest: string } }
 
 /** What of the band fits in `maxRows` rows. The app scrolls a taller tree in a window and says "n more", so the band gives up,
  * in this order: an empty detail row (one with words is kept), the border and art, the effort row, the lens row. The effort line itself stays. */
@@ -2235,7 +2273,7 @@ async function terminalBand($: EngineInterface, e: RenderInput<'AbovePrompt'>, b
   const { rows: effort, height } = await effortRows($, e)
   const maxRows = typeof e.props.maxRows === 'number' ? e.props.maxRows : 99
   // An empty detail row is kept (so a band does not move when an alert appears) until the room runs out.
-  const fit = bandFit(maxRows, { detailText: Boolean(b.detail), lens: b.extra !== null, effort: height })
+  const fit = bandFit(maxRows, { detailText: Boolean(b.detail || b.hint), lens: b.extra !== null, effort: height })
   const art = fit.border ? bandArt($, e, b.kind) : null
   const rows = fit.effort ? effort : null
   // The lens row stays under every band: the dashboard passes its own; an alert gets one sized to what the art leaves.
@@ -2262,7 +2300,7 @@ async function terminalBand($: EngineInterface, e: RenderInput<'AbovePrompt'>, b
           </Box>
           {/* An empty detail still takes its row (a no-break space), so the dashboard is as tall as an alert and nothing moves
               when one appears. */}
-          {fit.detail ? <Text dimColor wrap="truncate">{b.detail || '\u00a0'}</Text> : null}
+          {fit.detail ? hintLine({ Box, Text }, b.hint ?? '', b.detail || '\u00a0', `${b.key}-detail`) : null}
           {extra}
         </Box>
         {art}
@@ -2827,6 +2865,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
   const columns = typeof e.props.bodyColumns === 'number' ? e.props.bodyColumns : 100
   const lens = await lensRow($, e, Math.max(20, columns - 4)).catch(() => null)
   const judgingHere = !inAgent && Boolean(v.judging)
+  const hint = inAgent ? '' : await appHint($, v)
   const { head, what, rest, detail } = dashboardLines({
     auto: v.auto,
     paused: Boolean(v.pausedNow),
@@ -2838,7 +2877,12 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
     // Desktop draws the context as a ring and a figure (as the swamp band does); the terminal says it in words.
     contextPercent: !lens && e.surface === 'terminal' && lastContext && lastContext.window ? lastContext.percent : null,
     // The judge's reason and the handoff advice are about the chat's own prompt, not a subagent's work.
-    reason: inAgent ? '' : adviceNow ? `Handoff would suit: ${adviceNow}` : config.hide.includes('reason') ? '' : reason,
+    // The terminal gives the hint a place of its own on the detail line; desktop's one row has none, so it leads the reason.
+    reason: inAgent
+      ? ''
+      : [e.surface === 'terminal' ? '' : hint, adviceNow ? `Handoff would suit: ${adviceNow}` : config.hide.includes('reason') ? '' : reason]
+          .filter(Boolean)
+          .join(' — '),
   })
   const toggleSettings = async () => {
     if (await read($, settingsOpen)) {
@@ -2907,14 +2951,14 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
     // No-break spaces, not braille blanks: some fonts draw U+2800 as a dot.
     <Button key="dash-settings" plain label={'Svg' in els && e.surface !== 'terminal' ? '   ' : 'Settings'} onPress={toggleSettings} />,
   ].filter(Boolean)
-  // The terminal switches both Autos on the Model and Effort rows under the band; desktop has no such rows.
+  // The terminal switches both Autos on the Model and Effort pickers under the band; desktop has no pickers.
   const autoButtons = [
     <Button key="dash-auto-model" variant="secondary" dimColor={!v.autoModel} label={v.autoModel ? 'Auto model on' : 'Auto model off'} onPress={() => toggleAutoModel($)} />,
     <Button key="dash-auto" variant="secondary" dimColor={!v.auto} label={v.auto ? 'Auto effort on' : 'Auto effort off'} onPress={() => toggleAutoEffort($)} />,
   ]
   // The terminal flashes the effort word as the desktop does: in the accent on a change, fading back to white.
   if (e.surface === 'terminal')
-    return terminalBand($, e, { key: 'dash', kind: 'calm', color: DASH_TEXT, bg: DASH_BG, edge: DASH_EDGE, title: head.replace(/^✦ /, ''), detail, buttons, extra: lens,
+    return terminalBand($, e, { key: 'dash', kind: 'calm', color: DASH_TEXT, bg: DASH_BG, edge: DASH_EDGE, title: head.replace(/^✦ /, ''), detail, hint, buttons, extra: lens,
       word: { text: what, color: await effortFlash($, what, judgingHere, entering), rest } })
   const Svg = 'Svg' in els ? els.Svg : undefined
   const wordColor = await effortFlash($, what, judgingHere, entering)
@@ -3052,19 +3096,18 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
   )
 }
 
-/** The terminal's rows above the prompt (the Model row and the Effort row, each with its Auto) and, on any surface, the
+/** The terminal's pickers above the prompt (Model and Effort, each with its Auto) and, on any surface, the
  * judge's question when it suggests another model. The rows also sit under an alert band, so effort never goes away. */
 async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
   const { Box, Text, Button } = themedEls($.ui.resolve(e))
   const v = await snap($)
   const { auto, autoModel, wanted } = v
-  // A subagent in view: its own effort and model are lit, and the chat's verdict, note and alignment are not about it.
+  // A subagent in view: its own effort and model are lit, and the chat's verdict and note are not about it.
   const agentId = e.props.view.agentId
   const viewed = agentId === undefined ? undefined : (await read($, lensAgents)).find(a => a.id === agentId)
   const inAgent = agentId !== undefined
   const current = inAgent ? null : v.current
   const judging = !inAgent && v.judging
-  const shownByApp = inAgent ? undefined : v.shownByApp
   const inUse = inAgent ? viewed?.model : (v.modelNow ?? (await sessionModel($)))
   const effortNow = inAgent
     ? (viewed?.effort ?? (await helperEffortOf($, agentId).catch(() => undefined)))
@@ -3113,21 +3156,16 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
   ) : null
   if (e.surface !== 'terminal') return { question, rows: null }
 
-  // Only the judge's level is pointed out when the app runs another: one you picked differs from it on purpose.
-  const notAligned = current && current.by !== 'manual' && shownByApp && shownByApp !== current.effort
-  const note = inAgent
-    ? ''
-    : judging
+  const reasonNote = judging
     ? 'Deciding…'
-    : notAligned
-      ? `/effort shows ${EFFORT_LABELS[shownByApp as Effort] ?? shownByApp}`
-      : current
-        ? `${current.by === 'manual' || current.by === 'named' ? 'You' : 'Why'}: ${current.why}`
-        : auto
-          ? 'Picks the effort at the next prompt'
-          : 'Pick an effort'
-  // The row holds only the two pickers: under a band its detail line says why, and the minimal look puts the note on a
-  // line of its own (noteLine). Each toggle says the mode in force; a press switches to the other.
+    : current
+      ? `${current.by === 'manual' || current.by === 'named' ? 'You' : 'Why'}: ${current.why}`
+      : auto
+        ? 'Picks the effort at the next prompt'
+        : 'Pick an effort'
+  const hint = inAgent ? '' : await appHint($, v)
+  // The note is drawn by the caller: a band's detail line says why, and the minimal look puts it on a line of its own
+  // (noteLine). Each toggle says the mode in force; a press switches to the other.
   const modelPicker = (
     <Box key="model-picker" flexDirection="row" alignItems="center" gap={1} flexShrink={0}>
       <Text dimColor>Model</Text>
@@ -3172,7 +3210,7 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
   const bothWidth = pickerWidth('Model', MODELS.map(m => m.label)) + 2 + pickerWidth('Effort', EFFORTS)
   const columns = typeof e.props.bodyColumns === 'number' ? e.props.bodyColumns : 100
   const height = (bothWidth > columns ? 2 : 1) + (question ? 1 : 0)
-  const noteLine = note ? <Text key="effort-note" dimColor wrap="truncate-end">{note}</Text> : null
+  const noteLine = inAgent ? null : hintLine({ Box, Text }, hint, reasonNote, 'effort-note')
   return { question, rows, height, noteLine }
 }
 

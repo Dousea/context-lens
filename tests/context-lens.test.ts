@@ -1,7 +1,7 @@
 import { describe, expect, mock, test as baseTest } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
-import { helperFloor, helperModelFor, switchWorth, helperNote, priceOf, namedEffort, hotVisible, tipped, bounded, handoffEvidence, parseHandoffAnswer, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, asSpent, cacheColor, cacheLabel, hoverTips, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, bandFit, turnLineFor, flashColor, handoffGlowStep, weighted, handoffLook, claudeCandidates, noClaudeHint, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
+import { helperFloor, helperModelFor, switchWorth, helperNote, priceOf, namedEffort, hotVisible, tipped, bounded, handoffEvidence, parseHandoffAnswer, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, asSpent, cacheColor, cacheLabel, hoverTips, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, appHintText, bandFit, turnLineFor, flashColor, handoffGlowStep, weighted, handoffLook, claudeCandidates, noClaudeHint, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
 import { ART_COLUMNS, artFrame, artPixel, MOVING } from '../hooks/art'
 import { isLight, lightHex, lightProps, setLight, setTheme, themedEls, themedSvg, tint, tintHex } from '../hooks/theme'
 import { thinkingSvg } from '../hooks/thinking'
@@ -661,8 +661,9 @@ describe('typed commands', () => {
 
     expect(filled).toEqual([])
     expect(sent[0].effort).toBe('high')
-    // The app still on medium is what a pick of your own means, not a mismatch to point out.
-    expect(await drawn(ui)).not.toContain('/effort shows')
+    // Your pick goes out for this session only, so the app's /effort still says Medium: the hint says so.
+    expect(await drawn(ui)).toContain('App: ')
+    expect(await drawn(ui)).toContain('Medium')
     await ui.unmount()
   })
 
@@ -2940,6 +2941,12 @@ describe('dashboard', () => {
     const base = { auto: true, paused: false, judging: false, effort: 'medium' as const, cacheNow: 42, contextPercent: 18, reason: 'Why: a small fix' }
     expect(dashboardLines(base).head).toBe(`✦ Medium · cache ${cacheLabel(42)} · 18% context`)
     expect(dashboardLines(base).detail).toBe('Why: a small fix')
+    // The app's own model and effort, only while either differs from what goes out.
+    expect(appHintText({ model: 'opus', effort: 'medium' }, { model: 'opus', effort: 'medium' })).toBe('')
+    expect(appHintText({ model: 'opus', effort: 'medium' }, { model: 'opus', effort: 'high' })).toBe('App: Opus · Medium')
+    expect(appHintText({ model: 'opus', effort: 'medium' }, { model: 'sonnet' })).toBe('App: Opus · Medium')
+    expect(appHintText({ model: 'opus', effort: null }, { model: 'opus', effort: 'high' })).toBe('')
+    expect(appHintText({ model: 'opus', effort: null }, { model: 'haiku', effort: 'high' })).toBe('App: Opus')
     expect(dashboardLines({ ...base, model: 'Opus 5.5' }).head).toBe(`✦ Medium · Opus 5.5 · cache ${cacheLabel(42)} · 18% context`)
     expect(dashboardLines({ ...base, model: 'Opus 5.5' }).rest).toBe(` · Opus 5.5 · cache ${cacheLabel(42)} · 18% context`)
     expect(dashboardLines({ ...base, auto: false }).head).toBe(`✦ Off · cache ${cacheLabel(42)} · 18% context`)
@@ -3219,7 +3226,7 @@ describe('dashboard', () => {
     await closeSetup($, at)
     const band = await $.ui.mount(at)
     const text = await drawn(band)
-    // Auto is switched on the Effort row, as the Model row switches its own, not in the bar.
+    // Auto for effort sits on the Effort picker, beside the Model picker's own.
     expect(await band.find({ key: 'dash-auto' })).toBeUndefined()
     const before = (await band.find({ key: 'auto' }))?.text
     expect(before).toContain('Auto')
