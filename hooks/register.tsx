@@ -4451,8 +4451,8 @@ Saved to ${out}.md and .json` }
               ? []
               : [
                   <Box key="gap" width={2} />,
-                  settingRow({ key: "settings-floor", label: "Min", value: shown.floor, options: opts(EFFORTS), onSelect: set('floor') }),
-                  settingRow({ key: "settings-ceiling", label: "Max", value: shown.ceiling, options: opts(EFFORTS), onSelect: set('ceiling') }),
+                  settingRow({ key: 'settings-floor', label: 'Min', value: shown.floor, options: opts(EFFORTS), onSelect: set('floor') }),
+                  settingRow({ key: 'settings-ceiling', label: 'Max', value: shown.ceiling, options: opts(EFFORTS), onSelect: set('ceiling') }),
                   // Effort for helpers on a row of its own: the dashboard's Auto switch exactly (switch, word, slide,
                   // one blank button laid over both), then what it does now.
                   <Box key="settings-helpers-row" width="100%" flexDirection="row" alignItems="center" gap={1}>
@@ -4476,26 +4476,26 @@ Saved to ${out}.md and .json` }
                 ]),
 ] : card === 'model' ? (bare ? [] : [
             // Which model writes a compaction's summary.
-            settingRow({ key: "settings-compact-with", label: "Compact with", value: shown.compactWith, options: [{ value: 'haiku', label: 'Haiku 5.5' }, { value: 'session', label: "Chat's model" }], onSelect: set('compactWith') }),
+            settingRow({ key: 'settings-compact-with', label: 'Compact with', value: shown.compactWith, options: [{ value: 'haiku', label: 'Haiku 5.5' }, { value: 'session', label: "Chat's model" }], onSelect: set('compactWith') }),
             <Box key="settings-helper-model" flexDirection="column">
               <Button key="settings-helper-model-switch" plain label={`${shown.helperModel === 'on' ? '◉' : '○'} Cheaper model for helpers`} onPress={() => set('helperModel')(shown.helperModel === 'on' ? 'off' : 'on')} />
               <Text dimColor wrap="wrap">{shown.helperModel === 'on' ? (shown.helpers === 'on' ? "A subagent the judge calls simple runs on a cheaper model than it was given, never a dearer one" : "Needs Helpers on (Effort card)") : "A subagent keeps the model it was given"}</Text>
             </Box>,
           ]) : card === 'handoff' ? (bare ? [] : [
-            settingRow({ key: "settings-skill", label: "Handoff skill", value: shown.handoffSkill || '-', options: [
+            settingRow({ key: 'settings-skill', label: 'Handoff skill', value: shown.handoffSkill || '-', options: [
                 { value: '-', label: 'Built in' },
                 ...[...new Set([...(shown.handoffSkill ? [shown.handoffSkill] : []), ...skillNames])].map(name => ({ value: name, label: `/${name}` })),
               ], onSelect: v => set('handoffSkill')(v === '-' ? '' : v) }),
-            settingRow({ key: "settings-swamp", label: "Compact alert at", value: shown.swampAt, options: SWAMP_STEPS.map(n => ({ value: String(n), label: `${n}%` })), onSelect: set('swampAt') }),
-            settingRow({ key: "settings-handoff-button", label: "Handoff button", value: shown.handoffButton, options: [{ value: 'advised', label: 'When advised' }, { value: 'always', label: 'Always' }], onSelect: set('handoffButton') }),
+            settingRow({ key: 'settings-swamp', label: 'Compact alert at', value: shown.swampAt, options: SWAMP_STEPS.map(n => ({ value: String(n), label: `${n}%` })), onSelect: set('swampAt') }),
+            settingRow({ key: 'settings-handoff-button', label: 'Handoff button', value: shown.handoffButton, options: [{ value: 'advised', label: 'When advised' }, { value: 'always', label: 'Always' }], onSelect: set('handoffButton') }),
             ...alertToggles,
 ]) : [
             ...(bare
               ? []
               : [
-                  settingRow({ key: "settings-layout", label: "Look", value: shown.layout, options: [{ value: 'default', label: 'Dashboard' }, { value: 'minimal', label: 'Minimal' }], onSelect: set('layout') }),
-                  settingRow({ key: "settings-appearance", label: "Appearance", value: shown.appearance, options: [{ value: 'auto', label: 'Match Claude Code' }, { value: 'dark', label: 'Dark' }, { value: 'light', label: 'Light' }], onSelect: set('appearance') }),
-                  settingRow({ key: "settings-theme", label: "Theme", value: shown.theme, options: [{ value: 'violet', label: 'Violet' }, { value: 'orange', label: 'Claude orange' }, { value: 'rose', label: 'Cherry blossom' }], onSelect: set('theme') }),
+                  settingRow({ key: 'settings-layout', label: 'Look', value: shown.layout, options: [{ value: 'default', label: 'Dashboard' }, { value: 'minimal', label: 'Minimal' }], onSelect: set('layout') }),
+                  settingRow({ key: 'settings-appearance', label: 'Appearance', value: shown.appearance, options: [{ value: 'auto', label: 'Match Claude Code' }, { value: 'dark', label: 'Dark' }, { value: 'light', label: 'Light' }], onSelect: set('appearance') }),
+                  settingRow({ key: 'settings-theme', label: 'Theme', value: shown.theme, options: [{ value: 'violet', label: 'Violet' }, { value: 'orange', label: 'Claude orange' }, { value: 'rose', label: 'Cherry blossom' }], onSelect: set('theme') }),
                 ]),
             ...toggles,
             ...(bare ? [] : [uninstallButton($, themedEls($.ui.resolve(e)))]),
