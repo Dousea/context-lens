@@ -552,6 +552,8 @@ export type JudgeConfig = {
   helpers: 'on' | 'off'
   /** on (with helpers on): the judge also picks the model of each subagent, never above the one it was given. */
   helperModel: 'on' | 'off'
+  /** on: with Auto for model off, a typed prompt waits for the answer when the judge names another model. off: a toast. */
+  holdOffer: 'on' | 'off'
   /** The accent colour of everything context-lens draws: the brand violet, Claude orange or cherry-blossom rose. */
   theme: ThemeName
   /** auto: light when Claude Code's own theme is light. dark and light fix it. */
@@ -581,6 +583,7 @@ let config: JudgeConfig = {
   handoffButton: 'advised',
   helpers: 'off',
   helperModel: 'off',
+  holdOffer: 'on',
   theme: 'violet',
   appearance: 'auto',
 }
@@ -601,6 +604,7 @@ export function readConfig(options: unknown): JudgeConfig {
     handoffButton: str(o.handoffButton) === 'always' ? 'always' : 'advised',
     helpers: str(o.helpers) === 'on' ? 'on' : 'off',
     helperModel: str(o.helperModel) === 'on' ? 'on' : 'off',
+    holdOffer: str(o.holdOffer) === 'off' ? 'off' : 'on',
     theme: THEMES.find(t => t === str(o.theme)) ?? 'violet',
     appearance: (['dark', 'light'] as const).find(a => a === str(o.appearance)) ?? 'auto',
     // Everything shows unless switched off; the judge's line too.
@@ -1746,6 +1750,7 @@ const SETTING_FIELDS = {
   handoffButton: 'handoffButton',
   helpers: 'helpers',
   helperModel: 'helperModel',
+  holdOffer: 'holdOffer',
   theme: 'theme',
   appearance: 'appearance',
 } as const
@@ -1776,6 +1781,7 @@ async function saveSetting($: EngineInterface, field: keyof typeof SETTING_FIELD
     handoffButton: config.handoffButton,
     helpers: config.helpers,
     helperModel: config.helperModel,
+    holdOffer: config.holdOffer,
     theme: config.theme,
     appearance: config.appearance,
     [SETTING_FIELDS[field]]: value,
@@ -3131,9 +3137,15 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
     await update($, suggestion, () => null)
     settleOffer(false)
   }
+  const neverHold = async () => {
+    await dismiss()
+    await saveSetting($, 'holdOffer', 'off')
+    $.ui.toast('context-lens: prompts are not held for model offers now. /context-lens settings, Model, turns it back on.')
+  }
 
-  // A bare digit in an empty composer presses a band Button, so a held prompt is answered with 1 or 2 without focusing
-  // the band. Only while it waits: otherwise a 1 typed to start a message would switch the model.
+  // A bare digit in an empty composer presses a band Button, so a held prompt is answered with 1, 2 or 3 without focusing
+  // the band. Only while it waits: otherwise a 1 typed to start a message would switch the model. Plain Buttons draw
+  // the digit beside the label (`1: Switch`).
   const offerKeys = offer && e.surface === 'terminal'
 
   const question = wanted ? (
@@ -3147,10 +3159,12 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
           key="accept"
           variant="primary"
           hotkey={offerKeys ? '1' : undefined}
+          plain={offerKeys ? true : undefined}
           label={suggestedAs === 'helper' ? 'Hand off' : 'Switch'}
           onPress={acceptSuggestion(wanted)}
         />
-        <Button key="decline" hotkey={offerKeys ? '2' : undefined} label="Keep" onPress={dismiss} />
+        <Button key="decline" hotkey={offerKeys ? '2' : undefined} plain={offerKeys ? true : undefined} label="Keep" onPress={dismiss} />
+        {offer ? <Button key="never" hotkey={offerKeys ? '3' : undefined} plain={offerKeys ? true : undefined} label="Don't ask again" onPress={neverHold} /> : null}
       </Box>
     </Box>
   ) : null
@@ -3886,6 +3900,8 @@ Saved to ${out}.md and .json` }
     await update($, isJudging, () => true)
     // The model offered to a prompt that waits for the answer, once the judge is done.
     let held: ModelKey | null = null
+    // The model Auto for model hands this prompt to, as a helper.
+    let handTo: ModelKey | null = null
     try {
       const inUse = await sessionModel($)
       const startedAt = Date.now()
@@ -3906,8 +3922,7 @@ Saved to ${out}.md and .json` }
       )
       $.ui.invalidate('ui.render')
       if (verdict) {
-        // Effort follows the verdict at once, when Auto is on for effort. The model stays: switching it
-        // reloads the context, so with Auto on for model it is only suggested.
+        // Effort follows the verdict at once, when Auto is on for effort.
         if (wantsEffort) {
           const saving = (await read($, saveUntil)) !== null
           const leaned = bounded(tipped(verdict.effort, verdict.sure, config.bias), config.floor, config.ceiling)
@@ -3929,14 +3944,25 @@ Saved to ${out}.md and .json` }
         const cold = (await read($, cacheLeft)) === 0 || coldForced
         const now = await $.clock.now().catch(() => Date.now())
         const worth = verdict.model === declined ? null : switchWorth(verdict.model, inUse, { cold, tokens: lastContext?.tokens ?? modelCaches.get(inUse)?.tokens, ttl: cacheTtl, warm: warmTokens(verdict.model, now) })
-        // A helper only takes a prompt the person typed: there is nothing to hand off in a note or an agent's report.
-        const offerable = worth === 'switch' || (worth === 'helper' && byPerson && !midTurn && !slash)
-        if (worth && offerable && (wantsModel || (byPerson && !midTurn && !slash))) {
+        // A helper takes a prompt the person typed, before it is sent: a note, an agent's report or a prompt already on
+        // its way has nothing left to hand off.
+        const typedNow = byPerson && !midTurn && !slash
+        const offerable = worth === 'switch' || (worth === 'helper' && typedNow)
+        const label = MODELS.find(m => m.key === verdict.model)!.label
+        if (worth && offerable && wantsModel) {
+          // Auto for model acts on the verdict without asking.
+          await update($, suggestion, () => null)
+          if (worth === 'helper') handTo = verdict.model
+          else await switchModel($, verdict.model)
+          $.ui.toast(worth === 'helper' ? `Handed to a helper on ${label}: ${verdict.why}` : `Switched to ${label} for this session: ${verdict.why}`)
+        } else if (worth && offerable && typedNow && config.holdOffer === 'on') {
           suggestedAs = worth
           await update($, suggestion, () => verdict.model)
-          // A prompt typed here waits for the answer; a note, an agent's report or a message typed mid-turn only gets the toast.
-          if (byPerson && !midTurn && !slash) held = verdict.model
-          else if (wantsModel) $.ui.toast(`Suggestion: switch to ${verdict.model}? /context-lens switch or /context-lens keep`)
+          held = verdict.model
+        } else if (worth === 'switch') {
+          suggestedAs = worth
+          await update($, suggestion, () => verdict.model)
+          $.ui.toast(`Suggestion: switch to ${label}? /context-lens switch or /context-lens keep`)
         } else {
           await update($, suggestion, () => null)
         }
@@ -3945,6 +3971,10 @@ Saved to ${out}.md and .json` }
       // A judge that failed or threw ends the glow here.
       await endJudgeGlow($, 'end')
       await update($, isJudging, () => false)
+    }
+    if (handTo) {
+      void proof($, `auto hand-off: a helper on ${handTo} for "${e.text.slice(0, 50)}"`)
+      return next({ ...e, text: e.text + helperNote(handTo) })
     }
     if (held) {
       const as = suggestedAs
@@ -4317,6 +4347,7 @@ Saved to ${out}.md and .json` }
           handoffButton: draft.handoffButton ?? config.handoffButton,
           helpers: draft.helpers ?? config.helpers,
           helperModel: draft.helperModel ?? config.helperModel,
+          holdOffer: draft.holdOffer ?? config.holdOffer,
           theme: draft.theme ?? config.theme,
           appearance: draft.appearance ?? config.appearance,
         }
@@ -4333,7 +4364,7 @@ Saved to ${out}.md and .json` }
         const hidden = (draft.hide ?? config.hide.join(',')).split(',').filter(Boolean)
         const summaries: Record<SettingsCard, string> = {
           effort: `${BIAS_WORDS[shown.bias + 2]} · ${shown.floor} to ${shown.ceiling}${shown.helpers === 'on' ? ' · helpers' : ''}`,
-          model: `${shown.compactWith === 'session' ? "Chat's model" : 'Haiku 5.5'}${shown.helperModel === 'on' ? ' · cheaper helpers' : ''}`,
+          model: `${shown.compactWith === 'session' ? "Chat's model" : 'Haiku 5.5'}${shown.helperModel === 'on' ? ' · cheaper helpers' : ''}${shown.holdOffer === 'on' ? ' · held offers' : ''}`,
           handoff: `${shown.handoffSkill ? `/${shown.handoffSkill}` : 'Built in'} · compact alert at ${shown.swampAt}%`,
           show: `${shown.layout === 'minimal' ? 'Minimal' : 'Dashboard'} · ${2 - ['timer', 'reason'].filter(h => hidden.includes(h)).length} of 2 on`,
         }
@@ -4548,6 +4579,10 @@ Saved to ${out}.md and .json` }
                     <Box key="settings-helper-model" flexDirection="column">
                       <Button key="settings-helper-model-switch" plain label={`${shown.helperModel === 'on' ? '◉' : '○'} Cheaper model for helpers`} onPress={() => set('helperModel')(shown.helperModel === 'on' ? 'off' : 'on')} />
                       <Text dimColor wrap="wrap">{shown.helperModel === 'on' ? (shown.helpers === 'on' ? "A subagent the judge calls simple runs on a cheaper model than it was given, never a dearer one" : "Needs Helpers on (Effort card)") : "A subagent keeps the model it was given"}</Text>
+                    </Box>,
+                    <Box key="settings-hold-offer" flexDirection="column">
+                      <Button key="settings-hold-offer-switch" plain label={`${shown.holdOffer === 'on' ? '◉' : '○'} Hold the prompt for a model offer`} onPress={() => set('holdOffer')(shown.holdOffer === 'on' ? 'off' : 'on')} />
+                      <Text dimColor wrap="wrap">{shown.holdOffer === 'on' ? 'With model on Manual, a typed prompt waits for Switch or Keep when the judge names another model' : 'With model on Manual, another model is suggested in a toast and the prompt goes on'}</Text>
                     </Box>,
                   ]) : card === 'handoff' ? (bare ? [] : [
                     settingRow({ key: 'settings-skill', label: 'Handoff skill', value: shown.handoffSkill || '-', options: [

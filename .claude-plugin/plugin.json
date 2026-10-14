@@ -89,6 +89,16 @@
         "off"
       ]
     },
+    "holdOffer": {
+      "type": "string",
+      "title": "Hold the prompt for a model offer",
+      "description": "on (default): with model on Manual, a typed prompt waits for Switch, Keep or Don't ask again when the judge names another model. off: the other model is suggested in a toast and the prompt goes on. With model on Auto the switch or hand-off happens without asking either way.",
+      "default": "on",
+      "options": [
+        "on",
+        "off"
+      ]
+    },
     "handoffButton": {
       "type": "string",
       "title": "Handoff button",
