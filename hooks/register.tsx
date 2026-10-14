@@ -1153,6 +1153,12 @@ const SMALL_CHAT_TOKENS = 20_000
 const INPUT_PRICE: Record<ModelKey, number> = { haiku: 0.1, sonnet: 2, opus: 4, fable: 10 }
 export const priceOf = (key: ModelKey, tokens: number) => (key === 'haiku' && tokens > 100_000 ? 0.5 : INPUT_PRICE[key])
 
+/** Above this many tokens Haiku is offered as a helper, never as a switch, warm cache or cold. The judge rates one prompt,
+ * but a switch hands Haiku every prompt after it, and a chat this long is ongoing work. Haiku's price pays back its cache
+ * write within a few requests at any size, so the price alone would always switch; the quality is what it risks. Sonnet
+ * is left to the price: it holds up in long work, and in a warm chat its write does not pay back anyway. */
+const HAIKU_SWITCH_MAX_TOKENS = 100_000
+
 /** The requests a cheaper model has to make before its first, dearer cache write pays back. A turn of work makes several;
  * what output saves is left out, so the estimate errs on staying. */
 const PAYBACK_REQUESTS = 8
@@ -1164,7 +1170,8 @@ const PAYBACK_REQUESTS = 8
  * A cheaper model is a switch when that write pays back within PAYBACK_REQUESTS reads; a stronger one is a quality call
  * that never pays in tokens, so it is a switch only when it writes little more than staying would (a cold, small or
  * still-warm chat). Otherwise the task goes to a helper, which starts with a small context and leaves the chat's cache
- * warm. A size not known yet counts as a new chat.
+ * warm. Haiku in a chat past HAIKU_SWITCH_MAX_TOKENS is a helper whatever the cache. A size not known yet counts as a
+ * new chat.
  */
 export function switchWorth(
   verdict: ModelKey,
@@ -1174,6 +1181,7 @@ export function switchWorth(
   if (verdict === 'fable' || verdict === inUse) return null
   const tokens = chat.tokens
   if (tokens === undefined) return 'switch'
+  if (verdict === 'haiku' && tokens > HAIKU_SWITCH_MAX_TOKENS) return 'helper'
   const write = chat.ttl === '5m' ? WEIGHT.write : WEIGHT.write1h
   const writtenStay = chat.cold ? tokens : 0
   const writtenGo = Math.max(0, tokens - Math.min(tokens, chat.warm ?? 0))

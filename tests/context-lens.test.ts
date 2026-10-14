@@ -384,17 +384,26 @@ describe('model suggestion', () => {
     expect(switchWorth('haiku', 'opus', { cold: false })).toBe('switch')
     expect(switchWorth('sonnet', 'opus', { cold: false, tokens: 5_000 })).toBe('switch')
     expect(switchWorth('opus', 'sonnet', { cold: false, tokens: 5_000 })).toBe('switch')
-    expect(switchWorth('sonnet', 'opus', { cold: true, tokens: 400_000 })).toBe('switch')
+    expect(switchWorth('sonnet', 'opus', { cold: true, tokens: 90_000 })).toBe('switch')
     expect(switchWorth('opus', 'sonnet', { cold: true, tokens: 400_000 })).toBe('switch')
-    // Big and warm: Haiku's write costs less than Opus's read, so it pays at once; Sonnet's write would take ~18 requests.
-    expect(switchWorth('haiku', 'opus', { cold: false, tokens: 200_000 })).toBe('switch')
-    expect(switchWorth('sonnet', 'opus', { cold: false, tokens: 200_000 })).toBe('helper')
-    expect(switchWorth('sonnet', 'opus', { cold: false, tokens: 200_000, ttl: '5m' })).toBe('helper')
+    // Warm, under the line: Haiku's write costs less than Opus's read, so it pays at once; Sonnet's would take ~18 requests.
+    expect(switchWorth('haiku', 'opus', { cold: false, tokens: 90_000 })).toBe('switch')
+    expect(switchWorth('sonnet', 'opus', { cold: false, tokens: 90_000 })).toBe('helper')
+    expect(switchWorth('sonnet', 'opus', { cold: false, tokens: 90_000, ttl: '5m' })).toBe('helper')
+    // Past 100k Haiku is a helper, however cheap the switch: warm, cold, or its own cache still warm.
+    expect(switchWorth('haiku', 'opus', { cold: false, tokens: 257_000 })).toBe('helper')
+    expect(switchWorth('haiku', 'opus', { cold: true, tokens: 257_000 })).toBe('helper')
+    expect(switchWorth('haiku', 'sonnet', { cold: false, tokens: 150_000, warm: 140_000 })).toBe('helper')
+    expect(switchWorth('haiku', 'opus', { cold: false, tokens: 100_000 })).toBe('switch')
+    // Sonnet is left to the price at any size: a switch when it is cheap (cold, or its cache still warm), else a helper.
+    expect(switchWorth('sonnet', 'opus', { cold: true, tokens: 400_000 })).toBe('switch')
+    expect(switchWorth('sonnet', 'opus', { cold: false, tokens: 200_000, warm: 190_000 })).toBe('switch')
+    expect(switchWorth('sonnet', 'opus', { cold: false, tokens: 500_000 })).toBe('helper')
     // A stronger model never pays in tokens: in a big warm chat it is a helper...
     expect(switchWorth('opus', 'sonnet', { cold: false, tokens: 120_000 })).toBe('helper')
     // ...unless its own cache is still warm and only the tail since is written.
     expect(switchWorth('opus', 'sonnet', { cold: false, tokens: 120_000, warm: 110_000 })).toBe('switch')
-    expect(switchWorth('sonnet', 'opus', { cold: false, tokens: 200_000, warm: 190_000 })).toBe('switch')
+    expect(switchWorth('sonnet', 'opus', { cold: false, tokens: 90_000, warm: 85_000 })).toBe('switch')
     // The same model and Fable never.
     expect(switchWorth('opus', 'opus', { cold: true })).toBe(null)
     expect(switchWorth('fable', 'opus', { cold: true })).toBe(null)
