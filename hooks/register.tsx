@@ -4171,7 +4171,6 @@ Saved to ${out}.md and .json` }
   // A line drawn before turn.complete saved it keeps what it first drew, should the turn end without a save.
   const firstDrawn = new Map<string, TurnLine>()
   on('ui.render', { component: 'TurnDuration' }, async ($, e, next) => {
-    if (config.hide.includes('line')) return next(e)
     const { Box, Text } = themedEls($.ui.resolve(e))
     const key = String(e.props.durationMs)
     let ran =
@@ -4806,7 +4805,7 @@ Saved to ${out}.md and .json` }
     }
     // The judge is failing: the effort stays as it is until it answers again.
     const downReason = await read($, judgeDown)
-    if (downReason && !config.hide.includes('down') && downReason !== (await read($, judgeDownHidden))) {
+    if (downReason && downReason !== (await read($, judgeDownHidden))) {
       if (e.surface === 'terminal')
         return terminalBand($, e, {
           key: 'down', kind: 'down', color: SLATE, bg: SLATE_BG, edge: SLATE_EDGE, title: 'Judge down',
