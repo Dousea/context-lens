@@ -891,12 +891,20 @@ let askTmpdir: EnvAsk
 let askModelUi: EnvAsk
 let askUserProfile: EnvAsk
 let askHome: EnvAsk
+let askCacheTtl: EnvAsk
+let askAgentCacheTtl: EnvAsk
+let askForce5m: EnvAsk
+let askEnable1h: EnvAsk
 const envLog = ($: EngineInterface) => (askLog = askLog ?? $.env.get('CONTEXT_LENS_LOG'))
 const envTemp = ($: EngineInterface) => (askTemp = askTemp ?? $.env.get('TEMP'))
 const envTmpdir = ($: EngineInterface) => (askTmpdir = askTmpdir ?? $.env.get('TMPDIR'))
 const envModelUi = ($: EngineInterface) => (askModelUi = askModelUi ?? $.env.get('CONTEXT_LENS_MODEL_UI'))
 const envUserProfile = ($: EngineInterface) => (askUserProfile = askUserProfile ?? $.env.get('USERPROFILE'))
 const envHome = ($: EngineInterface) => (askHome = askHome ?? $.env.get('HOME'))
+const envCacheTtl = ($: EngineInterface) => (askCacheTtl = askCacheTtl ?? $.env.get('CLAUDE_CODE_PROMPT_CACHE_TTL'))
+const envAgentCacheTtl = ($: EngineInterface) => (askAgentCacheTtl = askAgentCacheTtl ?? $.env.get('CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL'))
+const envForce5m = ($: EngineInterface) => (askForce5m = askForce5m ?? $.env.get('FORCE_PROMPT_CACHING_5M'))
+const envEnable1h = ($: EngineInterface) => (askEnable1h = askEnable1h ?? $.env.get('ENABLE_PROMPT_CACHING_1H'))
 
 async function proofPath($: EngineInterface): Promise<string | undefined> {
   const named = await envLog($)
@@ -3375,10 +3383,10 @@ async function cacheTtls($: EngineInterface): Promise<{ main: CacheTtl; agent: C
   const [settings, usage, mainEnv, agentEnv, force5m, enable1h] = await Promise.all([
     $.settings.read(),
     $.session.usage(),
-    $.env.get('CLAUDE_CODE_PROMPT_CACHE_TTL'),
-    $.env.get('CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL'),
-    $.env.get('FORCE_PROMPT_CACHING_5M'),
-    $.env.get('ENABLE_PROMPT_CACHING_1H'),
+    envCacheTtl($),
+    envAgentCacheTtl($),
+    envForce5m($),
+    envEnable1h($),
   ])
   if (force5m) return { main: '5m', agent: '5m' }
   const isSubscription = usage.rateLimits.length > 0
@@ -4344,8 +4352,8 @@ Saved to ${out}.md and .json` }
       )
       // The terminal's dropdown opens its list inside the wrapping row, which jumps the layout and is hard to click.
       // There a short list is a row of buttons, the picked one boxed; a long one (the skills) stays a dropdown.
-      type Pick = { key: string; label?: string; value: string; options: { value: string; label: string }[]; onSelect: (v: string) => unknown }
-      const pick = (p: Pick) => term && p.options.length <= 5 ? (
+      type Choice = { key: string; label?: string; value: string; options: { value: string; label: string }[]; onSelect: (v: string) => unknown }
+      const choice = (p: Choice) => term && p.options.length <= 5 ? (
         <Box key={p.key} width="100%" flexDirection="row" flexWrap="wrap" columnGap={1} alignItems="center">
           {p.label ? <Text key={`${p.key}-label`} dimColor>{p.label}</Text> : null}
           {p.options.map(o => o.value === p.value ? (
@@ -4486,8 +4494,8 @@ Saved to ${out}.md and .json` }
               ? []
               : [
                   <Box key="gap" width={2} />,
-                  pick({ key: "settings-floor", label: "Min", value: shown.floor, options: opts(EFFORTS), onSelect: set('floor') }),
-                  pick({ key: "settings-ceiling", label: "Max", value: shown.ceiling, options: opts(EFFORTS), onSelect: set('ceiling') }),
+                  choice({ key: "settings-floor", label: "Min", value: shown.floor, options: opts(EFFORTS), onSelect: set('floor') }),
+                  choice({ key: "settings-ceiling", label: "Max", value: shown.ceiling, options: opts(EFFORTS), onSelect: set('ceiling') }),
                   // Effort for helpers on a row of its own: the dashboard's Auto switch exactly (switch, word, slide,
                   // one blank button laid over both), then what it does now.
                   <Box key="settings-helpers-row" width="100%" flexDirection="row" alignItems="center" gap={1}>
@@ -4511,26 +4519,26 @@ Saved to ${out}.md and .json` }
                 ]),
 ] : card === 'model' ? (bare ? [] : [
             // Which model writes a compaction's summary.
-            pick({ key: "settings-compact-with", label: "Compact with", value: shown.compactWith, options: [{ value: 'haiku', label: 'Haiku 5.5' }, { value: 'session', label: "Chat's model" }], onSelect: set('compactWith') }),
+            choice({ key: "settings-compact-with", label: "Compact with", value: shown.compactWith, options: [{ value: 'haiku', label: 'Haiku 5.5' }, { value: 'session', label: "Chat's model" }], onSelect: set('compactWith') }),
             <Box key="settings-helper-model" flexDirection="column">
               <Button key="settings-helper-model-switch" plain label={`${shown.helperModel === 'on' ? '◉' : '○'} Cheaper model for helpers`} onPress={() => set('helperModel')(shown.helperModel === 'on' ? 'off' : 'on')} />
               <Text dimColor wrap="wrap">{shown.helperModel === 'on' ? (shown.helpers === 'on' ? "A subagent the judge calls simple runs on a cheaper model than it was given, never a dearer one" : "Needs Helpers on (Effort card)") : "A subagent keeps the model it was given"}</Text>
             </Box>,
           ]) : card === 'handoff' ? (bare ? [] : [
-            pick({ key: "settings-skill", label: "Handoff skill", value: shown.handoffSkill || '-', options: [
+            choice({ key: "settings-skill", label: "Handoff skill", value: shown.handoffSkill || '-', options: [
                 { value: '-', label: 'Built in' },
                 ...[...new Set([...(shown.handoffSkill ? [shown.handoffSkill] : []), ...skillNames])].map(name => ({ value: name, label: `/${name}` })),
               ], onSelect: v => set('handoffSkill')(v === '-' ? '' : v) }),
-            pick({ key: "settings-swamp", label: "Compact alert at", value: shown.swampAt, options: SWAMP_STEPS.map(n => ({ value: String(n), label: `${n}%` })), onSelect: set('swampAt') }),
-            pick({ key: "settings-handoff-button", label: "Handoff button", value: shown.handoffButton, options: [{ value: 'advised', label: 'When advised' }, { value: 'always', label: 'Always' }], onSelect: set('handoffButton') }),
+            choice({ key: "settings-swamp", label: "Compact alert at", value: shown.swampAt, options: SWAMP_STEPS.map(n => ({ value: String(n), label: `${n}%` })), onSelect: set('swampAt') }),
+            choice({ key: "settings-handoff-button", label: "Handoff button", value: shown.handoffButton, options: [{ value: 'advised', label: 'When advised' }, { value: 'always', label: 'Always' }], onSelect: set('handoffButton') }),
             ...alertToggles,
 ]) : [
             ...(bare
               ? []
               : [
-                  pick({ key: "settings-layout", label: "Look", value: shown.layout, options: [{ value: 'default', label: 'Dashboard' }, { value: 'minimal', label: 'Minimal' }], onSelect: set('layout') }),
-                  pick({ key: "settings-appearance", label: "Appearance", value: shown.appearance, options: [{ value: 'auto', label: 'Match Claude Code' }, { value: 'dark', label: 'Dark' }, { value: 'light', label: 'Light' }], onSelect: set('appearance') }),
-                  pick({ key: "settings-theme", label: "Theme", value: shown.theme, options: [{ value: 'violet', label: 'Violet' }, { value: 'orange', label: 'Claude orange' }, { value: 'rose', label: 'Cherry blossom' }], onSelect: set('theme') }),
+                  choice({ key: "settings-layout", label: "Look", value: shown.layout, options: [{ value: 'default', label: 'Dashboard' }, { value: 'minimal', label: 'Minimal' }], onSelect: set('layout') }),
+                  choice({ key: "settings-appearance", label: "Appearance", value: shown.appearance, options: [{ value: 'auto', label: 'Match Claude Code' }, { value: 'dark', label: 'Dark' }, { value: 'light', label: 'Light' }], onSelect: set('appearance') }),
+                  choice({ key: "settings-theme", label: "Theme", value: shown.theme, options: [{ value: 'violet', label: 'Violet' }, { value: 'orange', label: 'Claude orange' }, { value: 'rose', label: 'Cherry blossom' }], onSelect: set('theme') }),
                 ]),
             ...toggles,
             ...(bare ? [] : [uninstallButton($, themedEls($.ui.resolve(e)))]),
@@ -4711,7 +4719,7 @@ Saved to ${out}.md and .json` }
       const { Input, Select } = themedEls($.ui.resolve(e))
       const draft = await read($, setupDraft)
       const shown = setupShown(draft, config)
-      const pick = (field: keyof SettingsDraft, value: string) => update($, setupDraft, d => ({ ...d, [field]: value }))
+      const setDraft = (field: keyof SettingsDraft, value: string) => update($, setupDraft, d => ({ ...d, [field]: value }))
       const go = (to: SetupStep | null) => () => goSetup($, to)
       const back = setupBack(step)
       const counter = setupCounter(step)
@@ -4756,7 +4764,7 @@ Saved to ${out}.md and .json` }
             const lit = lean > 0 ? n > 0 && n <= lean : lean < 0 ? n <= 0 && n > lean : false
             track.push(lit ? <Text key={`t${n}`} color={ACCENT}>──</Text> : <Text key={`t${n}`} dimColor>──</Text>)
           }
-          track.push(<Button key={`setup-bias${n + 2}`} plain label={n === lean ? '◉' : '○'} onPress={() => pick('bias', String(n))} />)
+          track.push(<Button key={`setup-bias${n + 2}`} plain label={n === lean ? '◉' : '○'} onPress={() => setDraft('bias', String(n))} />)
         }
         const [name, does] = LEAN_STOPS[lean + 2]
         const side = (label: string, lit: boolean) =>
@@ -4785,7 +4793,7 @@ Saved to ${out}.md and .json` }
               { value: '-', label: 'Built in' },
               ...[...new Set([...(shown.handoffSkill ? [shown.handoffSkill] : []), ...skillNames])].map(name => ({ value: name, label: `/${name}` })),
             ]}
-            onSelect={(v: string) => pick('handoffSkill', v === '-' ? '' : v)} />,
+            onSelect={(v: string) => setDraft('handoffSkill', v === '-' ? '' : v)} />,
           ...nav(nextButton),
         ])
       }
@@ -4794,7 +4802,7 @@ Saved to ${out}.md and .json` }
         const mode = shown.appearance
         return band('Dark or light panels?', 56, [
           ...(['auto', 'dark', 'light'] as const).map(value => (
-            <Button key={`setup-look-${value}`} plain label={`${mode === value ? '◉' : '○'} ${{ auto: 'Match Claude Code', dark: 'Dark', light: 'Light' }[value]}`} onPress={() => pick('appearance', value)} />
+            <Button key={`setup-look-${value}`} plain label={`${mode === value ? '◉' : '○'} ${{ auto: 'Match Claude Code', dark: 'Dark', light: 'Light' }[value]}`} onPress={() => setDraft('appearance', value)} />
           )),
           ...nav(nextButton),
         ])
