@@ -69,20 +69,20 @@
       "description": "Comma-separated: handoff (the Handoff button), timer (the cache timer), reason (the judge line), swamp (the context alert), hot (the running-low alert), cold (the cold-cache alert). Empty shows everything.",
       "default": ""
     },
-    "helpers": {
+    "subagents": {
       "type": "string",
-      "title": "Effort for helpers",
-      "description": "on: every subagent (helper) the chat sends off gets an effort picked by the judge before it starts, so a quick search runs at low instead of the chat's effort. off (default): helpers run at the chat's effort.",
+      "title": "Effort for subagents",
+      "description": "on: every subagent the chat sends off gets an effort picked by the judge before it starts, so a quick search runs at low instead of the chat's effort. off (default): subagents run at the chat's effort.",
       "default": "off",
       "options": [
         "on",
         "off"
       ]
     },
-    "helperModel": {
+    "subagentModel": {
       "type": "string",
-      "title": "Cheaper model for helpers",
-      "description": "on (needs Effort for helpers on): a subagent the judge is sure is simple runs on a cheaper model than the one it was given (never a dearer one, never Fable). A subagent starts with a small context and a cache of its own, so the switch costs next to nothing there. off (default): a helper keeps the model it was given.",
+      "title": "Cheaper model for subagents",
+      "description": "on (needs Effort for subagents on): a subagent the judge is sure is simple runs on a cheaper model than the one it was given (never a dearer one, never Fable). A subagent starts with a small context and a cache of its own, so the switch costs next to nothing there. off (default): a subagent keeps the model it was given.",
       "default": "off",
       "options": [
         "on",

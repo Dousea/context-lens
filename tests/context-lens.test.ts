@@ -1,7 +1,7 @@
 import { describe, expect, mock, test as baseTest } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
-import { helperFloor, helperModelFor, switchWorth, helperNote, priceOf, namedEffort, hotVisible, tipped, bounded, handoffEvidence, parseHandoffAnswer, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, asSpent, cacheColor, cacheLabel, hoverTips, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, appHintText, bandFit, turnLineFor, flashColor, handoffGlowStep, weighted, handoffLook, claudeCandidates, noClaudeHint, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
+import { subagentFloor, subagentModelFor, switchWorth, subagentNote, priceOf, namedEffort, hotVisible, tipped, bounded, handoffEvidence, parseHandoffAnswer, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, asSpent, cacheColor, cacheLabel, hoverTips, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, appHintText, renamedSettings, bandFit, turnLineFor, flashColor, handoffGlowStep, weighted, handoffLook, claudeCandidates, noClaudeHint, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
 import { ART_COLUMNS, artFrame, artPixel, MOVING } from '../hooks/art'
 import { isLight, lightHex, lightProps, setLight, setTheme, themedEls, themedSvg, tint, tintHex } from '../hooks/theme'
 import { thinkingSvg } from '../hooks/thinking'
@@ -379,7 +379,7 @@ describe('model suggestion', () => {
     expect(priceOf('opus', 500_000)).toBe(4)
   })
 
-  test('switchWorth: a switch where the rewritten cache is cheap or pays back, a helper otherwise', () => {
+  test('switchWorth: a switch where the rewritten cache is cheap or pays back, a subagent otherwise', () => {
     // A new chat (size unknown), a small one, or a cold one: switch, either way.
     expect(switchWorth('haiku', 'opus', { cold: false })).toBe('switch')
     expect(switchWorth('sonnet', 'opus', { cold: false, tokens: 5_000 })).toBe('switch')
@@ -388,19 +388,19 @@ describe('model suggestion', () => {
     expect(switchWorth('opus', 'sonnet', { cold: true, tokens: 400_000 })).toBe('switch')
     // Warm, under the line: Haiku's write costs less than Opus's read, so it pays at once; Sonnet's would take ~18 requests.
     expect(switchWorth('haiku', 'opus', { cold: false, tokens: 90_000 })).toBe('switch')
-    expect(switchWorth('sonnet', 'opus', { cold: false, tokens: 90_000 })).toBe('helper')
-    expect(switchWorth('sonnet', 'opus', { cold: false, tokens: 90_000, ttl: '5m' })).toBe('helper')
-    // Past 100k Haiku is a helper, however cheap the switch: warm, cold, or its own cache still warm.
-    expect(switchWorth('haiku', 'opus', { cold: false, tokens: 257_000 })).toBe('helper')
-    expect(switchWorth('haiku', 'opus', { cold: true, tokens: 257_000 })).toBe('helper')
-    expect(switchWorth('haiku', 'sonnet', { cold: false, tokens: 150_000, warm: 140_000 })).toBe('helper')
+    expect(switchWorth('sonnet', 'opus', { cold: false, tokens: 90_000 })).toBe('subagent')
+    expect(switchWorth('sonnet', 'opus', { cold: false, tokens: 90_000, ttl: '5m' })).toBe('subagent')
+    // Past 100k Haiku is a subagent, however cheap the switch: warm, cold, or its own cache still warm.
+    expect(switchWorth('haiku', 'opus', { cold: false, tokens: 257_000 })).toBe('subagent')
+    expect(switchWorth('haiku', 'opus', { cold: true, tokens: 257_000 })).toBe('subagent')
+    expect(switchWorth('haiku', 'sonnet', { cold: false, tokens: 150_000, warm: 140_000 })).toBe('subagent')
     expect(switchWorth('haiku', 'opus', { cold: false, tokens: 100_000 })).toBe('switch')
-    // Sonnet is left to the price at any size: a switch when it is cheap (cold, or its cache still warm), else a helper.
+    // Sonnet is left to the price at any size: a switch when it is cheap (cold, or its cache still warm), else a subagent.
     expect(switchWorth('sonnet', 'opus', { cold: true, tokens: 400_000 })).toBe('switch')
     expect(switchWorth('sonnet', 'opus', { cold: false, tokens: 200_000, warm: 190_000 })).toBe('switch')
-    expect(switchWorth('sonnet', 'opus', { cold: false, tokens: 500_000 })).toBe('helper')
-    // A stronger model never pays in tokens: in a big warm chat it is a helper...
-    expect(switchWorth('opus', 'sonnet', { cold: false, tokens: 120_000 })).toBe('helper')
+    expect(switchWorth('sonnet', 'opus', { cold: false, tokens: 500_000 })).toBe('subagent')
+    // A stronger model never pays in tokens: in a big warm chat it is a subagent...
+    expect(switchWorth('opus', 'sonnet', { cold: false, tokens: 120_000 })).toBe('subagent')
     // ...unless its own cache is still warm and only the tail since is written.
     expect(switchWorth('opus', 'sonnet', { cold: false, tokens: 120_000, warm: 110_000 })).toBe('switch')
     expect(switchWorth('sonnet', 'opus', { cold: false, tokens: 90_000, warm: 85_000 })).toBe('switch')
@@ -547,7 +547,7 @@ describe('offer a model first', () => {
     return sent
   }
 
-  test('offer first: in a big warm chat a switch that does not pay back becomes a helper, and the chat keeps its model', async ($, on) => {
+  test('offer first: in a big warm chat a switch that does not pay back becomes a subagent, and the chat keeps its model', async ($, on) => {
     engine(on)
     judgeSays(on, '{"model":"sonnet","effort":"medium","why":"routine"}')
     const sent = bigChat(on, 200_000)
@@ -561,7 +561,7 @@ describe('offer a model first', () => {
     expect(await drawn(ui)).toContain('Hand off')
     await ui.press({ key: 'accept' })
     await sending
-    expect(through).toEqual([`rename the config loader${helperNote('sonnet')}`])
+    expect(through).toEqual([`rename the config loader${subagentNote('sonnet')}`])
     await step($)
     expect(sent.at(-1)).toBe('claude-opus-5-5')
     await ui.unmount()
@@ -664,7 +664,7 @@ describe('offer a model first', () => {
     await ui.unmount()
   })
 
-  test('model on Auto: in a big warm chat the prompt goes to a helper without asking, and a toast says so', async ($, on) => {
+  test('model on Auto: in a big warm chat the prompt goes to a subagent without asking, and a toast says so', async ($, on) => {
     engine(on)
     judgeSays(on, '{"model":"sonnet","effort":"medium","why":"routine"}')
     const toasts = toastsOf(on)
@@ -680,8 +680,8 @@ describe('offer a model first', () => {
     await sending
     await step($)
 
-    expect(through).toEqual([`rename the config loader${helperNote('sonnet')}`])
-    expect(toasts.join(' ')).toContain('Handed to a helper on Sonnet: routine')
+    expect(through).toEqual([`rename the config loader${subagentNote('sonnet')}`])
+    expect(toasts.join(' ')).toContain('Handed to a subagent on Sonnet: routine')
     expect(sent.at(-1)).toBe('claude-opus-5-5')
     await ui.unmount()
   })
@@ -1048,7 +1048,7 @@ describe('footer text', () => {
   })
 })
 
-describe('helpers', () => {
+describe('subagents', () => {
   test('cacheSafe: effort may change on Opus, Sonnet and Haiku 5.5 only', () => {
     expect(cacheSafe('claude-opus-5-5')).toBe(true)
     expect(cacheSafe('claude-sonnet-5-5[1m]')).toBe(true)
@@ -1103,7 +1103,7 @@ describe('named level', () => {
     expect(asked.length).toBe(0)
     expect(sent[0].effort).toBe('max')
     // The next prompt without a level goes back to the judge, within Max.
-    await $.prompt.submit({ text: 'now rename the helper in utils', wait: false, origin: { kind: 'composer' } })
+    await $.prompt.submit({ text: 'now rename the subagent in utils', wait: false, origin: { kind: 'composer' } })
     await step($, 'medium')
     expect(asked.length).toBe(1)
     expect(sent[1].effort).toBe('low')
@@ -1117,6 +1117,42 @@ describe('state from an older version', () => {
     expect(asSpent(old).byEffort).toEqual({})
     expect(() => savedText(old)).not.toThrow()
     expect(asSpent(undefined).prompts).toBe(0)
+  })
+
+  test("a tally saved before the rename keeps the subagents' counts it held under helpers", () => {
+    const old = { helpers: { runs: { low: 2 }, requests: 3, cost: 5 } } as never
+    expect(asSpent(old).subagents).toEqual({ runs: { low: 2 }, requests: 3, cost: 5 })
+  })
+
+  test('renamedSettings: an old name is carried to the new one unless the new one is saved already', () => {
+    expect(renamedSettings({ helpers: 'on', helperModel: 'on', theme: 'rose' })).toEqual({ subagents: 'on', subagentModel: 'on' })
+    expect(renamedSettings({ helpers: 'on', subagents: 'off' })).toEqual({})
+    expect(renamedSettings({})).toEqual({})
+  })
+
+  test('settings saved under their old names are used at once and saved under the new ones', async ($, on) => {
+    engine(on, {}, 'claude-opus-5-5', [], { savedSettings: { helperModel: 'on', theme: 'rose' }, setupDone: true })
+    const mocked = mock.clock(on)
+    on('settings.read', () => ({ value: { pluginConfigs: { 'context-lens@context-lens': { options: { helpers: 'on' } } } } }) as never)
+    const set: { key: string; value: unknown }[] = []
+    on('config.set', (_$, e) => {
+      set.push({ key: e.key, value: e.value })
+      return { value: e.value } as never
+    })
+    on('session.start', (_$, e) => ({ cwd: e.cwd }) as never)
+    on('command.register', () => ({ value: undefined }) as never)
+    await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
+
+    // Used at once: the Subagents card says both are on.
+    await $.command.run({ command: 'context-lens', args: 'settings' } as never)
+    const panel = await $.ui.mount({ plugin: 'context-lens', surface: 'desktop', ...BAND } as never)
+    expect(await drawn(panel)).toContain('Effort and cheaper model')
+    await panel.unmount()
+
+    // Then saved under the new names, by the save queue.
+    await mocked.advance(1_000)
+    expect(set).toContainEqual({ key: 'context-lens.subagents', value: 'on' })
+    expect(set).toContainEqual({ key: 'context-lens.subagentModel', value: 'on' })
   })
 })
 
@@ -2706,14 +2742,14 @@ describe('settings panel', () => {
     expect(await panel.find({ key: 'settings-hold-offer-switch' })).toBeDefined()
     await panel.press({ key: 'settings-back' })
 
-    // Helpers: both switches in one card; the model one waits on the effort one.
-    await panel.press({ key: 'settings-card-helpers' })
-    expect(await drawn(panel)).toContain('Effort for helpers off')
-    expect(await drawn(panel)).toContain('Needs Effort for helpers')
-    await panel.press({ key: 'settings-helpers-switch' })
-    expect(await drawn(panel)).toContain('Effort for helpers on')
-    expect(await drawn(panel)).not.toContain('Needs Effort for helpers')
-    await panel.press({ key: 'settings-helper-model-switch' })
+    // Subagents: both switches in one card; the model one waits on the effort one.
+    await panel.press({ key: 'settings-card-subagents' })
+    expect(await drawn(panel)).toContain('Effort for subagents off')
+    expect(await drawn(panel)).toContain('Needs Effort for subagents')
+    await panel.press({ key: 'settings-subagents-switch' })
+    expect(await drawn(panel)).toContain('Effort for subagents on')
+    expect(await drawn(panel)).not.toContain('Needs Effort for subagents')
+    await panel.press({ key: 'settings-subagent-model-switch' })
     await panel.press({ key: 'settings-back' })
 
     // Context: the alert, compacting and the handoff. The alert's Off and the button's Hidden switch those parts off.
@@ -2742,8 +2778,8 @@ describe('settings panel', () => {
     expect(set).toContainEqual({ key: 'context-lens.handoffSkill', value: 'session-handoff' })
     expect(set).toContainEqual({ key: 'context-lens.effortBias', value: '1' })
     expect(set).toContainEqual({ key: 'context-lens.effortFloor', value: 'medium' })
-    expect(set).toContainEqual({ key: 'context-lens.helpers', value: 'on' })
-    expect(set).toContainEqual({ key: 'context-lens.helperModel', value: 'on' })
+    expect(set).toContainEqual({ key: 'context-lens.subagents', value: 'on' })
+    expect(set).toContainEqual({ key: 'context-lens.subagentModel', value: 'on' })
     await panel.unmount()
     // A plain card says it was saved, then goes.
     const saved = await $.ui.mount(DESK_BAND)
@@ -2876,8 +2912,8 @@ describe('terminal bands', () => {
     // Title and buttons are in the flow, so a narrow window wraps them instead of drawing one over the other.
     expect(text).not.toMatch(/"key":"settings-(title|actions)"[^}]*"position":"absolute"/)
     expect(text).not.toContain('"href"')
-    await panel.press({ key: 'settings-card-helpers' })
-    expect(await drawn(panel)).toContain('○ Effort for helpers')
+    await panel.press({ key: 'settings-card-subagents' })
+    expect(await drawn(panel)).toContain('○ Effort for subagents')
     expect(await drawn(panel)).not.toContain('\u00a0'.repeat(40))
     // Short choices are buttons, not a dropdown that opens inside the row: one press picks.
     await panel.press({ key: 'settings-back' })
@@ -3469,7 +3505,7 @@ describe('a message typed while a turn runs', () => {
     await $.prompt.submit({ text: 'refactor the whole auth module across the app', wait: false, origin: { kind: 'composer' } })
     await stepOf($, 't1', 0)
     says.effort = 'low'
-    await $.prompt.submit({ text: 'also rename the helper you made', wait: false, turnId: 't1', origin: { kind: 'composer' } } as never)
+    await $.prompt.submit({ text: 'also rename the subagent you made', wait: false, turnId: 't1', origin: { kind: 'composer' } } as never)
     await stepOf($, 't1', 1)
     await $.turn.complete({ turnId: 't1', answer: '', durationMs: 1, isAborted: false, reason: 'completed' } as never)
     await stepOf($, 't2', 0)
@@ -3627,7 +3663,7 @@ describe('subagent effort', () => {
     await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
   }
 
-  test('with Helpers on, the judge picks a subagent\'s effort at its spawn and every request of it runs at that', { options: { helpers: 'on' } } as never, async ($, on) => {
+  test('with Subagents on, the judge picks a subagent\'s effort at its spawn and every request of it runs at that', { options: { subagents: 'on' } } as never, async ($, on) => {
     const asked = judgeSays(on, '{"model":"opus","effort":"low","why":"quick search"}')
     on('agent.spawn', () => ({ agentId: 'h1', model: 'claude-opus-5-5' }) as never)
     on('turn.complete', () => ({ text: '' }))
@@ -3640,11 +3676,11 @@ describe('subagent effort', () => {
         // drain
       }
     }
-    // Helpers start at medium: a low verdict comes up to it.
+    // Subagents start at medium: a low verdict comes up to it.
     expect(sent.map(s => s.effort)).toEqual(['medium', 'medium'])
   })
 
-  const helperRun = async ($: Engine, on: On, verdict: string, given: string, opts?: { agentId?: string }) => {
+  const subagentRun = async ($: Engine, on: On, verdict: string, given: string, opts?: { agentId?: string }) => {
     judgeSays(on, verdict)
     on('agent.spawn', () => ({ agentId: 'h1', model: given }) as never)
     on('turn.complete', () => ({ text: '' }))
@@ -3657,38 +3693,38 @@ describe('subagent effort', () => {
     return sent
   }
 
-  test('helper model: a subagent the judge is sure is simple runs on a cheaper model than it was given', { options: { helpers: 'on', helperModel: 'on' } } as never, async ($, on) => {
-    const sent = await helperRun($, on, '{"model":"haiku","effort":"low","sure":0.9,"why":"quick search"}', 'claude-opus-5-5')
+  test('subagent model: a subagent the judge is sure is simple runs on a cheaper model than it was given', { options: { subagents: 'on', subagentModel: 'on' } } as never, async ($, on) => {
+    const sent = await subagentRun($, on, '{"model":"haiku","effort":"low","sure":0.9,"why":"quick search"}', 'claude-opus-5-5')
     expect(sent[0].model).toBe('claude-haiku-5-5')
   })
 
-  test('helper model: never above the model it was given, and an unsure verdict leaves it alone', { options: { helpers: 'on', helperModel: 'on' } } as never, async ($, on) => {
+  test('subagent model: never above the model it was given, and an unsure verdict leaves it alone', { options: { subagents: 'on', subagentModel: 'on' } } as never, async ($, on) => {
     // The judge names Opus for a Sonnet subagent: it keeps Sonnet.
-    const up = await helperRun($, on, '{"model":"opus","effort":"high","sure":0.95,"why":"hard"}', 'claude-sonnet-5-5')
+    const up = await subagentRun($, on, '{"model":"opus","effort":"high","sure":0.95,"why":"hard"}', 'claude-sonnet-5-5')
     expect(up[0].model).toBe('claude-sonnet-5-5')
   })
 
-  test('helper model: unsure, it keeps the model it was given', { options: { helpers: 'on', helperModel: 'on' } } as never, async ($, on) => {
-    const sent = await helperRun($, on, '{"model":"haiku","effort":"low","sure":0.4,"why":"maybe small"}', 'claude-opus-5-5')
+  test('subagent model: unsure, it keeps the model it was given', { options: { subagents: 'on', subagentModel: 'on' } } as never, async ($, on) => {
+    const sent = await subagentRun($, on, '{"model":"haiku","effort":"low","sure":0.4,"why":"maybe small"}', 'claude-opus-5-5')
     expect(sent[0].model).toBe('claude-opus-5-5')
   })
 
-  test('helper model: with its switch off the effort is picked and the model stays', { options: { helpers: 'on' } } as never, async ($, on) => {
-    const sent = await helperRun($, on, '{"model":"haiku","effort":"low","sure":0.9,"why":"quick search"}', 'claude-opus-5-5')
+  test('subagent model: with its switch off the effort is picked and the model stays', { options: { subagents: 'on' } } as never, async ($, on) => {
+    const sent = await subagentRun($, on, '{"model":"haiku","effort":"low","sure":0.9,"why":"quick search"}', 'claude-opus-5-5')
     expect(sent[0].model).toBe('claude-opus-5-5')
     expect(sent[0].effort).toBe('medium')
   })
 
-  test('helperModelFor: only cheaper than the given model, never Fable', () => {
-    expect(helperModelFor('haiku', 'opus')).toBe('haiku')
-    expect(helperModelFor('sonnet', 'opus')).toBe('sonnet')
-    expect(helperModelFor('opus', 'opus')).toBeNull()
-    expect(helperModelFor('opus', 'sonnet')).toBeNull()
-    expect(helperModelFor('fable', 'fable')).toBeNull()
-    expect(helperModelFor(undefined, 'opus')).toBeNull()
+  test('subagentModelFor: only cheaper than the given model, never Fable', () => {
+    expect(subagentModelFor('haiku', 'opus')).toBe('haiku')
+    expect(subagentModelFor('sonnet', 'opus')).toBe('sonnet')
+    expect(subagentModelFor('opus', 'opus')).toBeNull()
+    expect(subagentModelFor('opus', 'sonnet')).toBeNull()
+    expect(subagentModelFor('fable', 'fable')).toBeNull()
+    expect(subagentModelFor(undefined, 'opus')).toBeNull()
   })
 
-  test('a subagent\'s first request before its spawn resolves still gets the picked effort', { options: { helpers: 'on' } } as never, async ($, on) => {
+  test('a subagent\'s first request before its spawn resolves still gets the picked effort', { options: { subagents: 'on' } } as never, async ($, on) => {
     judgeSays(on, '{"model":"opus","effort":"low","why":"quick search"}')
     const sent = recordSteps(on)
     on('agent.list', () => ({ value: [{ id: 'h2', description: 'find files', type: 'Explore', status: 'running' }] }) as never)
@@ -3708,13 +3744,13 @@ describe('subagent effort', () => {
     expect(sent.map(s => s.effort)).toEqual(['medium'])
   })
 
-  test("helperFloor: medium, the person's Min when higher, never above their Max", () => {
-    expect(helperFloor('low', 'max')).toBe('medium')
-    expect(helperFloor('high', 'max')).toBe('high')
-    expect(helperFloor('low', 'low')).toBe('low')
+  test("subagentFloor: medium, the person's Min when higher, never above their Max", () => {
+    expect(subagentFloor('low', 'max')).toBe('medium')
+    expect(subagentFloor('high', 'max')).toBe('high')
+    expect(subagentFloor('low', 'low')).toBe('low')
   })
 
-  test('with Helpers off, a subagent runs at the chat\'s effort and the judge is not asked', async ($, on) => {
+  test('with Subagents off, a subagent runs at the chat\'s effort and the judge is not asked', async ($, on) => {
     const asked = judgeSays(on, '{"model":"opus","effort":"low","why":"quick search"}')
     on('agent.spawn', () => ({ agentId: 'h3', model: 'claude-opus-5-5' }) as never)
     const sent = recordSteps(on)
@@ -3727,7 +3763,7 @@ describe('subagent effort', () => {
     expect(sent.map(s => s.effort)).toEqual(['high'])
   })
 
-  test('with Helpers off, a subagent of a judged turn runs at the turn\'s effort, never below medium', async ($, on) => {
+  test('with Subagents off, a subagent of a judged turn runs at the turn\'s effort, never below medium', async ($, on) => {
     engine(on)
     let verdict = '{"model":"opus","effort":"xhigh","why":"hard"}'
     const asked: string[] = []

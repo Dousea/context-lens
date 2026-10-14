@@ -15,7 +15,7 @@ export type Spent = {
   /** How often each judge decided, the time it took in all (ms), and its tokens. */
   judge: { haiku: number; ms: number; tokens: number }
   /** Subagents the judge picked an effort for: how many per effort, their requests, and what those cost (weighted). */
-  helpers: { runs: Partial<Record<Effort, number>>; requests: number; cost: number }
+  subagents: { runs: Partial<Record<Effort, number>>; requests: number; cost: number }
 }
 
 /** What the next turn runs with, and who decided it. */
@@ -58,9 +58,9 @@ export type SettingsDraft = {
   /** advised (the slot is Compact until Haiku advises a handoff) or always (the slot is the Handoff button). */
   handoffButton?: string
   /** on: each subagent gets an effort picked by the judge before it starts; off: it runs at the chat's effort. */
-  helpers?: string
-  /** on (with helpers on): a subagent the judge calls simple runs on a cheaper model than it was given; off: it keeps its own. */
-  helperModel?: string
+  subagents?: string
+  /** on (with subagents on): a subagent the judge calls simple runs on a cheaper model than it was given; off: it keeps its own. */
+  subagentModel?: string
   /** violet (the brand), orange (Claude's) or rose (cherry blossom). */
   theme?: string
   appearance?: string

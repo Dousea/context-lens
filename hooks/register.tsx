@@ -98,7 +98,7 @@ const EFFORT_LABELS: Record<Effort, string> = { low: 'Low', medium: 'Medium', hi
 // Auto is two switches. `isAuto` is effort (the name stays: it is what the store and state hold);
 // `isAutoModel` lets the judge suggest another model and starts off.
 const isAuto = atom({ plugin: 'context-lens', key: 'isAuto' } as const, true)
-const EMPTY_SPENT: Spent = { prompts: 0, requests: 0, input: 0, write: 0, writeHour: 0, read: 0, out: 0, byEffort: {}, judge: { haiku: 0, ms: 0, tokens: 0 }, helpers: { runs: {}, requests: 0, cost: 0 } }
+const EMPTY_SPENT: Spent = { prompts: 0, requests: 0, input: 0, write: 0, writeHour: 0, read: 0, out: 0, byEffort: {}, judge: { haiku: 0, ms: 0, tokens: 0 }, subagents: { runs: {}, requests: 0, cost: 0 } }
 const SWITCHED_MS = 2500
 // The prompt cache lives this long after the last request read or wrote it. A response may say which lifetime its
 // cache writes got (usage.cache_creation: ephemeral_1h / ephemeral_5m); until one does, 1 hour is assumed: 99% of
@@ -239,12 +239,12 @@ const settingsDraft = atom({ plugin: 'context-lens', key: 'settingsDraft' } as c
 // Why the judge is failing, or null when it works.
 const judgeDown = atom({ plugin: 'context-lens', key: 'judgeDown' } as const, null)
 // Which part of the settings panel is open: null for the cards.
-type SettingsCard = 'auto' | 'helpers' | 'context' | 'look'
+type SettingsCard = 'auto' | 'subagents' | 'context' | 'look'
 const settingsCard = atom({ plugin: 'context-lens', key: 'settingsCard' } as const, null)
 /** The settings panel's parts: a card each on the overview, and what the part is for, said once it is open. */
 const CARDS: readonly { id: SettingsCard; title: string; about: string }[] = [
   { id: 'auto', title: 'Auto', about: "How Auto picks. The slider tips the judge's close calls; Never below and Never above bound every pick." },
-  { id: 'helpers', title: 'Helpers', about: 'What the subagents the chat sends off run on.' },
+  { id: 'subagents', title: 'Subagents', about: 'What the subagents the chat sends off run on.' },
   { id: 'context', title: 'Context', about: 'What happens as the chat fills up: the alert, compacting and the handoff.' },
   { id: 'look', title: 'Look', about: 'How context-lens looks and which parts of it show. Uninstall removes it.' },
 ]
@@ -550,9 +550,9 @@ export type JudgeConfig = {
   /** advised: the footer slot is Compact until Haiku advises a handoff. always: it is always the Handoff button. */
   handoffButton: 'advised' | 'always'
   /** on: every subagent the chat sends off gets an effort picked by the judge before it starts. */
-  helpers: 'on' | 'off'
-  /** on (with helpers on): the judge also picks the model of each subagent, never above the one it was given. */
-  helperModel: 'on' | 'off'
+  subagents: 'on' | 'off'
+  /** on (with subagents on): the judge also picks the model of each subagent, never above the one it was given. */
+  subagentModel: 'on' | 'off'
   /** on: with Auto for model off, a typed prompt waits for the answer when the judge names another model. off: a toast. */
   holdOffer: 'on' | 'off'
   /** The accent colour of everything context-lens draws: the brand violet, Claude orange or cherry-blossom rose. */
@@ -582,8 +582,8 @@ let config: JudgeConfig = {
   layout: 'default',
   compactWith: 'haiku',
   handoffButton: 'advised',
-  helpers: 'off',
-  helperModel: 'off',
+  subagents: 'off',
+  subagentModel: 'off',
   holdOffer: 'on',
   theme: 'violet',
   appearance: 'auto',
@@ -603,8 +603,8 @@ export function readConfig(options: unknown): JudgeConfig {
     layout: str(o.layout) === 'minimal' ? 'minimal' : 'default',
     compactWith: str(o.compactWith) === 'session' ? 'session' : 'haiku',
     handoffButton: str(o.handoffButton) === 'always' ? 'always' : 'advised',
-    helpers: str(o.helpers) === 'on' ? 'on' : 'off',
-    helperModel: str(o.helperModel) === 'on' ? 'on' : 'off',
+    subagents: str(o.subagents) === 'on' ? 'on' : 'off',
+    subagentModel: str(o.subagentModel) === 'on' ? 'on' : 'off',
     holdOffer: str(o.holdOffer) === 'off' ? 'off' : 'on',
     theme: THEMES.find(t => t === str(o.theme)) ?? 'violet',
     appearance: (['dark', 'light'] as const).find(a => a === str(o.appearance)) ?? 'auto',
@@ -925,8 +925,8 @@ let sessionPick: ModelKey | null = null
 // Each model's own prompt cache for this chat: when it lapses and how many tokens it holds. Going back to a model whose cache
 // is still warm only writes what was added since. A compaction or /clear starts a new prefix, so they are forgotten.
 const modelCaches = new Map<ModelKey, { expires: number; tokens: number }>()
-// How the model in `suggestion` is offered: the session switches to it, or the prompt is handed to a helper on it.
-let suggestedAs: 'switch' | 'helper' = 'switch'
+// How the model in `suggestion` is offered: the session switches to it, or the prompt is handed to a subagent on it.
+let suggestedAs: 'switch' | 'subagent' = 'switch'
 
 /** The tokens a model still has in its cache for this chat, or undefined when it has none warm. */
 function warmTokens(key: ModelKey, now: number): number | undefined {
@@ -935,7 +935,7 @@ function warmTokens(key: ModelKey, now: number): number | undefined {
 }
 
 /** The note a handed-off prompt carries: the chat's model stays, and a subagent on `model` does the task. */
-export function helperNote(model: ModelKey): string {
+export function subagentNote(model: ModelKey): string {
   return `\n\n[context-lens: hand this task to a subagent on ${model} (Agent tool, model: "${model}") with a complete brief, then use its result.]`
 }
 
@@ -1021,6 +1021,8 @@ export function asSpent(t: unknown): Spent {
   const v = (t ?? {}) as Partial<Spent>
   const num = (x: unknown) => (typeof x === 'number' && Number.isFinite(x) ? x : 0)
   const judged = (v.judge ?? {}) as Partial<Spent['judge']>
+  // Stats from 0.3.0 and earlier hold the subagents' counts under helpers.
+  const ran = (v.subagents ?? (v as { helpers?: Spent['subagents'] }).helpers) as Partial<Spent['subagents']> | undefined
   return {
     prompts: num(v.prompts),
     requests: num(v.requests),
@@ -1031,10 +1033,10 @@ export function asSpent(t: unknown): Spent {
     out: num(v.out),
     byEffort: v.byEffort && typeof v.byEffort === 'object' ? v.byEffort : {},
     judge: { haiku: num(judged.haiku), ms: num(judged.ms), tokens: num(judged.tokens) },
-    helpers: {
-      runs: v.helpers?.runs && typeof v.helpers.runs === 'object' ? v.helpers.runs : {},
-      requests: num(v.helpers?.requests),
-      cost: num(v.helpers?.cost),
+    subagents: {
+      runs: ran?.runs && typeof ran.runs === 'object' ? ran.runs : {},
+      requests: num(ran?.requests),
+      cost: num(ran?.cost),
     },
   }
 }
@@ -1153,7 +1155,7 @@ const SMALL_CHAT_TOKENS = 20_000
 const INPUT_PRICE: Record<ModelKey, number> = { haiku: 0.1, sonnet: 2, opus: 4, fable: 10 }
 export const priceOf = (key: ModelKey, tokens: number) => (key === 'haiku' && tokens > 100_000 ? 0.5 : INPUT_PRICE[key])
 
-/** Above this many tokens Haiku is offered as a helper, never as a switch, warm cache or cold. The judge rates one prompt,
+/** Above this many tokens Haiku is offered as a hand-off to a subagent, never as a switch, warm cache or cold. The judge rates one prompt,
  * but a switch hands Haiku every prompt after it, and a chat this long is ongoing work. Haiku's price pays back its cache
  * write within a few requests at any size, so the price alone would always switch; the quality is what it risks. Sonnet
  * is left to the price: it holds up in long work, and in a warm chat its write does not pay back anyway. */
@@ -1164,35 +1166,35 @@ const HAIKU_SWITCH_MAX_TOKENS = 100_000
 const PAYBACK_REQUESTS = 8
 
 /**
- * How the judge's model is worth offering: 'switch' the session to it, hand the prompt to a 'helper' (a subagent) on it,
+ * How the judge's model is worth offering: 'switch' the session to it, hand the prompt to a 'subagent' on it,
  * or null for nothing (Fable, or the model already in use). Each model has a prompt cache of its own, so a switch writes
  * the chat again at the new model's write price, less what that model still has warm (`warm`, its cached tokens).
  * A cheaper model is a switch when that write pays back within PAYBACK_REQUESTS reads; a stronger one is a quality call
  * that never pays in tokens, so it is a switch only when it writes little more than staying would (a cold, small or
- * still-warm chat). Otherwise the task goes to a helper, which starts with a small context and leaves the chat's cache
- * warm. Haiku in a chat past HAIKU_SWITCH_MAX_TOKENS is a helper whatever the cache. A size not known yet counts as a
+ * still-warm chat). Otherwise the task goes to a subagent, which starts with a small context and leaves the chat's cache
+ * warm. Haiku in a chat past HAIKU_SWITCH_MAX_TOKENS is a subagent whatever the cache. A size not known yet counts as a
  * new chat.
  */
 export function switchWorth(
   verdict: ModelKey,
   inUse: ModelKey,
   chat: { cold: boolean; tokens?: number; ttl?: '5m' | '1h'; warm?: number },
-): 'switch' | 'helper' | null {
+): 'switch' | 'subagent' | null {
   if (verdict === 'fable' || verdict === inUse) return null
   const tokens = chat.tokens
   if (tokens === undefined) return 'switch'
-  if (verdict === 'haiku' && tokens > HAIKU_SWITCH_MAX_TOKENS) return 'helper'
+  if (verdict === 'haiku' && tokens > HAIKU_SWITCH_MAX_TOKENS) return 'subagent'
   const write = chat.ttl === '5m' ? WEIGHT.write : WEIGHT.write1h
   const writtenStay = chat.cold ? tokens : 0
   const writtenGo = Math.max(0, tokens - Math.min(tokens, chat.warm ?? 0))
   // Little more to write than staying would: any switch is near free.
   if (writtenGo - writtenStay <= SMALL_CHAT_TOKENS) return 'switch'
   const rank = (k: ModelKey) => MODELS.findIndex(m => m.key === k)
-  if (rank(verdict) > rank(inUse)) return 'helper'
+  if (rank(verdict) > rank(inUse)) return 'subagent'
   const stay = (writtenStay * write + (tokens - writtenStay) * WEIGHT.read) * priceOf(inUse, tokens)
   const go = (writtenGo * write + (tokens - writtenGo) * WEIGHT.read) * priceOf(verdict, tokens)
   const gain = tokens * WEIGHT.read * (priceOf(inUse, tokens) - priceOf(verdict, tokens))
-  return go - stay <= PAYBACK_REQUESTS * gain ? 'switch' : 'helper'
+  return go - stay <= PAYBACK_REQUESTS * gain ? 'switch' : 'subagent'
 }
 
 /** The context's tokens when the cold band is worth showing: the cache is cold, the band not closed, and the chat big
@@ -1760,8 +1762,8 @@ const SETTING_FIELDS = {
   layout: 'layout',
   compactWith: 'compactWith',
   handoffButton: 'handoffButton',
-  helpers: 'helpers',
-  helperModel: 'helperModel',
+  subagents: 'subagents',
+  subagentModel: 'subagentModel',
   holdOffer: 'holdOffer',
   theme: 'theme',
   appearance: 'appearance',
@@ -1791,8 +1793,8 @@ async function saveSetting($: EngineInterface, field: keyof typeof SETTING_FIELD
     layout: config.layout,
     compactWith: config.compactWith,
     handoffButton: config.handoffButton,
-    helpers: config.helpers,
-    helperModel: config.helperModel,
+    subagents: config.subagents,
+    subagentModel: config.subagentModel,
     holdOffer: config.holdOffer,
     theme: config.theme,
     appearance: config.appearance,
@@ -1814,6 +1816,40 @@ function savedCardTree($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
       <Text bold>Settings saved</Text>
     </Box>
   )
+}
+
+/** The settings by their old names, and the names they have now. */
+const RENAMED_SETTINGS = { helpers: 'subagents', helperModel: 'subagentModel' } as const
+
+/** The settings in `saved` under an old name, keyed by the new one, for each that is not saved under its new name too. */
+export function renamedSettings(saved: Record<string, unknown>): Record<string, string> {
+  const carried: Record<string, string> = {}
+  for (const [old, now] of Object.entries(RENAMED_SETTINGS))
+    if (typeof saved[old] === 'string' && saved[now] === undefined) carried[now] = saved[old] as string
+  return carried
+}
+
+/**
+ * Carries settings saved under an old name to the new one: used at once, and queued to be saved under it. They are read
+ * from the mod's own store copy and from settings.json directly, since the app passes the mod only the fields its
+ * manifest declares.
+ */
+async function carryRenamedSettings($: EngineInterface, kept: Record<string, unknown>): Promise<Record<string, string>> {
+  const configs = ((await $.settings.read().catch(() => ({}))) as { pluginConfigs?: Record<string, { options?: Record<string, unknown> }> }).pluginConfigs ?? {}
+  // A --plugin-dir copy keeps its settings under context-lens@inline, an install under its marketplace's name.
+  const stored = configs[pluginId($)]?.options ?? Object.entries(configs).find(([id]) => id.startsWith('context-lens@'))?.[1]?.options ?? {}
+  // A new name saved in either place wins over an old one in the other, so a later change is never carried back.
+  const carried = renamedSettings({ ...stored, ...kept })
+  const oldInStore = Object.keys(RENAMED_SETTINGS).filter(old => old in kept)
+  if (oldInStore.length) await $.store.set('savedSettings', Object.fromEntries(Object.entries(kept).filter(([key]) => !oldInStore.includes(key))))
+  if (!Object.keys(carried).length) return carried
+
+  const fields = Object.fromEntries(Object.entries(SETTING_FIELDS).map(([field, option]) => [option, field])) as Record<string, string>
+  const queue = ((await $.store.get('setupSave').catch(() => null)) ?? {}) as Record<string, string>
+  const queued = Object.fromEntries(Object.entries(carried).map(([option, value]) => [fields[option], value]))
+  await $.store.set('setupSave', { ...queued, ...queue })
+  void proof($, `settings renamed: ${Object.keys(carried).join(', ')} carried from their old names`)
+  return carried
 }
 
 /** Saves every change in the panel's draft, then closes the panel. Nothing changed applies before this. */
@@ -1954,8 +1990,8 @@ const share = (part: number, whole: number) => `${Math.round((part / whole) * 10
 export function savedText(raw: Spent): string {
   const t = asSpent(raw)
   const judged = t.judge.haiku
-  const helperRuns = EFFORTS.reduce((n, e) => n + (t.helpers.runs[e] ?? 0), 0)
-  if (t.prompts === 0 && judged === 0 && helperRuns === 0) return 'nothing measured yet'
+  const subagentRuns = EFFORTS.reduce((n, e) => n + (t.subagents.runs[e] ?? 0), 0)
+  if (t.prompts === 0 && judged === 0 && subagentRuns === 0) return 'nothing measured yet'
   const input = t.input * WEIGHT.input
   const write = t.writeHour * WEIGHT.write1h + (t.write - t.writeHour) * WEIGHT.write
   const cached = t.read * WEIGHT.read
@@ -1970,9 +2006,9 @@ export function savedText(raw: Spent): string {
     return `${EFFORT_LABELS[e]} ${b.prompts}, average ${tokens(Math.round(b.cost / b.prompts))}`
   })
   if (per.length) lines.push(`Per prompt: ${per.join('; ')}`)
-  if (helperRuns) {
-    const per = EFFORTS.filter(e => t.helpers.runs[e]).map(e => `${EFFORT_LABELS[e]} ${t.helpers.runs[e]}`)
-    lines.push(`Helpers: ${helperRuns} subagent${helperRuns === 1 ? '' : 's'} (${per.join(', ')}), ${t.helpers.requests} requests, cost about ${tokens(Math.round(t.helpers.cost))} tokens`)
+  if (subagentRuns) {
+    const per = EFFORTS.filter(e => t.subagents.runs[e]).map(e => `${EFFORT_LABELS[e]} ${t.subagents.runs[e]}`)
+    lines.push(`Subagents: ${subagentRuns} (${per.join(', ')}), ${t.subagents.requests} requests, cost about ${tokens(Math.round(t.subagents.cost))} tokens`)
   }
   if (judged) {
     lines.push(`Judge: Haiku ${t.judge.haiku}, average ${Math.round(t.judge.ms / judged)} ms, ${tokens(t.judge.tokens)} tokens in all`)
@@ -2052,7 +2088,7 @@ export function rowIconSvg(kind: SettingsCard | 'quick' | 'full', color: string)
     // A gauge: an open arc with a needle.
     auto: '<path d="M2.6 10.4A5 5 0 1 1 11.4 10.4"/><path d="M7 8.2L9.6 5.2"/><circle cx="7" cy="8.6" r=".9"/>',
     // Layers: the subagents, stacked.
-    helpers: '<path d="M7 2 12.2 4.7 7 7.4 1.8 4.7Z"/><path d="M1.8 7.3 7 10 12.2 7.3"/><path d="M1.8 9.9 7 12.6 12.2 9.9"/>',
+    subagents: '<path d="M7 2 12.2 4.7 7 7.4 1.8 4.7Z"/><path d="M1.8 7.3 7 10 12.2 7.3"/><path d="M1.8 9.9 7 12.6 12.2 9.9"/>',
     // An arrow into a bar: hand off.
     context: '<path d="M1.8 7H9.4M6.6 4.2L9.4 7L6.6 9.8"/><path d="M11.8 2.6V11.4"/>',
     // A pencil: the look. The tip down left, a line across the ferrule.
@@ -2863,12 +2899,12 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
   if (autoModelSeen !== undefined && autoModelSeen !== v.autoModel) autoModelFlipAt = nowMs
   autoModelSeen = v.autoModel
   // A subagent in view shows the model and effort it ran at; the chat's own come from the session.
-  // One just spawned has not made a request yet: its effort is the helper pick if there is one, else unknown, never the chat's.
+  // One just spawned has not made a request yet: its effort is the subagent pick if there is one, else unknown, never the chat's.
   const inAgent = e.props.view.agentId !== undefined
   const viewed = inAgent ? (await read($, lensAgents)).find(a => a.id === e.props.view.agentId) : undefined
   const shownModel: ModelKey | undefined = inAgent ? viewed?.model : (v.modelNow ?? undefined)
   const effortNow = inAgent
-    ? (viewed?.effort ?? (await helperEffortOf($, e.props.view.agentId!).catch(() => undefined)))
+    ? (viewed?.effort ?? (await subagentEffortOf($, e.props.view.agentId!).catch(() => undefined)))
     : effortOf(v)
   const by = v.current?.by
   const reason = v.current
@@ -3131,7 +3167,7 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
   const judging = !inAgent && v.judging
   const inUse = inAgent ? viewed?.model : (v.modelNow ?? (await sessionModel($)))
   const effortNow = inAgent
-    ? (viewed?.effort ?? (await helperEffortOf($, agentId).catch(() => undefined)))
+    ? (viewed?.effort ?? (await subagentEffortOf($, agentId).catch(() => undefined)))
     : effortOf(v)
 
   const setEffort = (level: Effort) => () => pickEffort($, level)
@@ -3167,7 +3203,7 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
     <Box flexDirection="column">
       <Box flexDirection="row" gap={1} alignItems="center">
         <Text>
-          {suggestedAs === 'helper' ? `Hand this to a ${MODELS.find(m => m.key === wanted)?.label} helper?` : `Switch to ${MODELS.find(m => m.key === wanted)?.label}?`}{' '}
+          {suggestedAs === 'subagent' ? `Hand this to a ${MODELS.find(m => m.key === wanted)?.label} subagent?` : `Switch to ${MODELS.find(m => m.key === wanted)?.label}?`}{' '}
           {offer ? `Your prompt waits ${Math.max(1, Math.ceil((offer.until - (await $.clock.now())) / 1000))}s.` : 'The context reloads.'}
         </Text>
         <Button
@@ -3175,7 +3211,7 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
           variant="primary"
           hotkey={offerKeys ? '1' : undefined}
           plain={offerKeys ? true : undefined}
-          label={suggestedAs === 'helper' ? 'Hand off' : 'Switch'}
+          label={suggestedAs === 'subagent' ? 'Hand off' : 'Switch'}
           onPress={acceptSuggestion(wanted)}
         />
         <Button key="decline" hotkey={offerKeys ? '2' : undefined} plain={offerKeys ? true : undefined} label="Keep" onPress={dismiss} />
@@ -3243,75 +3279,75 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
   return { question, rows, height, noteLine }
 }
 
-// Effort for helpers: the effort the judge picked for each subagent, by its id. A subagent's first request can come
+// Effort for subagents: the effort the judge picked for each subagent, by its id. A subagent's first request can come
 // before its spawn resolves with the id (seen 2026-10-10), so a pick waits under the spawn's description and type
 // until a request from an unknown subagent claims it through $.agent.list().
-// With Model for helpers on it also holds the model the judge named, when it was sure; the step clamps it to the model the
-// subagent was given (see helperModelFor).
-type HelperPick = { effort: Effort; model?: ModelKey }
-const helperPicks = new Map<string, HelperPick>()
-let helperWaiting: ({ description: string; type: string; parentId?: string } & HelperPick)[] = []
+// With Cheaper model for subagents on it also holds the model the judge named, when it was sure; the step clamps it to the model the
+// subagent was given (see subagentModelFor).
+type SubagentPick = { effort: Effort; model?: ModelKey }
+const subagentPicks = new Map<string, SubagentPick>()
+let subagentWaiting: ({ description: string; type: string; parentId?: string } & SubagentPick)[] = []
 
 /** How sure the judge must be of a task to give its subagent another model: the Smarter lean's own line for a close call. */
-const HELPER_MODEL_SURE = 0.65
+const SUBAGENT_MODEL_SURE = 0.65
 
 /**
  * The model a subagent runs on when the judge named one: only a cheaper model than the one it was given (never Fable,
  * never a dearer one), else null and it keeps its own. A subagent starts with a small context and a cache of its own,
  * so the switch costs next to nothing there, unlike in the chat.
  */
-export function helperModelFor(wanted: ModelKey | undefined, given: ModelKey | undefined): ModelKey | null {
+export function subagentModelFor(wanted: ModelKey | undefined, given: ModelKey | undefined): ModelKey | null {
   if (!wanted || !given || wanted === 'fable') return null
   const rank = (k: ModelKey) => MODELS.findIndex(m => m.key === k)
   return rank(wanted) < rank(given) ? wanted : null
 }
 
 /** What the judge reads for a subagent: its task, said to be one, so it judges the subagent's work. */
-export function helperQuestion(prompt: string, type: string): string {
+export function subagentQuestion(prompt: string, type: string): string {
   return `${prompt.slice(0, 4000)}
 
 [This is the task Claude gave a ${type} subagent, not a message from the person. Judge the effort that subagent needs to do it well.]`
 }
 
-/** The lowest effort a helper gets: medium, or the person's Min when higher, never above their Max. A helper's answer
+/** The lowest effort a subagent gets: medium, or the person's Min when higher, never above their Max. A subagent's answer
  * goes back to the chat unchecked, and at low it miscounted where medium did not (bench/results/helpers-2026-10-10.md). */
-export function helperFloor(floor: Effort, ceiling: Effort): Effort {
+export function subagentFloor(floor: Effort, ceiling: Effort): Effort {
   const i = Math.min(Math.max(EFFORTS.indexOf(floor), EFFORTS.indexOf('medium')), EFFORTS.indexOf(ceiling))
   return EFFORTS[i]
 }
 
 /** The judge's effort for a subagent's task, within the person's slider, Min and Max and save mode; null without a verdict. */
-async function helperEffort($: EngineInterface, prompt: string, type: string): Promise<Pick | null> {
-  const { verdict } = await judge($, helperQuestion(prompt, type), null)
+async function subagentEffort($: EngineInterface, prompt: string, type: string): Promise<Pick | null> {
+  const { verdict } = await judge($, subagentQuestion(prompt, type), null)
   if (!verdict) return null
   const saving = (await read($, saveUntil)) !== null
   const leaned = tipped(verdict.effort, verdict.sure, config.bias)
-  const effort = capped(bounded(leaned, helperFloor(config.floor, config.ceiling), config.ceiling), saving)
-  return { ...verdict, effort, why: effort !== leaned && EFFORTS.indexOf(leaned) < EFFORTS.indexOf(effort) ? `${verdict.why} (helpers start at medium)` : verdict.why }
+  const effort = capped(bounded(leaned, subagentFloor(config.floor, config.ceiling), config.ceiling), saving)
+  return { ...verdict, effort, why: effort !== leaned && EFFORTS.indexOf(leaned) < EFFORTS.indexOf(effort) ? `${verdict.why} (subagents start at medium)` : verdict.why }
 }
 
 /** The effort (and model) picked for this subagent, claiming a waiting pick the first time its id is seen. */
-async function helperPickOf($: EngineInterface, id: string): Promise<HelperPick | undefined> {
-  const known = helperPicks.get(id)
-  if (known || helperWaiting.length === 0) return known
+async function subagentPickOf($: EngineInterface, id: string): Promise<SubagentPick | undefined> {
+  const known = subagentPicks.get(id)
+  if (known || subagentWaiting.length === 0) return known
   const info = (await $.agent.list().catch(() => [])).find(a => a.id === id)
   if (!info) return undefined
-  const match = helperWaiting.find(w => w.description === info.description && w.type === info.type && w.parentId === info.parentId)
+  const match = subagentWaiting.find(w => w.description === info.description && w.type === info.type && w.parentId === info.parentId)
   if (!match) return undefined
-  helperWaiting = helperWaiting.filter(w => w !== match)
-  const pick: HelperPick = { effort: match.effort, ...(match.model ? { model: match.model } : {}) }
-  helperPicks.set(id, pick)
+  subagentWaiting = subagentWaiting.filter(w => w !== match)
+  const pick: SubagentPick = { effort: match.effort, ...(match.model ? { model: match.model } : {}) }
+  subagentPicks.set(id, pick)
   return pick
 }
 
 /** The effort picked for this subagent. */
-const helperEffortOf = async ($: EngineInterface, id: string): Promise<Effort | undefined> => (await helperPickOf($, id))?.effort
+const subagentEffortOf = async ($: EngineInterface, id: string): Promise<Effort | undefined> => (await subagentPickOf($, id))?.effort
 
-/** Counts one request of a helper the judge steered, for /context-lens stats. */
-async function helperTally($: EngineInterface, usage: Parameters<typeof weighted>[0]) {
+/** Counts one request of a subagent the judge steered, for /context-lens stats. */
+async function subagentTally($: EngineInterface, usage: Parameters<typeof weighted>[0]) {
   await update($, saved, old => {
     const t = asSpent(old)
-    return { ...t, helpers: { ...t.helpers, requests: t.helpers.requests + 1, cost: t.helpers.cost + weighted(usage) } }
+    return { ...t, subagents: { ...t.subagents, requests: t.subagents.requests + 1, cost: t.subagents.cost + weighted(usage) } }
   })
 }
 
@@ -3633,9 +3669,12 @@ export const register: Register = (on, options) => {
     ])
     // Which chat this load serves, and when it started: each chat has its own render log.
     loadedSession = String(sid).slice(0, 8)
-    // Settings the app had no /config row for (see saveSetting), over the ones it passed in.
-    if (kept && typeof kept === 'object' && Object.keys(kept).length) {
-      config = readConfig({ ...pluginOptions, ...kept })
+    // Settings saved under an old name, then the ones the app had no /config row for (see saveSetting), over the ones it
+    // passed in. The carried ones are saved under their new names by the save queue below.
+    const keptSettings = kept && typeof kept === 'object' ? (kept as Record<string, unknown>) : {}
+    const carried = await carryRenamedSettings($, keptSettings).catch(() => ({}))
+    if (Object.keys(keptSettings).length || Object.keys(carried).length) {
+      config = readConfig({ ...pluginOptions, ...carried, ...keptSettings })
       applyTheme()
     }
     await Promise.all([
@@ -3830,9 +3869,9 @@ Saved to ${out}.md and .json` }
     if (arg === 'stats' || arg === 'saved') return { text: `Auto, this session:\n${savedText(await read($, saved))}` }
     if (!wanted) return { text: 'No model suggestion right now.' }
     if (arg === 'switch') {
-      if (offer && suggestedAs === 'helper') {
+      if (offer && suggestedAs === 'subagent') {
         settleOffer(true)
-        return { text: `Handing the prompt to a ${wanted} helper. The chat stays on its model.` }
+        return { text: `Handing the prompt to a ${wanted} subagent. The chat stays on its model.` }
       }
       if (offer) settleOffer(true)
       else await switchModel($, wanted)
@@ -3915,7 +3954,7 @@ Saved to ${out}.md and .json` }
     await update($, isJudging, () => true)
     // The model offered to a prompt that waits for the answer, once the judge is done.
     let held: ModelKey | null = null
-    // The model Auto for model hands this prompt to, as a helper.
+    // The model Auto for model hands this prompt to, as a subagent.
     let handTo: ModelKey | null = null
     try {
       const inUse = await sessionModel($)
@@ -3955,21 +3994,21 @@ Saved to ${out}.md and .json` }
             await choose($, applied)
           }
         }
-        // Only another model than the chat's: a switch where it pays for the cache it rewrites, else a helper (see switchWorth).
+        // Only another model than the chat's: a switch where it pays for the cache it rewrites, else a subagent (see switchWorth).
         const cold = (await read($, cacheLeft)) === 0 || coldForced
         const now = await $.clock.now().catch(() => Date.now())
         const worth = verdict.model === declined ? null : switchWorth(verdict.model, inUse, { cold, tokens: lastContext?.tokens ?? modelCaches.get(inUse)?.tokens, ttl: cacheTtl, warm: warmTokens(verdict.model, now) })
-        // A helper takes a prompt the person typed, before it is sent: a note, an agent's report or a prompt already on
+        // A subagent takes a prompt the person typed, before it is sent: a note, an agent's report or a prompt already on
         // its way has nothing left to hand off.
         const typedNow = byPerson && !midTurn && !slash
-        const offerable = worth === 'switch' || (worth === 'helper' && typedNow)
+        const offerable = worth === 'switch' || (worth === 'subagent' && typedNow)
         const label = MODELS.find(m => m.key === verdict.model)!.label
         if (worth && offerable && wantsModel) {
           // Auto for model acts on the verdict without asking.
           await update($, suggestion, () => null)
-          if (worth === 'helper') handTo = verdict.model
+          if (worth === 'subagent') handTo = verdict.model
           else await switchModel($, verdict.model)
-          $.ui.toast(worth === 'helper' ? `Handed to a helper on ${label}: ${verdict.why}` : `Switched to ${label} for this session: ${verdict.why}`)
+          $.ui.toast(worth === 'subagent' ? `Handed to a subagent on ${label}: ${verdict.why}` : `Switched to ${label} for this session: ${verdict.why}`)
         } else if (worth && offerable && typedNow && config.holdOffer === 'on') {
           suggestedAs = worth
           await update($, suggestion, () => verdict.model)
@@ -3988,8 +4027,8 @@ Saved to ${out}.md and .json` }
       await update($, isJudging, () => false)
     }
     if (handTo) {
-      void proof($, `auto hand-off: a helper on ${handTo} for "${e.text.slice(0, 50)}"`)
-      return next({ ...e, text: e.text + helperNote(handTo) })
+      void proof($, `auto hand-off: a subagent on ${handTo} for "${e.text.slice(0, 50)}"`)
+      return next({ ...e, text: e.text + subagentNote(handTo) })
     }
     if (held) {
       const as = suggestedAs
@@ -3997,9 +4036,9 @@ Saved to ${out}.md and .json` }
       const accepted = await holdForOffer($, held)
       await update($, suggestion, () => null)
       $.ui.invalidate('ui.render')
-      void proof($, accepted ? `offer taken: ${as === 'helper' ? 'a helper on' : 'switching to'} ${held}` : 'offer not taken: the prompt goes on as it is')
-      // A helper: the chat's model and its warm cache stay, and the prompt asks for a subagent on the other model.
-      if (accepted && as === 'helper') return next({ ...e, text: e.text + helperNote(held) })
+      void proof($, accepted ? `offer taken: ${as === 'subagent' ? 'a subagent on' : 'switching to'} ${held}` : 'offer not taken: the prompt goes on as it is')
+      // A subagent: the chat's model and its warm cache stay, and the prompt asks for a subagent on the other model.
+      if (accepted && as === 'subagent') return next({ ...e, text: e.text + subagentNote(held) })
       // The switch only changes what the requests carry, so the prompt goes straight on, on the new model.
       if (accepted) await switchModel($, held)
     }
@@ -4072,17 +4111,17 @@ Saved to ${out}.md and .json` }
         return yield* send(e)
       }
     }
-    // A helper the judge picked an effort for at its spawn runs every request at it.
-    if (e.agentId !== undefined && config.helpers === 'on' && takesEffort(e.model)) {
-      const picked = await helperPickOf($, e.agentId)
-      // With Model for helpers on, a cheaper model than the one it was given, when the judge named one.
-      const cheaper = config.helperModel === 'on' ? helperModelFor(picked?.model, keyOf(e.model)) : null
+    // A subagent the judge picked an effort for at its spawn runs every request at it.
+    if (e.agentId !== undefined && config.subagents === 'on' && takesEffort(e.model)) {
+      const picked = await subagentPickOf($, e.agentId)
+      // With Cheaper model for subagents on, a cheaper model than the one it was given, when the judge named one.
+      const cheaper = config.subagentModel === 'on' ? subagentModelFor(picked?.model, keyOf(e.model)) : null
       const effort = picked?.effort
       if (effort && (typeof e.effort === 'string' || cheaper)) {
         const model = cheaper ? MODELS.find(m => m.key === cheaper)!.id : e.model
-        if (e.index === 0) void proof($, `helper ${e.agentId} request 0 (${e.model}): ${cheaper ? `model -> ${model}, ` : ''}effort ${e.effort} -> ${effort}`)
+        if (e.index === 0) void proof($, `subagent ${e.agentId} request 0 (${e.model}): ${cheaper ? `model -> ${model}, ` : ''}effort ${e.effort} -> ${effort}`)
         const result = yield* send({ ...e, model, effort })
-        if (result.usage) await helperTally($, result.usage).catch(() => undefined)
+        if (result.usage) await subagentTally($, result.usage).catch(() => undefined)
         return result
       }
     }
@@ -4093,12 +4132,12 @@ Saved to ${out}.md and .json` }
     // Auto off: the app's own effort goes out. A pick the judge made while Auto was on is not the person's choice, and
     // with the app already on the effort they want, the mod would never see a change to give way to.
     if (p.by !== 'manual' && !(await read($, isAuto))) return yield* send(e)
-    // A subagent of a turn Auto picked for (Helpers off, or no verdict for it) runs at that turn's effort, no extra
-    // judge call, but never below medium: a helper's answer goes back unchecked (see helperFloor). A subagent whose
+    // A subagent of a turn Auto picked for (Subagents off, or no verdict for it) runs at that turn's effort, no extra
+    // judge call, but never below medium: a subagent's answer goes back unchecked (see subagentFloor). A subagent whose
     // definition sets its own effort cannot be told apart from one that inherits it, so it follows the turn too.
     if (e.agentId !== undefined) {
       if (p.by === 'manual') return yield* send(e)
-      const floor = helperFloor(config.floor, config.ceiling)
+      const floor = subagentFloor(config.floor, config.ceiling)
       const effort = EFFORTS.indexOf(p.effort) < EFFORTS.indexOf(floor) ? floor : p.effort
       if (e.index === 0) void proof($, `subagent ${e.agentId} (${e.model}): effort ${e.effort ?? 'none'} -> ${effort}, the turn's`)
       return yield* send({ ...e, effort })
@@ -4214,25 +4253,25 @@ Saved to ${out}.md and .json` }
   })
 
   on('agent.spawn', async ($, e, next) => {
-    // Effort for helpers: the judge reads the subagent's task before it starts (a fork shares the chat's context and
+    // Effort for subagents: the judge reads the subagent's task before it starts (a fork shares the chat's context and
     // keeps its effort). Without a verdict it runs at the chat's effort, as with the setting off.
-    const helper = config.helpers === 'on' && !e.fork && !e.isTeammate && !e.workflow
-      ? await helperEffort($, e.prompt, e.subagentType).catch(() => null)
+    const verdict = config.subagents === 'on' && !e.fork && !e.isTeammate && !e.workflow
+      ? await subagentEffort($, e.prompt, e.subagentType).catch(() => null)
       : null
-    // The model the judge named counts when Model for helpers is on and it was sure of the task.
-    const named = helper && config.helperModel === 'on' && (helper.sure === undefined || helper.sure >= HELPER_MODEL_SURE) ? helper.model : undefined
-    const waiting = helper ? { description: e.description, type: e.subagentType, parentId: e.parentAgentId, effort: helper.effort, ...(named ? { model: named } : {}) } : null
-    if (waiting) helperWaiting = [...helperWaiting, waiting].slice(-20)
+    // The model the judge named counts when Cheaper model for subagents is on and it was sure of the task.
+    const named = verdict && config.subagentModel === 'on' && (verdict.sure === undefined || verdict.sure >= SUBAGENT_MODEL_SURE) ? verdict.model : undefined
+    const waiting = verdict ? { description: e.description, type: e.subagentType, parentId: e.parentAgentId, effort: verdict.effort, ...(named ? { model: named } : {}) } : null
+    if (waiting) subagentWaiting = [...subagentWaiting, waiting].slice(-20)
     const result = await next(e)
     if (waiting) {
-      helperWaiting = helperWaiting.filter(w => w !== waiting)
-      if ('agentId' in result && result.agentId && !helperPicks.has(result.agentId)) helperPicks.set(result.agentId, { effort: waiting.effort, ...(waiting.model ? { model: waiting.model } : {}) })
+      subagentWaiting = subagentWaiting.filter(w => w !== waiting)
+      if ('agentId' in result && result.agentId && !subagentPicks.has(result.agentId)) subagentPicks.set(result.agentId, { effort: waiting.effort, ...(waiting.model ? { model: waiting.model } : {}) })
       if ('agentId' in result && result.agentId) {
         await update($, saved, old => {
           const t = asSpent(old)
-          return { ...t, helpers: { ...t.helpers, runs: { ...t.helpers.runs, [waiting.effort]: (t.helpers.runs[waiting.effort] ?? 0) + 1 } } }
+          return { ...t, subagents: { ...t.subagents, runs: { ...t.subagents.runs, [waiting.effort]: (t.subagents.runs[waiting.effort] ?? 0) + 1 } } }
         }).catch(() => undefined)
-        void proof($, `helper ${e.subagentType} "${e.description}": ${waiting.effort}${waiting.model ? ` on ${waiting.model} if cheaper` : ''} (${helper?.why})`)
+        void proof($, `subagent ${e.subagentType} "${e.description}": ${waiting.effort}${waiting.model ? ` on ${waiting.model} if cheaper` : ''} (${verdict?.why})`)
       }
     }
     return result
@@ -4359,8 +4398,8 @@ Saved to ${out}.md and .json` }
           layout: draft.layout ?? config.layout,
           compactWith: draft.compactWith ?? config.compactWith,
           handoffButton: draft.handoffButton ?? config.handoffButton,
-          helpers: draft.helpers ?? config.helpers,
-          helperModel: draft.helperModel ?? config.helperModel,
+          subagents: draft.subagents ?? config.subagents,
+          subagentModel: draft.subagentModel ?? config.subagentModel,
           holdOffer: draft.holdOffer ?? config.holdOffer,
           theme: draft.theme ?? config.theme,
           appearance: draft.appearance ?? config.appearance,
@@ -4379,7 +4418,7 @@ Saved to ${out}.md and .json` }
         const showParts = [['timer', 'Cache timer'], ['reason', 'Judge line'], ['hot', 'Running-low alert'], ['cold', 'Cold-cache alert']] as const
         const summaries: Record<SettingsCard, string> = {
           auto: `${BIAS_WORDS[shown.bias + 2]} · ${shown.floor} to ${shown.ceiling}${shown.holdOffer === 'on' ? ' · held offers' : ''}`,
-          helpers: shown.helpers !== 'on' ? 'Off' : shown.helperModel === 'on' ? 'Effort and cheaper model' : 'Effort picked',
+          subagents: shown.subagents !== 'on' ? 'Off' : shown.subagentModel === 'on' ? 'Effort and cheaper model' : 'Effort picked',
           context: `${contextAlert === 'off' ? 'Alert off' : `Alert at ${contextAlert}%`} · ${shown.compactWith === 'session' ? "Chat's model" : 'Haiku'} · ${shown.handoffSkill ? `/${shown.handoffSkill}` : 'built-in handoff'}`,
           look: `${shown.layout === 'minimal' ? 'Minimal' : 'Dashboard'} · ${THEME_LABELS[shown.theme as ThemeName] ?? shown.theme} · ${showParts.filter(([part]) => !hidden.includes(part)).length} of ${showParts.length} shown`,
         }
@@ -4420,7 +4459,7 @@ Saved to ${out}.md and .json` }
             </Box>
           )
         }
-        const flip = (field: 'helpers' | 'helperModel' | 'holdOffer') => () => set(field)(shown[field] === 'on' ? 'off' : 'on')
+        const flip = (field: 'subagents' | 'subagentModel' | 'holdOffer') => () => set(field)(shown[field] === 'on' ? 'off' : 'on')
         // The slider: five stops, the marker on the one in force. No animation, a click moves it.
         const track: unknown[] = []
         for (const n of [-2, -1, 0, 1, 2]) {
@@ -4574,14 +4613,14 @@ Saved to ${out}.md and .json` }
                             about: shown.holdOffer === 'on' ? 'With model on Manual, a typed prompt waits for Switch or Keep' : 'With model on Manual, a toast suggests the model and the prompt goes on',
                           }),
                         ]),
-                  ] : card === 'helpers' ? (bare ? [] : [
+                  ] : card === 'subagents' ? (bare ? [] : [
                     settingSwitch({
-                      key: 'settings-helpers', label: 'Effort for helpers', on: shown.helpers === 'on', onPress: flip('helpers'),
-                      about: shown.helpers === 'on' ? "The judge picks each subagent's effort, medium or more" : "Subagents run at the chat's effort",
+                      key: 'settings-subagents', label: 'Effort for subagents', on: shown.subagents === 'on', onPress: flip('subagents'),
+                      about: shown.subagents === 'on' ? "The judge picks each subagent's effort, medium or more" : "Subagents run at the chat's effort",
                     }),
                     settingSwitch({
-                      key: 'settings-helper-model', label: 'Cheaper model for helpers', on: shown.helperModel === 'on', dim: shown.helpers !== 'on', onPress: flip('helperModel'),
-                      about: shown.helpers !== 'on' ? 'Needs Effort for helpers' : shown.helperModel === 'on' ? 'A subagent the judge calls simple runs on a cheaper model, never a dearer one' : 'A subagent keeps the model it was given',
+                      key: 'settings-subagent-model', label: 'Cheaper model for subagents', on: shown.subagentModel === 'on', dim: shown.subagents !== 'on', onPress: flip('subagentModel'),
+                      about: shown.subagents !== 'on' ? 'Needs Effort for subagents' : shown.subagentModel === 'on' ? 'A subagent the judge calls simple runs on a cheaper model, never a dearer one' : 'A subagent keeps the model it was given',
                     }),
                   ]) : card === 'context' ? (bare ? [] : [
                     settingRow({ key: 'settings-swamp', label: 'Context alert', value: contextAlert, options: [{ value: 'off', label: 'Off' }, ...SWAMP_STEPS.map(n => ({ value: String(n), label: `At ${n}%` }))],
