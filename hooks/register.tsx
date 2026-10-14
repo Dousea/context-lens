@@ -836,8 +836,12 @@ async function modelIs($: EngineInterface, id: string) {
 }
 
 async function sessionModel($: EngineInterface): Promise<ModelKey> {
-  const id = await $.session.model()
-  return MODELS.find(m => id.includes(m.key))?.key ?? 'sonnet'
+  return keyOf(await sessionModelId($)) ?? 'sonnet'
+}
+
+/** The model this session's requests go out on: a taken offer's, else the app's own. */
+async function sessionModelId($: EngineInterface): Promise<string> {
+  return sessionPick ? MODELS.find(m => m.key === sessionPick)!.id : $.session.model()
 }
 
 
@@ -889,6 +893,25 @@ let toldAboutEnter = false
 let lastFooter = ''
 // A model the person turned down; not suggested again until they pick something else.
 let declined: ModelKey | null = null
+// The model a taken offer moved this session to. Only the requests carry it: /model would also make it the app's
+// default for every later session. The person's own switch (the app's picker, /model) ends it.
+let sessionPick: ModelKey | null = null
+// Each model's own prompt cache for this chat: when it lapses and how many tokens it holds. Going back to a model whose cache
+// is still warm only writes what was added since. A compaction or /clear starts a new prefix, so they are forgotten.
+const modelCaches = new Map<ModelKey, { expires: number; tokens: number }>()
+// How the model in `suggestion` is offered: the session switches to it, or the prompt is handed to a helper on it.
+let suggestedAs: 'switch' | 'helper' = 'switch'
+
+/** The tokens a model still has in its cache for this chat, or undefined when it has none warm. */
+function warmTokens(key: ModelKey, now: number): number | undefined {
+  const cache = modelCaches.get(key)
+  return cache && cache.expires > now ? cache.tokens : undefined
+}
+
+/** The note a handed-off prompt carries: the chat's model stays, and a subagent on `model` does the task. */
+export function helperNote(model: ModelKey): string {
+  return `\n\n[context-lens: hand this task to a subagent on ${model} (Agent tool, model: "${model}") with a complete brief, then use its result.]`
+}
 
 /**
  * Types a slash command into the prompt box for the person to send with Enter. A command the person
@@ -939,18 +962,12 @@ async function holdForOffer($: EngineInterface, model: ModelKey): Promise<boolea
   })
 }
 
-/** The dropped prompt, sent again on the new model. The host may have put its text back in the input box: that copy is cleared
- * first (only when it is still the same text, so something typed meanwhile is left alone), or it would sit there twice. */
-async function sendAgain($: EngineInterface, again: { text: string; attachments?: unknown }) {
-  const boxed = (await $.prompt.read().catch(() => null))?.text ?? ''
-  if (boxed.trim() === again.text.trim()) await $.prompt.fill({ text: '', mode: 'replace' }).catch(() => undefined)
-  await $.prompt.submit(again as never)
-}
-
-/** A model change reloads the context, so it only happens when the person says yes. */
+/** A model change reloads the context, so it only happens when the person says yes. It holds for this session only. */
 async function switchModel($: EngineInterface, model: ModelKey) {
   try {
-    await $.command.run({ command: 'model', args: model })
+    sessionPick = model
+    await modelIs($, MODELS.find(m => m.key === model)!.id)
+    $.ui.invalidate('ui.render')
     declined = null
     await update($, suggestion, () => null)
     const current = await read($, pick)
@@ -1090,17 +1107,45 @@ async function toggleSave($: EngineInterface): Promise<string> {
 /** Below this a cold cache costs too little to warn about: the next message rereads the chat at full price once. */
 const COLD_MIN_TOKENS = 150_000
 
-/** A chat this small costs next to nothing to write again on another model, so a cheaper one can pay at once. */
+/** A switch that writes at most this many tokens more to the cache than staying would costs next to nothing. */
 const SMALL_CHAT_TOKENS = 20_000
 
+/** Dollars per million uncached input tokens. Haiku costs five times as much past 100k tokens of context. */
+const INPUT_PRICE: Record<ModelKey, number> = { haiku: 0.1, sonnet: 2, opus: 4, fable: 10 }
+export const priceOf = (key: ModelKey, tokens: number) => (key === 'haiku' && tokens > 100_000 ? 0.5 : INPUT_PRICE[key])
+
+/** The requests a cheaper model has to make before its first, dearer cache write pays back. A turn of work makes several;
+ * what output saves is left out, so the estimate errs on staying. */
+const PAYBACK_REQUESTS = 8
+
 /**
- * Whether the judge's model is worth suggesting: another model than the one in use, cheaper or stronger (never Fable), and
- * the chat's cache is cold or the chat is new or small, so the other model's cache costs little or nothing extra. In a big
- * warm chat it never pays: the other model has to write the whole chat first. A size or cache state not known yet counts as new.
+ * How the judge's model is worth offering: 'switch' the session to it, hand the prompt to a 'helper' (a subagent) on it,
+ * or null for nothing (Fable, or the model already in use). Each model has a prompt cache of its own, so a switch writes
+ * the chat again at the new model's write price, less what that model still has warm (`warm`, its cached tokens).
+ * A cheaper model is a switch when that write pays back within PAYBACK_REQUESTS reads; a stronger one is a quality call
+ * that never pays in tokens, so it is a switch only when it writes little more than staying would (a cold, small or
+ * still-warm chat). Otherwise the task goes to a helper, which starts with a small context and leaves the chat's cache
+ * warm. A size not known yet counts as a new chat.
  */
-export function suggestWorth(verdict: ModelKey, inUse: ModelKey, chat: { cold: boolean; tokens?: number }): boolean {
-  if (verdict === 'fable' || verdict === inUse) return false
-  return chat.cold || (chat.tokens ?? 0) < SMALL_CHAT_TOKENS
+export function switchWorth(
+  verdict: ModelKey,
+  inUse: ModelKey,
+  chat: { cold: boolean; tokens?: number; ttl?: '5m' | '1h'; warm?: number },
+): 'switch' | 'helper' | null {
+  if (verdict === 'fable' || verdict === inUse) return null
+  const tokens = chat.tokens
+  if (tokens === undefined) return 'switch'
+  const write = chat.ttl === '5m' ? WEIGHT.write : WEIGHT.write1h
+  const writtenStay = chat.cold ? tokens : 0
+  const writtenGo = Math.max(0, tokens - Math.min(tokens, chat.warm ?? 0))
+  // Little more to write than staying would: any switch is near free.
+  if (writtenGo - writtenStay <= SMALL_CHAT_TOKENS) return 'switch'
+  const rank = (k: ModelKey) => MODELS.findIndex(m => m.key === k)
+  if (rank(verdict) > rank(inUse)) return 'helper'
+  const stay = (writtenStay * write + (tokens - writtenStay) * WEIGHT.read) * priceOf(inUse, tokens)
+  const go = (writtenGo * write + (tokens - writtenGo) * WEIGHT.read) * priceOf(verdict, tokens)
+  const gain = tokens * WEIGHT.read * (priceOf(inUse, tokens) - priceOf(verdict, tokens))
+  return go - stay <= PAYBACK_REQUESTS * gain ? 'switch' : 'helper'
 }
 
 /** The context's tokens when the cold band is worth showing: the cache is cold, the band not closed, and the chat big
@@ -1389,6 +1434,7 @@ async function compactCold($: EngineInterface, note = '') {
     // A note goes after /compact as the app's own instructions for the summary.
     await $.command.run({ command: 'compact', args: note.trim() })
     cacheExpires = 0
+    modelCaches.clear()
     await rememberCache($)
     await update($, cacheLeft, () => null)
     compacted = true
@@ -3027,8 +3073,11 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>, opt
   const question = wanted ? (
     <Box flexDirection="column">
       <Box flexDirection="row" gap={1} alignItems="center">
-        <Text>Switch to {MODELS.find(m => m.key === wanted)?.label}? {offer ? 'Your prompt waits.' : 'The context reloads.'}</Text>
-        <Button key="accept" variant="primary" label="Switch" onPress={acceptSuggestion(wanted)} />
+        <Text>
+          {suggestedAs === 'helper' ? `Hand this to a ${MODELS.find(m => m.key === wanted)?.label} helper?` : `Switch to ${MODELS.find(m => m.key === wanted)?.label}?`}{' '}
+          {offer ? 'Your prompt waits.' : 'The context reloads.'}
+        </Text>
+        <Button key="accept" variant="primary" label={suggestedAs === 'helper' ? 'Hand off' : 'Switch'} onPress={acceptSuggestion(wanted)} />
         <Button key="decline" label="Keep" onPress={dismiss} />
       </Box>
     </Box>
@@ -3442,6 +3491,7 @@ export const register: Register = (on, options) => {
 
   on('session.end', async ($, e, next) => {
     if (e.reason === 'clear') {
+      modelCaches.clear()
       await update($, lensMain, clock => emptyClock(clock.ttl))
       await update($, lensLiveTokens, () => null)
       await update($, lensRewritten, () => false)
@@ -3632,12 +3682,16 @@ export const register: Register = (on, options) => {
     }
     if (arg === 'debug') {
       const ago = (t: number) => (t ? `${Math.round((Date.now() - t) / 1000)}s ago` : 'never')
+      const debugNow = await $.clock.now().catch(() => Date.now())
       const lastFork = (await $.store.get('lastFork').catch(() => null)) as { at: number; outcome: string } | null
       return {
         text: [
+          // A copy outside the plugin cache (--plugin-dir) has no marketplace; name its folder instead.
+          `plugin: ${ownVersion || '?'}, ${/cache[\\/][^\\/]+[\\/]/.test($.plugin.root) ? pluginId($) : `local copy at ${$.plugin.root}`}`,
           `session.start ${ago(sessionStarted)}`,
           `app SessionStart: ${classicStart ? `${ago(classicStart.at)} (${classicStart.said})` : 'never'}`,
           `cache: ${cacheExpires === 0 ? 'not started' : `${await cacheMinutes($)} min left`}, shown ${await read($, cacheLeft)}, ttl ${cacheTtl}, last reply ${lastResponseAt ? ago(lastResponseAt) : 'none seen'}, replies seen ${repliesSeen}, forced ${coldForced}`,
+          `model caches: ${[...modelCaches].map(([k, c]) => `${k} ${kTokens(c.tokens)} ${Math.max(0, Math.ceil((c.expires - debugNow) / 60_000))} min`).join(', ') || 'none'}${sessionPick ? `, session on ${sessionPick}` : ''}`,
           `band asked for ${renderCalls} times, last ${ago(lastRenderAt)}`,
           `band error: ${lastRenderError || 'none'}`,
           `last draw: ${lastRenderBranch || 'none'}`,
@@ -3688,9 +3742,13 @@ Saved to ${out}.md and .json` }
     if (arg === 'stats' || arg === 'saved') return { text: `Auto, this session:\n${savedText(await read($, saved))}` }
     if (!wanted) return { text: 'No model suggestion right now.' }
     if (arg === 'switch') {
+      if (offer && suggestedAs === 'helper') {
+        settleOffer(true)
+        return { text: `Handing the prompt to a ${wanted} helper. The chat stays on its model.` }
+      }
       if (offer) settleOffer(true)
-      else $.clock.after(0, () => void switchModel($, wanted))
-      return { text: `Switching to ${wanted}. The context reloads.` }
+      else await switchModel($, wanted)
+      return { text: `Switching to ${wanted} for this session. The context reloads.` }
     }
     declined = wanted
     await update($, suggestion, () => null)
@@ -3726,7 +3784,7 @@ Saved to ${out}.md and .json` }
     if (byAgent && !wantsEffort) return next(e)
     if ((!byPerson && !byAgent) || (slash && !skill) || (!wantsEffort && !wantsModel)) return next(e)
     // On a model where an effort change rewrites the cache, Auto waits instead of judging.
-    const modelId = await $.session.model()
+    const modelId = await sessionModelId($)
     await modelIs($, modelId)
     if (!cacheSafe(modelId) && keyOf(modelId) !== 'haiku') return next(e)
     // "go", "ok", "yes" between two steps of work keep the effort Auto already chose; no judge is asked.
@@ -3808,9 +3866,14 @@ Saved to ${out}.md and .json` }
             await choose($, applied)
           }
         }
-        // Only another model than the chat's, and only where the switch pays: a cold or small chat (see suggestWorth).
+        // Only another model than the chat's: a switch where it pays for the cache it rewrites, else a helper (see switchWorth).
         const cold = (await read($, cacheLeft)) === 0 || coldForced
-        if (verdict.model !== declined && suggestWorth(verdict.model, inUse, { cold, tokens: lastContext?.tokens }) && (wantsModel || (byPerson && !midTurn && !slash))) {
+        const now = await $.clock.now().catch(() => Date.now())
+        const worth = verdict.model === declined ? null : switchWorth(verdict.model, inUse, { cold, tokens: lastContext?.tokens ?? modelCaches.get(inUse)?.tokens, ttl: cacheTtl, warm: warmTokens(verdict.model, now) })
+        // A helper only takes a prompt the person typed: there is nothing to hand off in a note or an agent's report.
+        const offerable = worth === 'switch' || (worth === 'helper' && byPerson && !midTurn && !slash)
+        if (worth && offerable && (wantsModel || (byPerson && !midTurn && !slash))) {
+          suggestedAs = worth
           await update($, suggestion, () => verdict.model)
           // A prompt typed here waits for the answer; a note, an agent's report or a message typed mid-turn only gets the toast.
           if (byPerson && !midTurn && !slash) held = verdict.model
@@ -3825,19 +3888,16 @@ Saved to ${out}.md and .json` }
       await update($, isJudging, () => false)
     }
     if (held) {
-      void proof($, `offer: ${held} for "${e.text.slice(0, 50)}", the prompt waits`)
+      const as = suggestedAs
+      void proof($, `offer (${as}): ${held} for "${e.text.slice(0, 50)}", the prompt waits`)
       const accepted = await holdForOffer($, held)
       await update($, suggestion, () => null)
       $.ui.invalidate('ui.render')
-      void proof($, accepted ? `offer taken: switching to ${held}` : 'offer not taken: the prompt goes on as it is')
-      if (accepted) {
-        // The host refuses /model from inside a prompt.submit hook (it would wait on the turn this hook holds): the prompt is
-        // dropped here, the model switched from a later event, and the same prompt sent again on the new model.
-        const again = { text: e.text, attachments: e.attachments }
-        await setTurnBusy($, false)
-        $.clock.after(0, () => void switchModel($, held!).then(() => sendAgain($, again)).catch(() => undefined))
-        return { drop: `switching to ${held} first` }
-      }
+      void proof($, accepted ? `offer taken: ${as === 'helper' ? 'a helper on' : 'switching to'} ${held}` : 'offer not taken: the prompt goes on as it is')
+      // A helper: the chat's model and its warm cache stay, and the prompt asks for a subagent on the other model.
+      if (accepted && as === 'helper') return next({ ...e, text: e.text + helperNote(held) })
+      // The switch only changes what the requests carry, so the prompt goes straight on, on the new model.
+      if (accepted) await switchModel($, held)
     }
     return next(e)
   })
@@ -3845,19 +3905,32 @@ Saved to ${out}.md and .json` }
   // A switch from anywhere (the app's picker, /model, a fallback) moves the pick at once.
   on('classic.PostModelSwitch', async ($, e, next) => {
     const result = await next(e)
+    sessionPick = null
     await modelIs($, e.to_model)
     return result
   })
 
   on('turn.step', async function* ($, e, next) {
+    const asked = { model: e.model, effort: e.effort }
+    // A taken offer's model goes out instead of the app's, and everything below decides by it. Haiku takes no effort.
+    if (e.agentId === undefined && sessionPick && keyOf(e.model) !== sessionPick) {
+      e = { ...e, model: MODELS.find(m => m.key === sessionPick)!.id, effort: sessionPick === 'haiku' ? undefined : e.effort }
+    }
     // Every main-conversation response, whatever its effort, keeps the cache warm for its lifetime from now.
     const send = async function* (request: typeof e) {
       if (e.agentId === undefined) ranThisTurn = { model: typeof request.model === 'string' ? keyOf(request.model) : undefined, effort: EFFORTS.find(x => x === request.effort) }
-      if (e.agentId === undefined) lastRequest = { index: e.index, appModel: e.model, appEffort: e.effort, model: request.model, effort: request.effort, at: Date.now() }
+      if (e.agentId === undefined) lastRequest = { index: e.index, appModel: asked.model, appEffort: asked.effort, model: request.model, effort: request.effort, at: Date.now() }
       const answer = yield* next(request)
       if (answer?.usage) await lensRequest($, e.agentId, answer.usage, { model: typeof request.model === 'string' ? keyOf(request.model) : undefined, effort: EFFORTS.find(x => x === request.effort) }).catch(() => undefined)
       // Inside the hook ($ calls after it returns are refused), and never allowed to break the request.
       if (e.agentId === undefined && answer?.usage) await cacheTouched($, answer.usage).catch(() => undefined)
+      const sentModel = typeof request.model === 'string' ? keyOf(request.model) : undefined
+      if (e.agentId === undefined && answer?.usage && sentModel) {
+        const u = answer.usage
+        const held = (u.input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0)
+        // cacheTouched has just set the chat's expiry from this response.
+        modelCaches.set(sentModel, { expires: cacheExpires, tokens: held })
+      }
       if (answer?.usage) turnCost += weighted(answer.usage)
       return answer
     }

@@ -1,7 +1,7 @@
 import { describe, expect, mock, test as baseTest } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
-import { helperFloor, helperModelFor, suggestWorth, namedEffort, hotVisible, tipped, bounded, handoffEvidence, parseHandoffAnswer, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, bandFit, turnLineFor, flashColor, handoffGlowStep, weighted, handoffLook, claudeCandidates, noClaudeHint, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
+import { helperFloor, helperModelFor, switchWorth, helperNote, priceOf, namedEffort, hotVisible, tipped, bounded, handoffEvidence, parseHandoffAnswer, parseVerdict, capped, resetLabel, HANDOFF_PROMPT, handoffMessage, withAttachments, endsOnQuestion, keepsEffort, benchGrade, benchReport, judgeFailure, contextFrom, readConfig, asSpent, cacheColor, cacheLabel, cacheClock, cacheSafe, cacheTtlOf, mostlyCached, isFollowUp, savedText, forkOutcome, setupNext, setupBack, setupCounter, dashboardLines, bandFit, turnLineFor, flashColor, handoffGlowStep, weighted, handoffLook, claudeCandidates, noClaudeHint, compactTranscript, judgeGlowSvg, judgeGlowAt, judgeBrightnessAt, JUDGE_RISE_MS, JUDGE_FADE_MS, JUDGE_STEP_MS, JUDGE_PIECE_MS } from '../hooks/register'
 import { ART_COLUMNS, artFrame, artPixel, MOVING } from '../hooks/art'
 import { isLight, lightHex, lightProps, setLight, setTheme, themedEls, themedSvg, tint, tintHex } from '../hooks/theme'
 import { afterPrompt, currentStep, phaseAtTurnEnd, progressShare, progressShows, progressTitle, soundArgv, stepNumber, stepsFromTodos, withTaskCreated, withTaskUpdated } from '../hooks/progress'
@@ -361,18 +361,33 @@ describe('two autos', () => {
 })
 
 describe('model suggestion', () => {
-  test('suggestWorth: another model, cheaper or stronger, only in a new, small or cold chat', () => {
-    // Cheaper than the one in use, chat new (size unknown) or small or cold.
-    expect(suggestWorth('haiku', 'opus', { cold: false })).toBe(true)
-    expect(suggestWorth('sonnet', 'opus', { cold: false, tokens: 5_000 })).toBe(true)
-    expect(suggestWorth('sonnet', 'opus', { cold: true, tokens: 400_000 })).toBe(true)
-    // A big warm chat: the other model would write all of it first.
-    expect(suggestWorth('haiku', 'opus', { cold: false, tokens: 120_000 })).toBe(false)
-    // A stronger model counts too, under the same cache rule; the same model and Fable never do.
-    expect(suggestWorth('opus', 'sonnet', { cold: true })).toBe(true)
-    expect(suggestWorth('opus', 'sonnet', { cold: false, tokens: 120_000 })).toBe(false)
-    expect(suggestWorth('opus', 'opus', { cold: true })).toBe(false)
-    expect(suggestWorth('fable', 'opus', { cold: true })).toBe(false)
+  test('priceOf: Haiku costs five times as much past 100k tokens of context, Opus the same at any size', () => {
+    expect(priceOf('haiku', 50_000)).toBe(0.1)
+    expect(priceOf('haiku', 100_000)).toBe(0.1)
+    expect(priceOf('haiku', 100_001)).toBe(0.5)
+    expect(priceOf('opus', 50_000)).toBe(4)
+    expect(priceOf('opus', 500_000)).toBe(4)
+  })
+
+  test('switchWorth: a switch where the rewritten cache is cheap or pays back, a helper otherwise', () => {
+    // A new chat (size unknown), a small one, or a cold one: switch, either way.
+    expect(switchWorth('haiku', 'opus', { cold: false })).toBe('switch')
+    expect(switchWorth('sonnet', 'opus', { cold: false, tokens: 5_000 })).toBe('switch')
+    expect(switchWorth('opus', 'sonnet', { cold: false, tokens: 5_000 })).toBe('switch')
+    expect(switchWorth('sonnet', 'opus', { cold: true, tokens: 400_000 })).toBe('switch')
+    expect(switchWorth('opus', 'sonnet', { cold: true, tokens: 400_000 })).toBe('switch')
+    // Big and warm: Haiku's write costs less than Opus's read, so it pays at once; Sonnet's write would take ~18 requests.
+    expect(switchWorth('haiku', 'opus', { cold: false, tokens: 200_000 })).toBe('switch')
+    expect(switchWorth('sonnet', 'opus', { cold: false, tokens: 200_000 })).toBe('helper')
+    expect(switchWorth('sonnet', 'opus', { cold: false, tokens: 200_000, ttl: '5m' })).toBe('helper')
+    // A stronger model never pays in tokens: in a big warm chat it is a helper...
+    expect(switchWorth('opus', 'sonnet', { cold: false, tokens: 120_000 })).toBe('helper')
+    // ...unless its own cache is still warm and only the tail since is written.
+    expect(switchWorth('opus', 'sonnet', { cold: false, tokens: 120_000, warm: 110_000 })).toBe('switch')
+    expect(switchWorth('sonnet', 'opus', { cold: false, tokens: 200_000, warm: 190_000 })).toBe('switch')
+    // The same model and Fable never.
+    expect(switchWorth('opus', 'opus', { cold: true })).toBe(null)
+    expect(switchWorth('fable', 'opus', { cold: true })).toBe(null)
   })
 
   test('a stronger model than the chat\'s is suggested in a new chat', async ($, on) => {
@@ -399,18 +414,12 @@ describe('offer a model first', () => {
     for (let i = 0; i < 5; i++) await ui.redraw()
   }
 
-  test('offer first: a new chat holds the prompt until Switch: the model is switched, then the prompt goes', async ($, on) => {
+  test('offer first: a new chat holds the prompt until Switch, then it goes on the new model, for this session only', async ($, on) => {
     engine(on)
     judgeSays(on, '{"model":"haiku","effort":"low","why":"simple question"}')
     const ran = recordCommands(on)
-    // The host put the dropped prompt back in the input box: it is cleared before the prompt is sent again.
-    const filled: string[] = []
-    on('prompt.read', () => ({ value: { text: 'vad heter mappen?', cursor: 17 } }) as never)
-    on('prompt.fill', (_$, e) => {
-      filled.push(e.text)
-      return { isFilled: true } as never
-    })
-    const clock = mock.clock(on)
+    const sent = recordSteps(on)
+    mock.clock(on)
     const ui = await $.ui.mount({ plugin: 'context-lens', surface: 'terminal', ...BAND })
     const { through, sending } = await sendHeld($, on)
     await settle(ui)
@@ -418,12 +427,34 @@ describe('offer a model first', () => {
     expect(through).toEqual([])
     await ui.press({ key: 'accept' })
     await sending
-    // The prompt is dropped, the model switched from a later event, and the same prompt sent again.
-    expect(through).toEqual([])
-    await clock.advance(50)
-    expect(ran).toEqual(['/model haiku'])
+    // No /model: that would make Haiku the app's default for later sessions too. The requests carry it instead.
+    expect(ran).toEqual([])
     expect(through).toEqual(['vad heter mappen?'])
-    expect(filled).toEqual([''])
+    await step($)
+    expect(sent[0]).toEqual({ model: 'claude-haiku-5-5', effort: undefined })
+    await ui.unmount()
+  })
+
+  test("offer first: the person's own model switch ends the session's model", async ($, on) => {
+    engine(on)
+    judgeSays(on, '{"model":"haiku","effort":"low","why":"simple question"}')
+    on('classic.PostModelSwitch', () => ({}) as never)
+    const sent = recordSteps(on)
+    mock.clock(on)
+    const ui = await $.ui.mount({ plugin: 'context-lens', surface: 'terminal', ...BAND })
+    const { sending } = await sendHeld($, on)
+    await settle(ui)
+    await ui.press({ key: 'accept' })
+    await sending
+    await $.classic.PostModelSwitch({
+      from_model: 'claude-opus-5-5',
+      to_model: 'claude-opus-5-5',
+      requested_model: 'opus',
+      source: 'picker',
+      context_tokens: 0,
+    } as never)
+    await step($)
+    expect(sent[0].model).toBe('claude-opus-5-5')
     await ui.unmount()
   })
 
@@ -463,7 +494,8 @@ describe('offer a model first', () => {
     engine(on, {}, 'claude-sonnet-5-5')
     judgeSays(on, '{"model":"opus","effort":"high","why":"hard problem"}')
     const ran = recordCommands(on)
-    const clock = mock.clock(on)
+    const sent = recordSteps(on)
+    mock.clock(on)
     const ui = await $.ui.mount({ plugin: 'context-lens', surface: 'terminal', ...BAND })
     const { through, sending } = await sendHeld($, on, 'design the whole trainer architecture')
     await settle(ui)
@@ -471,9 +503,69 @@ describe('offer a model first', () => {
     expect(through).toEqual([])
     await ui.press({ key: 'accept' })
     await sending
-    await clock.advance(50)
-    expect(ran).toEqual(['/model opus'])
+    expect(ran).toEqual([])
     expect(through).toEqual(['design the whole trainer architecture'])
+    await step($)
+    expect(sent[0].model).toBe('claude-opus-5-5')
+    await ui.unmount()
+  })
+
+  /** The main model answers every request with `tokens` held in its cache; records the model each went out on. */
+  const bigChat = (on: On, tokens: number) => {
+    const sent: string[] = []
+    on('session.usage', () => ({ value: { context: { tokens, window: 1_000_000, percent: tokens / 10_000 } } }) as never)
+    on('turn.step', async function* (_$, e) {
+      sent.push(e.model)
+      const usage = { ...USAGE, cache_read_input_tokens: tokens, cache_creation: { ephemeral_1h_input_tokens: 0, ephemeral_5m_input_tokens: 0 } }
+      return { turnId: e.turnId, index: e.index, answer: '', toolUses: [], stopReason: 'end_turn', usage } as never
+    })
+    return sent
+  }
+
+  test('offer first: in a big warm chat a switch that does not pay back becomes a helper, and the chat keeps its model', async ($, on) => {
+    engine(on)
+    judgeSays(on, '{"model":"sonnet","effort":"medium","why":"routine"}')
+    const sent = bigChat(on, 200_000)
+    const clock = mock.clock(on)
+    const ui = await $.ui.mount({ plugin: 'context-lens', surface: 'terminal', ...BAND })
+    await step($)
+    await clock.advance(2_000)
+    await settle(ui)
+    const { through, sending } = await sendHeld($, on, 'rename the config loader')
+    await settle(ui)
+    expect(await drawn(ui)).toContain('Hand off')
+    await ui.press({ key: 'accept' })
+    await sending
+    expect(through).toEqual([`rename the config loader${helperNote('sonnet')}`])
+    await step($)
+    expect(sent.at(-1)).toBe('claude-opus-5-5')
+    await ui.unmount()
+  })
+
+  test('offer first: back to a model whose cache is still warm is a plain switch, even in a big chat', async ($, on) => {
+    engine(on)
+    judgeSays(on, '{"model":"opus","effort":"high","why":"hard"}')
+    const sent = bigChat(on, 200_000)
+    const clock = mock.clock(on)
+    // A draft in the box: a model click switches this session itself (no /model to type).
+    on('prompt.read', () => ({ value: { text: 'draft', cursor: 5 } }) as never)
+    const ui = await $.ui.mount({ plugin: 'context-lens', surface: 'terminal', ...BAND })
+    // Opus answers with 200k cached, then the session moves to Sonnet.
+    await step($)
+    await clock.advance(2_000)
+    await settle(ui)
+    await ui.press({ key: 'm-sonnet' })
+    await step($)
+    expect(sent.at(-1)).toBe('claude-sonnet-5-5')
+    await clock.advance(10 * 60_000)
+    // Opus is dearer and the chat big, but Opus still holds it warm: only the tail is written, so a plain switch.
+    const { sending } = await sendHeld($, on, 'now the hard part')
+    await settle(ui)
+    expect(await drawn(ui)).toContain('Switch to Opus')
+    await ui.press({ key: 'accept' })
+    await sending
+    await step($)
+    expect(sent.at(-1)).toBe('claude-opus-5-5')
     await ui.unmount()
   })
 
@@ -511,16 +603,19 @@ describe('typed commands', () => {
     await ui.unmount()
   })
 
-  test('with a draft in the box nothing is overwritten and the mod runs the model switch itself', async ($, on) => {
+  test('with a draft in the box nothing is overwritten and the mod switches the model for this session itself', async ($, on) => {
     engine(on)
     const filled = box(on, 'ett halvskrivet meddelande')
     const ran = recordCommands(on)
+    const sent = recordSteps(on)
     const ui = await $.ui.mount({ plugin: 'context-lens', surface: 'terminal', ...BAND })
 
     await ui.press({ key: 'm-haiku' })
 
     expect(filled).toEqual([])
-    expect(ran).toEqual(['/model haiku'])
+    expect(ran).toEqual([])
+    await step($)
+    expect(sent[0].model).toBe('claude-haiku-5-5')
     await ui.unmount()
   })
 
@@ -1080,7 +1175,8 @@ describe('footer', () => {
     engine(on)
     judgeSays(on, '{"model":"haiku","effort":"low","why":"simple"}')
     const ran = recordCommands(on)
-    const mocked = mock.clock(on)
+    const sent = recordSteps(on)
+    mock.clock(on)
     const ui = await $.ui.mount({ plugin: 'context-lens', surface: 'terminal', ...BAND })
 
     const sending = $.prompt.submit({ text: 'hej', wait: false, origin: { kind: 'composer' } })
@@ -1090,8 +1186,9 @@ describe('footer', () => {
 
     await ui.press({ key: 'accept' })
     await sending
-    await mocked.advance(50)
-    expect(ran).toContain('/model haiku')
+    expect(ran).toEqual([])
+    await step($)
+    expect(sent[0].model).toBe('claude-haiku-5-5')
     await ui.unmount()
   })
 
@@ -1172,7 +1269,9 @@ describe('review fixes', () => {
 
   test('/context-lens switch switches to the offered model and /context-lens keep turns it down', async ($, on) => {
     engine(on)
-    judgeSays(on, '{"model":"haiku","effort":"low","why":"simple"}')
+    // Haiku is offered first; on Haiku, the next prompt is offered Opus back.
+    const says = ['{"model":"haiku","effort":"low","why":"simple"}', '{"model":"opus","effort":"high","why":"hard"}']
+    on('model.complete', () => ({ value: { isAnswered: true as const, text: says.length > 1 ? says.shift()! : says[0], usage: USAGE } }))
     const ran = recordCommands(on)
     const mocked = mock.clock(on)
     const ui = await $.ui.mount({ plugin: 'context-lens', surface: 'terminal', ...BAND })
@@ -1181,9 +1280,8 @@ describe('review fixes', () => {
     for (let i = 0; i < 5; i++) await ui.redraw()
     const result = await $.command.run({ command: 'context-lens', args: 'switch' })
     await first
-    await mocked.advance(50)
     expect(String(result.text)).toContain('haiku')
-    expect(ran).toContain('/model haiku')
+    expect(ran).toEqual([])
 
     const second = $.prompt.submit({ text: 'a new question about something else', wait: false, origin: { kind: 'composer' } })
     for (let i = 0; i < 5; i++) await ui.redraw()
