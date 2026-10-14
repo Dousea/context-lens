@@ -916,7 +916,8 @@ let toldAboutEnter = false
 // A model the person turned down; not suggested again until they pick something else.
 let declined: ModelKey | null = null
 // The model a taken offer moved this session to. Only the requests carry it: /model would also make it the app's
-// default for every later session. The person's own switch (the app's picker, /model) ends it.
+// default for every later session. Any /model, the band's Model row or the app's picker moving to another model ends it;
+// the app's picker on the model it already runs sends nothing to hear.
 let sessionPick: ModelKey | null = null
 // Each model's own prompt cache for this chat: when it lapses and how many tokens it holds. Going back to a model whose cache
 // is still warm only writes what was added since. A compaction or /clear starts a new prefix, so they are forgotten.
@@ -984,11 +985,14 @@ async function holdForOffer($: EngineInterface, model: ModelKey): Promise<boolea
   })
 }
 
-/** A model change reloads the context, so it only happens when the person says yes. It holds for this session only. */
+/**
+ * A model change reloads the context, so it only happens when the person says yes. It holds for this session only:
+ * the app's own model ends it, and the requests go out as the app sends them again.
+ */
 async function switchModel($: EngineInterface, model: ModelKey) {
   try {
-    sessionPick = model
-    await modelIs($, MODELS.find(m => m.key === model)!.id)
+    sessionPick = keyOf(await $.session.model()) === model ? null : model
+    await modelIs($, await sessionModelId($))
     $.ui.invalidate('ui.render')
     declined = null
     await update($, suggestion, () => null)
@@ -3053,25 +3057,21 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>, opt
   const effortNow = inAgent
     ? (viewed?.effort ?? (await helperEffortOf($, agentId).catch(() => undefined)))
     : effortOf(v)
-  // The model row is paused: effort first. CONTEXT_LENS_MODEL_UI=1 brings it back.
-  const showModel = (await envModelUi($)) === '1'
+  // CONTEXT_LENS_MODEL_UI=0 leaves the band to effort alone.
+  const showModel = (await envModelUi($)) !== '0'
 
   const setEffort = (level: Effort) => () => pickEffort($, level)
-  // Picking a model yourself turns off Auto for model alone; accepting a suggestion leaves it on.
+  // Picking a model yourself turns off Auto for model alone; accepting a suggestion leaves it on. Neither types /model,
+  // which would make the pick the app's default for later sessions too.
   const setModel = (model: ModelKey) => async () => {
     await update($, isAutoModel, () => false)
     await $.store.set('isAutoModel', false)
-    await changeModel(model)
-  }
-  // The person sends /model, so the app's own control moves too; with a draft in the box the mod runs it.
-  const changeModel = async (model: ModelKey) => {
-    if (await typeCommand($, `/model ${model}`)) return
     await switchModel($, model)
   }
-  // A prompt waiting for the answer takes the switch itself (the box is empty, there is nothing to type into).
+  // A prompt waiting for the answer takes the switch itself.
   const acceptSuggestion = (model: ModelKey) => async () => {
     if (offer) settleOffer(true)
-    else await changeModel(model)
+    else await switchModel($, model)
   }
   const toggleAutoModel = async () => {
     const turnOn = !(await read($, isAutoModel))
@@ -3123,6 +3123,9 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>, opt
           : 'Pick an effort'
   const modelRow = (
     <Box flexDirection="row" alignItems="center" gap={1}>
+      <Box flexShrink={0}>
+        <Text dimColor>Model</Text>
+      </Box>
       {MODELS.map(m =>
         m.key === inUse ? (
           <Button key={`m-${m.key}`} variant="primary" label={m.label} onPress={setModel(m.key)} />
@@ -3924,6 +3927,18 @@ Saved to ${out}.md and .json` }
       if (accepted) await switchModel($, held)
     }
     return next(e)
+  })
+
+  // /model ends a taken offer even when it names the model the app already runs, which the app does not count as a switch
+  // and so sends no PostModelSwitch. A bare /model closed with Esc ends it too: that cannot be told from picking the same model.
+  on('command.run', { command: 'model' }, async ($, e, next) => {
+    const result = await next(e)
+    if (!sessionPick) return result
+
+    sessionPick = null
+    await modelIs($, await $.session.model())
+    $.ui.invalidate('ui.render')
+    return result
   })
 
   // A switch from anywhere (the app's picker, /model, a fallback) moves the pick at once.

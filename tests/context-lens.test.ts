@@ -603,22 +603,9 @@ describe('typed commands', () => {
     return filled
   }
 
-  test('a model click types /model into an empty box for you to send', async ($, on) => {
+  test('a model click switches this session itself and types no /model, which would change the app default', async ($, on) => {
     engine(on)
     const filled = box(on, '')
-    const ran = recordCommands(on)
-    const ui = await $.ui.mount({ plugin: 'context-lens', surface: 'terminal', ...BAND })
-
-    await ui.press({ key: 'm-haiku' })
-
-    expect(filled).toEqual(['/model haiku'])
-    expect(ran).toEqual([])
-    await ui.unmount()
-  })
-
-  test('with a draft in the box nothing is overwritten and the mod switches the model for this session itself', async ($, on) => {
-    engine(on)
-    const filled = box(on, 'ett halvskrivet meddelande')
     const ran = recordCommands(on)
     const sent = recordSteps(on)
     const ui = await $.ui.mount({ plugin: 'context-lens', surface: 'terminal', ...BAND })
@@ -629,6 +616,36 @@ describe('typed commands', () => {
     expect(ran).toEqual([])
     await step($)
     expect(sent[0].model).toBe('claude-haiku-5-5')
+    await ui.unmount()
+  })
+
+  test("a click on the app's own model ends the switch: the requests go out as the app sends them", async ($, on) => {
+    engine(on)
+    box(on, '')
+    const sent = recordSteps(on)
+    const ui = await $.ui.mount({ plugin: 'context-lens', surface: 'terminal', ...BAND })
+
+    await ui.press({ key: 'm-haiku' })
+    await step($)
+    await ui.press({ key: 'm-opus' })
+    await step($)
+
+    expect(sent.map(s => s.model)).toEqual(['claude-haiku-5-5', 'claude-opus-5-5'])
+    await ui.unmount()
+  })
+
+  test('/model naming the model the app already runs ends a taken switch, though the app sees no switch', async ($, on) => {
+    engine(on)
+    box(on, '')
+    recordCommands(on)
+    const sent = recordSteps(on)
+    const ui = await $.ui.mount({ plugin: 'context-lens', surface: 'terminal', ...BAND })
+
+    await ui.press({ key: 'm-haiku' })
+    await $.command.run({ command: 'model', args: 'opus' })
+    await step($)
+
+    expect(sent[0].model).toBe('claude-opus-5-5')
     await ui.unmount()
   })
 
@@ -886,7 +903,7 @@ describe('footer text', () => {
     await rows.unmount()
   })
 
-  test('the model row is paused: effort only, unless CONTEXT_LENS_MODEL_UI=1', async ($, on) => {
+  test('CONTEXT_LENS_MODEL_UI=0 leaves the band to effort alone', async ($, on) => {
     engine(on, { CONTEXT_LENS_MODEL_UI: '0' })
     const ui = await $.ui.mount({ plugin: 'context-lens', surface: 'terminal', ...BAND })
     expect(await ui.find({ key: 'e-high' })).toBeDefined()
