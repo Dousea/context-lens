@@ -60,7 +60,7 @@ const TICK: ReadonlyArray<readonly [number, number]> = [[9, 2], [10, 3], [11, 2]
 
 /** The colour of one pixel of `kind` at frame `t`: x from 0 to columns - 1, y from 0 (top) to rows * 2 - 1. */
 export function artPixel(kind: ArtKind, t: number, x: number, y: number, cols = ART_COLUMNS, rows = ART_ROWS): number {
-  const p = PALETTE[kind]
+  const p = paletteOf(kind)
   const h = rows * 2
   // The scene, then faded in from the left over six columns like the desktop art's mask.
   let c: Rgb = mix(p.ground, p.deep, (y / (h - 1)) * 0.45)

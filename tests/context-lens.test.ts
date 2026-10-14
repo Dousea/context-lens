@@ -2635,6 +2635,17 @@ describe('terminal art', () => {
     expect(frames('calm')).toBe(1)
     expect(frames('done')).toBe(1)
   })
+
+  test('the brand art follows the theme: orange turns its violet pixels', () => {
+    const violet = artPixel('brand', 0, 15, 3)
+    try {
+      setTheme('orange')
+      expect(artPixel('brand', 0, 15, 3)).not.toBe(violet)
+    } finally {
+      setTheme('violet')
+    }
+    expect(artPixel('brand', 0, 15, 3)).toBe(violet)
+  })
 })
 
 describe('terminal bands', () => {
