@@ -1,10 +1,13 @@
-// The look of the mod's accent: violet (the brand) or Claude orange. Every violet in the mod is one hex of the same
-// family, so the theme turns them in one place instead of keeping two sets of colours: any #rrggbb in a violet hue is
-// moved to the orange hue, neutrals and the other signal colours (green, yellow, red, blue) are left alone.
+// The look of the mod's accent: violet (the brand), Claude orange or cherry-blossom rose. Every violet in the mod is
+// one hex of the same family, so the theme turns them in one place instead of keeping a set of colours per theme: any
+// #rrggbb in a violet hue is moved to the theme's hue, neutrals and the other signal colours (green, yellow, red, blue)
+// are left alone.
 
 export type ThemeName = 'violet' | 'orange' | 'rose'
 export const THEMES: readonly ThemeName[] = ['violet', 'orange', 'rose']
-// The hue each theme turns the violets to. Rose is a cherry-blossom pink; its sparkles are drawn as falling petals (see petals).
+// The hue each theme turns the violets to. Claude's orange (#d97757) sits at hue 15, saturation 63%, lightness 60%; the
+// brand violet is lighter and stronger, so the saturation and the lightness of what turns come down to meet it. Rose is
+// a cherry-blossom pink; its sparkles are drawn as falling petals (see petals).
 const HUES: Record<Exclude<ThemeName, 'violet'>, number> = { orange: 15, rose: 340 }
 
 let current: ThemeName = 'violet'
@@ -26,8 +29,6 @@ export const getTheme = () => current
 /** The brand violet, the colour the rest of the family is turned from. */
 export const VIOLET = '#a79cf7'
 
-// Claude's orange (#d97757) sits at hue 15, saturation 63%, lightness 60%. The brand violet is lighter and stronger, so
-// the saturation and the lightness of what turns come down to meet it.
 const hexRe = /#[0-9a-fA-F]{6}\b/g
 const memo = new Map<string, string>()
 const lmemo = new Map<string, string>()
@@ -53,7 +54,7 @@ function fromHsl(h: number, s: number, l: number): string {
   return `#${byte(r)}${byte(g)}${byte(b)}`
 }
 
-/** One hex in the current theme: violets turn orange, everything else stays. */
+/** One hex in the current theme: violets turn to its hue, everything else stays. */
 export function tintHex(hex: string): string {
   if (current === 'violet') return hex
   const key = hex.toLowerCase()
@@ -79,12 +80,6 @@ function petals(text: string): string {
     .replace('</style>', `${PETAL_CSS}</style>`)
 }
 
-/**
- * One hex turned for a light app. A surface that was dark comes out pale. Text that was light comes out deep, as light as
- * it can be while still reading on the pale surfaces (4.6:1), so violet stays violet and green stays green; text that was
- * already dark is only darkened if it would not read. Drawn art has no role, so it follows its own lightness. An
- * eight-digit hex keeps its alpha.
- */
 const luminance = (hex: string) => {
   const n = parseInt(hex.slice(1, 7), 16)
   const f = (v: number) => (v /= 255) <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)
@@ -92,6 +87,12 @@ const luminance = (hex: string) => {
 }
 // The palest and the deepest of the turned surfaces: text has to read on both.
 const PALE_REF = luminance('#e3e0ed')
+/**
+ * One hex turned for a light app. A surface that was dark comes out pale. Text that was light comes out deep, as light as
+ * it can be while still reading on the pale surfaces (4.6:1), so violet stays violet and green stays green; text that was
+ * already dark is only darkened if it would not read. Drawn art has no role, so it follows its own lightness. An
+ * eight-digit hex keeps its alpha.
+ */
 export function lightHex(hex: string, role: 'text' | 'surface' | 'art' = 'art'): string {
   const key = hex.toLowerCase()
   const memoKey = role + key

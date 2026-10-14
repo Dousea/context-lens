@@ -44,7 +44,7 @@ const WEIGHT = { input: 1, write: 1.25, write1h: 2, read: 0.1, out: 5 }
 // Changing effort between two requests keeps the prompt cache on these models only. On Fable 5.1 and older Opus
 // the next request rewrote 56-100% of the cache (measured), which costs more than any effort can save.
 export const cacheSafe = (modelId: string) => /(opus|sonnet)-5-5/.test(modelId)
-// The accent the effort in the footer is written in: the brand violet, or Claude orange when the theme says so.
+// The accent the effort in the footer is written in: the brand violet, or what the theme turns it to.
 let ACCENT = accent()
 /** Takes the theme the settings name; the accent and every drawing follow it. */
 function applyTheme() {
@@ -54,7 +54,7 @@ function applyTheme() {
   BRAND_EDGE = tintHex('#4a3f80')
   BRAND_HEAD = tintHex('#221c3a')
   FLASH_COLOR = tintHex('#9b7bff')
-  // The panel greys lean blue beside the violet; with Claude orange they are the app's own neutral greys.
+  // The panel greys lean blue beside the violet; with the other themes they are the app's own neutral greys.
   const neutral = config.theme !== 'violet'
   DASH_BG = neutral ? '#151515' : '#141416'
   DASH_EDGE = neutral ? '#2a2a2a' : '#2a2a2f'
@@ -102,7 +102,6 @@ const SWITCHED_MS = 2500
 // the cache writes in 80k requests of real Claude Code use (289k of 292k) were 1 hour.
 const CACHE_TTL = { '5m': 5 * 60_000, '1h': 60 * 60_000 } as const
 const CACHE_TICK_MS = 15_000
-// Under this much time left the countdown turns amber: send now, or pay to write the whole context again.
 // Shown minutes at or under these turn the countdown yellow, then red: grey while there is time, yellow at 20, red at 5.
 const CACHE_YELLOW_MIN = 20
 const CACHE_RED_MIN = 5
@@ -148,8 +147,6 @@ const COMPACT_FADE_MS = 450
 function compactFadeSvg(elapsedMs: number): string {
   return inPhase(`<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="240" viewBox="0 0 1600 240" preserveAspectRatio="none"><style>.f{animation:f ${COMPACT_FADE_MS / 1000}s ease-out forwards}@keyframes f{from{opacity:1}to{opacity:0}}</style><rect class="f" width="1600" height="240" fill="${BOG_BG}"/></svg>`, elapsedMs)
 }
-// The person closed the cold band; it comes back the next time the cache goes cold.
-// The test pane of /context-lens try pane.
 // Where a handoff is: null idle, writing (the handoff turn runs), clearing (clear and resend).
 const handoffStage = atom({ plugin: 'context-lens', key: 'handoffStage' } as const, null)
 // The handoff bar above the prompt, open with the choice shown in it, or null.
@@ -158,7 +155,6 @@ const handoffPick = atom({ plugin: 'context-lens', key: 'handoffPick' } as const
 const swamped = atom({ plugin: 'context-lens', key: 'swamped' } as const, null)
 // Why Haiku thinks a handoff would suit now, or null. It lights Handoff and says why; there is no percent threshold.
 const handoffAdvice = atom({ plugin: 'context-lens', key: 'handoffAdvice' } as const, null)
-// The swamp band was closed at this many tokens; it comes back once the context has grown well past it.
 // The handoff card above the prompt: shown from the start of a handoff, and once it lands ('done' in the
 // cleared chat, 'copied'). It goes with the next message, its ✕, or HANDOFF_CARD_MS after it was set.
 type HandoffCard = { kind: 'writing' | 'done' | 'copied' | 'compacting' | 'compacted'; full: boolean; at: number; seen: boolean }
@@ -227,16 +223,17 @@ async function storeTurnLine($: EngineInterface, key: string, line: TurnLine) {
 let turnCost = 0
 // What the reply's last main-thread request ran on: the footer's model and effort.
 let ranThisTurn: { model?: ModelKey; effort?: Effort } | null = null
+// The swamp band was closed at this many tokens; it comes back once the context has grown well past it.
 const swampHiddenAt = atom({ plugin: 'context-lens', key: 'swampHiddenAt' } as const, null)
 // The first-run setup is not done: the footer offers "Setup".
 const setupPending = atom({ plugin: 'context-lens', key: 'setupPending' } as const, false)
-// Why the judge is failing, or null when it works.
 // The context-lens settings panel is open above the prompt.
 const settingsOpen = atom({ plugin: 'context-lens', key: 'settingsOpen' } as const, false)
-// What was changed in the panel and not saved yet, by field; Save applies it all, the cross drops it.
 // The user and plugin skills, read when the settings panel opens.
 const installedSkills = atom({ plugin: 'context-lens', key: 'installedSkills' } as const, [])
+// What was changed in the panel and not saved yet, by field; Save applies it all, the cross drops it.
 const settingsDraft = atom({ plugin: 'context-lens', key: 'settingsDraft' } as const, {})
+// Why the judge is failing, or null when it works.
 const judgeDown = atom({ plugin: 'context-lens', key: 'judgeDown' } as const, null)
 // Which part of the settings panel is open: null for the cards.
 type SettingsCard = 'effort' | 'model' | 'handoff' | 'show'
@@ -253,13 +250,11 @@ const BIAS_WORDS = ['Cheapest', 'Cheaper', 'Balanced', 'Smarter', 'Smartest'] as
 const judgeDownHidden = atom({ plugin: 'context-lens', key: 'judgeDownHidden' } as const, null)
 // A usage limit is close: which window, how much is used, when it resets. Null below the line.
 const hot = atom({ plugin: 'context-lens', key: 'hot' } as const, null)
-// The running-hot band was closed at this many percent; it returns ten points later or in a new window.
 // The running-hot band closed with its cross: in which window and how full. Kept in the store too, so a new chat keeps it closed.
 const hotHidden = atom({ plugin: 'context-lens', key: 'hotHidden' } as const, null as HotClosed | null)
-// The agent panel: this chat's subagents, and the card opened in it (hooks/agents.tsx).
-// The panel's map: the files touched, the main chat's own steps, the module opened in its list.
 // Save mode: Auto picks at most medium until this time (ms), when the limit resets.
 const saveUntil = atom({ plugin: 'context-lens', key: 'saveUntil' } as const, null)
+// The person closed the cold band; it comes back the next time the cache goes cold.
 const isColdHidden = atom({ plugin: 'context-lens', key: 'isColdHidden' } as const, false)
 // The setup guide above the prompt: which step it shows, or null when it is closed.
 const setupStep = atom({ plugin: 'context-lens', key: 'setupStep' } as const, null)
@@ -283,7 +278,6 @@ const DOWN_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="440" height="64
 // motion is CSS inside it.
 const BRAND_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="440" height="64" viewBox="0 0 360 30" preserveAspectRatio="xMaxYMid slice"><style>:root{color-scheme:light dark}html,body{margin:0}svg{background:transparent;display:block}.sp{fill:#fff;opacity:0;transform:scale(0);animation-name:gl;animation-timing-function:ease-in-out;animation-iteration-count:infinite}@keyframes gl{0%,72%,100%{opacity:0;transform:scale(0) rotate(0deg)}82%{opacity:.9;transform:scale(1) rotate(30deg)}92%{opacity:0;transform:scale(.2) rotate(60deg)}}.br{animation:br 6s ease-in-out infinite}@keyframes br{0%,100%{opacity:.85}50%{opacity:1}}</style><defs><linearGradient id="bg" x1="0" x2="1"><stop offset=".43" stop-color="#7c6cf0" stop-opacity="0"/><stop offset=".62" stop-color="#7c6cf0" stop-opacity=".16"/><stop offset=".85" stop-color="#8f7ff0" stop-opacity=".34"/><stop offset="1" stop-color="#b3a6ff" stop-opacity=".48"/></linearGradient><radialGradient id="glow" cx="320" cy="15" r="70" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#c9bdff" stop-opacity=".28"/><stop offset="1" stop-color="#9a86ff" stop-opacity="0"/></radialGradient><linearGradient id="fade" x1="0" x2="1"><stop offset=".43" stop-color="#fff" stop-opacity="0"/><stop offset=".7" stop-color="#fff" stop-opacity="1"/></linearGradient><mask id="m"><rect width="360" height="30" fill="url(#fade)"/></mask><pattern id="grain" width="2" height="2" patternUnits="userSpaceOnUse"><rect width=".6" height=".6" fill="#fff" fill-opacity=".07"/></pattern></defs><g mask="url(#m)"><rect class="br" width="360" height="30" fill="url(#bg)"/><rect width="360" height="30" fill="url(#glow)"/><rect width="360" height="30" fill="url(#grain)"/><line x1="186" y1="32" x2="198" y2="-2" stroke="#fff" stroke-opacity="0.04" stroke-width="3"/><line x1="204" y1="32" x2="216" y2="-2" stroke="#fff" stroke-opacity="0.05" stroke-width="1.2"/><line x1="226" y1="32" x2="238" y2="-2" stroke="#fff" stroke-opacity="0.05" stroke-width="4"/><line x1="262" y1="32" x2="274" y2="-2" stroke="#fff" stroke-opacity="0.04" stroke-width="1.5"/><line x1="290" y1="32" x2="302" y2="-2" stroke="#fff" stroke-opacity="0.05" stroke-width="3"/><line x1="320" y1="32" x2="332" y2="-2" stroke="#fff" stroke-opacity="0.04" stroke-width="1.2"/><path class="sp" style="transform-origin:168px 8px;animation-duration:4.2s;animation-delay:0.3s" d="M168 6.4 L168.34 7.66 L169.6 8 L168.34 8.34 L168 9.6 L167.66 8.34 L166.4 8 L167.66 7.66 Z"/><path class="sp" style="transform-origin:182px 22px;animation-duration:5.1s;animation-delay:2.1s" d="M182 20.7 L182.27 21.73 L183.3 22 L182.27 22.27 L182 23.3 L181.73 22.27 L180.7 22 L181.73 21.73 Z"/><path class="sp" style="transform-origin:196px 6px;animation-duration:3.8s;animation-delay:1.2s" d="M196 4.2 L196.38 5.62 L197.8 6 L196.38 6.38 L196 7.8 L195.62 6.38 L194.2 6 L195.62 5.62 Z"/><path class="sp" style="transform-origin:208px 19px;animation-duration:4.6s;animation-delay:3.4s" d="M208 17.8 L208.25 18.75 L209.2 19 L208.25 19.25 L208 20.2 L207.75 19.25 L206.8 19 L207.75 18.75 Z"/><path class="sp" style="transform-origin:221px 9px;animation-duration:5.4s;animation-delay:0.9s" d="M221 7.5 L221.31 8.69 L222.5 9 L221.31 9.31 L221 10.5 L220.69 9.31 L219.5 9 L220.69 8.69 Z"/><path class="sp" style="transform-origin:232px 23px;animation-duration:4.0s;animation-delay:2.7s" d="M232 21.9 L232.23 22.77 L233.1 23 L232.23 23.23 L232 24.1 L231.77 23.23 L230.9 23 L231.77 22.77 Z"/><path class="sp" style="transform-origin:244px 7px;animation-duration:4.8s;animation-delay:1.8s" d="M244 5.7 L244.27 6.73 L245.3 7 L244.27 7.27 L244 8.3 L243.73 7.27 L242.7 7 L243.73 6.73 Z"/><path class="sp" style="transform-origin:176px 15px;animation-duration:5.8s;animation-delay:4.0s" d="M176 14.0 L176.21 14.79 L177.0 15 L176.21 15.21 L176 16.0 L175.79 15.21 L175.0 15 L175.79 14.79 Z"/><path class="sp" style="transform-origin:214px 26px;animation-duration:4.4s;animation-delay:3.0s" d="M214 25.0 L214.21 25.79 L215.0 26 L214.21 26.21 L214 27.0 L213.79 26.21 L213.0 26 L213.79 25.79 Z"/><path class="sp" style="transform-origin:238px 15px;animation-duration:3.6s;animation-delay:0.1s" d="M238 14.0 L238.21 14.79 L239.0 15 L238.21 15.21 L238 16.0 L237.79 15.21 L237.0 15 L237.79 14.79 Z"/></g></svg>`
 
-// The handoff card once it has landed: the brand's art in green, with a big dark checkmark on the right.
 // The dashboard sits there all the time, so it is grey: purple is kept for the moments that ask for attention. Its
 // art is the brand's, in grey and at 40% of its strength; only the ✦ keeps the accent.
 const DASH_SVG = BRAND_SVG.replace(/stop-opacity="([0-9.]+)"/g, (_m, v: string) => `stop-opacity="${(Number(v) * 0.4).toFixed(3)}"`)
@@ -296,7 +290,7 @@ let DASH_EDGE = '#2a2a2f'
 const SETTINGS_TITLE = `<svg xmlns="http://www.w3.org/2000/svg" width="112" height="28" viewBox="0 0 112 28"><defs><radialGradient id="c" cx="1" cy="1" r=".75" gradientTransform="matrix(.7 0 0 2.3 .3 -1.3)"><stop offset=".35" stop-color="#000"/><stop offset="1" stop-color="#fff"/></radialGradient><radialGradient id="s" cx=".9" cy=".85" r=".55" gradientTransform="matrix(.7 0 0 2.3 .27 -1.1)"><stop offset=".4" stop-color="#fff"/><stop offset="1" stop-color="#000"/></radialGradient><mask id="mc"><rect width="112" height="28" fill="url(#c)"/></mask><mask id="ms"><rect width="112" height="28" fill="url(#s)"/></mask><filter id="g" x="-20%" y="-40%" width="140%" height="180%"><feTurbulence type="fractalNoise" baseFrequency="1.4" numOctaves="1" seed="7" result="noise"/><feDisplacementMap in="SourceGraphic" in2="noise" scale="2.5" xChannelSelector="R" yChannelSelector="G" result="moved"/><feGaussianBlur in="moved" stdDeviation="0.35" result="soft"/><feComponentTransfer in="noise" result="dots"><feFuncA type="discrete" tableValues="0 1 1 1 1"/></feComponentTransfer><feComposite in="soft" in2="dots" operator="in"/></filter></defs><g font-size="21" font-weight="600" letter-spacing="-.5"><text x="1" y="20" fill="#ffffff" mask="url(#mc)">context-lens</text><g mask="url(#ms)"><text x="1" y="20" fill="#ffffff" filter="url(#g)">context-lens</text></g></g></svg>`
 /** The mark as the settings bar shows it: big, tilted and faint, cut off by the bar. */
 const SETTINGS_MARK = MARK_SVG.replace('<g mask=', '<g opacity=".2" transform="rotate(9 50 50)" mask=')
-// The dashboard's mark (see dash-mark): its size, and its look with Auto off.
+// The dashboard's mark: its size, and its look with Auto off.
 const DASH_MARK_SIZE = 18
 const DASH_MARK_OFF = MARK_SVG.replace('<g mask=', '<g opacity=".35" mask=')
 /** How long a band's entrance runs: it is drawn only this long after the band appears, since every redraw of the band
@@ -305,7 +299,6 @@ const INTRO_MS = 1300
 // The band last drawn above the prompt, and when it appeared (see introShows).
 let introKind = ''
 let introAt = 0
-/** Whether the band of `kind` is still in its entrance: true for INTRO_MS after it replaced another band. */
 /** An animated Svg drawn `elapsedMs` into its animations. Every redraw rebuilds the band and starts its images' CSS
  * animations over; with this, a redraw mid-animation picks it up where it was instead of jumping back. */
 export function inPhase(svg: string, elapsedMs: number): string {
@@ -315,6 +308,7 @@ export function inPhase(svg: string, elapsedMs: number): string {
 let introElapsed = 0
 // Set when a band replaces another, taken by the first draw of the new one.
 let introFresh = false
+/** Whether the band of `kind` is still in its entrance: true for INTRO_MS after it replaced another band. */
 async function introShows($: EngineInterface, kind: string): Promise<boolean> {
   const now = await $.clock.now()
   if (kind !== introKind) {
@@ -326,7 +320,6 @@ async function introShows($: EngineInterface, kind: string): Promise<boolean> {
   introElapsed = now - introAt
   return introElapsed < INTRO_MS
 }
-/** The entrance layer (INTRO_SVG) in a band's own colours, or nothing once the entrance is over. */
 // The mark beside a card's title, sized to one line of text.
 const TITLE_MARK_SIZE = 16
 
@@ -344,6 +337,7 @@ function markTitle(els: { Box: unknown; Text: unknown; Svg?: unknown }, key: str
   )
 }
 
+/** The entrance layer (INTRO_SVG) in a band's own colours, or nothing once the entrance is over. */
 function introLayer(els: { Box: unknown; Svg?: unknown }, key: string, show: boolean, wash = '#8b6cff', light = '#b9a7ff') {
   if (!els.Svg || !show) return null
   const { Box: B, Svg: S } = els as unknown as { Box: (p: Record<string, unknown>) => unknown; Svg: (p: Record<string, unknown>) => unknown }
@@ -361,6 +355,7 @@ const DASH_DIM = '#8b8b93'
 // A settings card under the pointer: a shade up from the band, its edge a shade up from that.
 let CARD_HOVER = '#1c1c20'
 let CARD_HOVER_EDGE = '#3b3b42'
+// The handoff card once it has landed: the brand's art in green, with a big dark checkmark on the right.
 const DONE_SVG = BRAND_SVG
   .replace(/#7c6cf0/g, '#2fae62').replace(/#8f7ff0/g, '#3cc472').replace(/#b3a6ff/g, '#7fe0a4')
   .replace(/#c9bdff/g, '#b4f0c8').replace(/#9a86ff/g, '#4fd486')
@@ -456,7 +451,7 @@ const LEVEL_OF: Record<string, Effort> = { low: 'low', medium: 'medium', high: '
 /**
  * The level a prompt asks for by name ("max effort", "effort: high", "xhigh"), or nothing. The word effort must sit
  * beside the level, so "a medium sized image" names nothing, and "don't use max effort" is a no. A named level runs
- * without the judge: effort-auto found Haiku also calls prompts that only describe hard work "named".
+ * without the judge, which would also call prompts that only describe hard work "named".
  */
 export function namedEffort(text: string): Effort | undefined {
   for (const m of text.matchAll(NAMED_LEVEL)) {
@@ -1209,8 +1204,7 @@ export function cacheClock(msLeft: number): string {
 const CLOCK_FRAMES = 75
 /** The dashboard's countdown as an image that ticks by itself: one frame per second, each shown for its second by a
  * CSS animation. The band is redrawn only once a minute: every redraw rebuilds the band, which restarts every image's
- * animation (the Handoff glow restarted each second while the band was redrawn for the seconds). The app sets the
- * image's font and colour to the band's, so the digits match the text around them. */
+ * animation. The app sets the image's font and colour to the band's, so the digits match the text around them. */
 export function cacheClockSvg(msLeft: number, color: string): string {
   const start = Math.max(0, Math.ceil(msLeft / 1000))
   const frames: string[] = []
@@ -1225,9 +1219,8 @@ export function cacheClockSvg(msLeft: number, color: string): string {
 
 let cacheTtl: keyof typeof CACHE_TTL = '1h'
 let cacheExpires = 0
-/** The countdown's variables live in the module, and a reload (an update, a plugin switch) starts the module over: the
- * chat's cache did not go cold for that, so the countdown is read back from the session's state before the band draws
- * (it showed "Cold" after every reload). */
+/** The countdown's variables live in the module, and a reload starts the module over: the chat's cache did not go cold
+ * for that, so the countdown is read back from the session's state before the band draws. */
 let cacheRestored = false
 async function restoreCache($: EngineInterface) {
   if (cacheRestored) return
@@ -1244,13 +1237,11 @@ async function restoreCache($: EngineInterface) {
   lastResponseAt = memo.last
 }
 const rememberCache = ($: EngineInterface) => update($, cacheMemo, () => ({ expires: cacheExpires, ttl: cacheTtl, last: lastResponseAt }))
-/** Writes the minutes left when they changed; the session's one timer (started in session.start) calls it. */
 // What /context-lens swamp shows as a test: a swamped chat's context.
 const SWAMP_TOKENS = 150_000
 // Closed, the band stays away until the context has grown this much more.
 const SWAMP_REGROW = 50_000
 
-/** Whether the context is swamped, from the status line's figures. Cheap: no counting, no model call. */
 // A usage window this full shows the running-hot band.
 const HOT_PERCENT = 80
 // Closed, the running-hot band stays away for the rest of its window, and comes back once at this many percent.
@@ -1357,6 +1348,7 @@ async function previewPercent($: EngineInterface): Promise<number | undefined> {
   }
 }
 
+/** Whether the context is swamped, from the status line's figures. Cheap: no counting, no model call. */
 async function checkSwamp($: EngineInterface) {
   const { context, rateLimits } = await $.session.usage()
   const preview = await previewPercent($)
@@ -1382,8 +1374,8 @@ async function checkSwamp($: EngineInterface) {
 let redrawsOwed = 0
 // The countdown's minute the band was last redrawn for (see cacheClockSvg).
 let clockMinute = -1
-// When the redraws were asked for: once the band has been drawn after that, none are owed any more. Each redraw
-// rebuilds the band and restarts its animations, so asking blindly 4 more times reset the cold band's spin 4 times.
+// When the redraws were asked for: once the band has been drawn after that, none are owed any more, since each redraw
+// rebuilds the band and restarts its animations.
 let redrawAskedAt = 0
 // A draw this soon after the ask may come before the app has the band up, so it does not count.
 const REDRAW_SETTLE_MS = 500
@@ -1392,6 +1384,7 @@ function redrawSoon(times = 5) {
   redrawAskedAt = Date.now()
 }
 
+/** Writes the minutes left when they changed; the cache tick calls it. */
 async function showCache($: EngineInterface) {
   // No response seen by this copy yet (it loaded mid-chat, after a plugin switch or reload): a 0 left in the shared
   // state by an earlier copy is not this chat's cache, so the countdown goes blank until the next response.
@@ -1416,11 +1409,11 @@ async function cacheMinutes($: EngineInterface): Promise<number> {
   return left <= 0 ? 0 : Math.ceil(left / 60_000)
 }
 
-/** A response came back: the cache is warm again for its whole lifetime, and the countdown restarts. */
 let usageLogged = false
 let lastResponseAt: number | undefined
 // Main-conversation replies this copy has seen, for /context-lens debug.
 let repliesSeen = 0
+/** A response came back: the cache is warm again for its whole lifetime, and the countdown restarts. */
 async function cacheTouched($: EngineInterface, usage: unknown) {
   const now = await $.clock.now()
   repliesSeen++
@@ -1433,7 +1426,7 @@ async function cacheTouched($: EngineInterface, usage: unknown) {
   lastResponseAt = now
   coldForced = false
   // A reply that wrote only a short 5-minute tail still reads the rest from the 1-hour cache: once 1h is seen, a
-  // 5m reading never pulls the countdown back down (that showed "Cold" while the cache was warm).
+  // 5m reading never pulls the countdown back down.
   if (ttl && ttl !== cacheTtl && !(ttl === '5m' && cacheTtl === '1h' && mostlyCached(usage))) {
     cacheTtl = ttl
     void proof($, `cache lifetime ${ttl}`)
@@ -1533,7 +1526,6 @@ export function handoffMessage(handoff: string, after: HandoffAfter, skill?: str
 let handoffText: string | undefined
 let handoffDriving = false
 
-/** Starts a handoff: asks for it (built-in prompt or the person's own skill); the rest follows when it is written. */
 // A handoff asked for and not begun: begun from the session's timer, where a prompt may be sent (a command or a press
 // may hold the turn, and the app refuses a prompt sent from there).
 let handoffQueued = false
@@ -1542,6 +1534,7 @@ let handoffFull = false
 // What follows this handoff once it is written (HandoffAfter).
 let handoffThen: HandoffAfter = 'continue'
 
+/** Starts a handoff: asks for it (built-in prompt or the person's own skill); the rest follows when it is written. */
 async function startHandoff($: EngineInterface, full = false, after: HandoffAfter = config.handoffAfter) {
   if ((await read($, handoffStage)) !== null) return
   await update($, handoffStage, () => 'writing')
@@ -1571,11 +1564,11 @@ async function openHandoffBar($: EngineInterface) {
 export function enterSvg(color: string): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14"><g fill="none" stroke="${color}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M11.5 2.5V7.2A1.8 1.8 0 0 1 9.7 9H2.8"/><path d="M5.3 6.4 2.7 9l2.6 2.6"/></g></svg>`
 }
-/** The compact bar's Compact: a white pill like the app's primary buttons, GO_CELLS wide. */
 // The narrowest bar (in cells) that still has room for a Compact button beside Auto and Handoff.
 const COMPACT_BUTTON_MIN_COLUMNS = 80
 const GO_CELLS = 12
 const GO_W = Math.round(GO_CELLS * 7.9)
+/** The compact bar's Compact: a white pill like the app's primary buttons, GO_CELLS wide. */
 function goPillSvg(): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${GO_W}" height="20" viewBox="0 0 ${GO_W} 20"><rect width="${GO_W}" height="20" rx="5" fill="#ffffff"/></svg>`
 }
@@ -1661,7 +1654,7 @@ async function writeHandoff($: EngineInterface) {
       handoffText = answered.text
       return
     }
-    // Nothing to fork (no reply yet) or the fork failed: write it as a turn, as before, and say why.
+    // Nothing to fork (no reply yet) or the fork failed: write it as a turn instead, and say why.
     if (!outcome.startsWith('nothing-to-fork')) $.ui.toast(`context-lens: the fork wrote no handoff (${outcome}); writing it as a turn`)
     await $.prompt.submit({ text: HANDOFF_PROMPT })
   } catch (error) {
@@ -1729,11 +1722,11 @@ async function openPluginSettings($: EngineInterface) {
   $.ui.invalidate('ui.render')
 }
 
-/** The settings rows the panel changes, by field: saved as the plugin's own setting and used at once. */
-// Small purple marks beside the settings rows' titles: text glyphs, which draw wherever text does (an Svg there did not).
+// Small marks beside the settings rows' titles: text glyphs, which draw wherever text does.
 const ICON_EFFORT = '◔'
 const ICON_HANDOFF = '⇥'
 const ICON_SHOW = '◉'
+/** The settings rows the panel changes, by field: saved as the plugin's own setting and used at once. */
 const SETTING_FIELDS = {
   bias: 'effortBias',
   floor: 'effortFloor',
@@ -1998,7 +1991,6 @@ async function choose($: EngineInterface, next: Pick | null) {
   }
 }
 
-/** Everything a redraw needs, read together: the reads go out at once instead of one after the other. */
 // The context figures from the last usage check, for the cache tooltip.
 let lastContext: { tokens: number; window: number; percent: number } | null = null
 
@@ -2060,6 +2052,7 @@ function kTokens(n: number): string {
   return n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : `${Math.round(n / 1000)}k`
 }
 
+/** Everything a redraw needs, read together: the reads go out at once instead of one after the other. */
 async function snap($: EngineInterface) {
   const [auto, autoModel, current, judging, wanted, shownByApp, modelNow, switchedNow, pausedNow, cacheNow, compacting] = await Promise.all([
     read($, isAuto),
@@ -2211,8 +2204,6 @@ function terminalPanel($: EngineInterface, e: RenderInput<'AbovePrompt'>, key: s
 
 type TerminalBand = { key: string; kind: ArtKind; color: string; bg: string; edge: string; title: string; detail: string; buttons: unknown[]; autoInBar?: boolean; extra?: unknown; word?: { text: string; color: string; rest: string } }
 
-/** An alert band on the terminal: title and buttons, the detail on a line of its own, art on the right, and the effort
- * row under it, so effort stays in sight while a band shows. */
 /** What of the band fits in `maxRows` rows. The app scrolls a taller tree in a window and says "n more", so the band gives up,
  * in this order: an empty detail row (one with words is kept), the border and art, the effort row, the lens row. The effort line itself stays. */
 export function bandFit(maxRows: number, parts: { detailText: boolean; lens: boolean; effort: number }) {
@@ -2225,6 +2216,8 @@ export function bandFit(maxRows: number, parts: { detailText: boolean; lens: boo
   return fit
 }
 
+/** An alert band on the terminal: title and buttons, the detail on a line of its own, art on the right, and the effort
+ * row under it, so effort stays in sight while a band shows. */
 async function terminalBand($: EngineInterface, e: RenderInput<'AbovePrompt'>, b: TerminalBand) {
   const { Box, Text } = themedEls($.ui.resolve(e))
   const { rows: effort, height } = await effortRows($, e, { auto: !b.autoInBar })
@@ -2305,7 +2298,7 @@ const FLASH_MS = 1800
 /** The fade's steps, [ms, share of the way to white]: five, so it reads as a fade without a tick. Each step is a redraw,
  * and every redraw rebuilds the band (images restart, buttons under a pointer are swapped), so keep them few. */
 const FLASH_STEPS: readonly (readonly [number, number])[] = [[1000, 0.15], [1160, 0.35], [1320, 0.55], [1480, 0.75], [1640, 0.9]]
-/** The glow: a stronger violet than the accent, so a switch is seen at a glance. */
+/** The glow: a stronger shade than the accent, so a switch is seen at a glance. */
 let FLASH_COLOR = '#9b7bff'
 /** The effort word's colour `ms` after it changed: the glow, held, then easing out to the band's white. */
 export function flashColor(ms: number | null): string {
@@ -2435,7 +2428,7 @@ function handoffCardTree($: EngineInterface, e: RenderInput<'AssistantMessage'> 
       {onDismiss ? (
         <Box key="reply-handoff-close" position="relative" flexGrow={1} flexDirection="row" justifyContent="flex-end">
           <Box position="absolute" top={0} left={0} />
-          {/* A box just the ✕'s size: in the wide one its hover lit up anywhere on the card's right half. */}
+          {/* A box just the ✕'s size, so its hover lights only the ✕, not the card's right half. */}
           <Box key="card-close-box" position="relative" flexShrink={0}>
             <Box position="absolute" top={0} left={0} />
             <Button key="card-close" plain role="dismiss" label="✕" hover={{ backgroundColor: CARD_CLOSE_HOVER }} onPress={onDismiss} />
@@ -2538,7 +2531,7 @@ async function runClaude($: EngineInterface, args: string[], opts: Parameters<En
 const COMPACT_CARD_MS = 20_000
 /** A settings part's body on desktop is as tall as the overview's row of cards, so the panel keeps its height going in
  * and out of a part. In lines (a Box height is a number of lines or a percentage) at the app's 19 px line: 56 px makes
- * the band 121.5 px tall in every part, as with the cards, measured on tools/render-band. */
+ * the band 121.5 px tall in every part, as with the cards. */
 const SETTINGS_BODY_H = 56 / 19
 /** The card ✕'s hover: the app's ghost fill is lost on the green and violet cards, so a darker wash of the card itself. */
 const CARD_CLOSE_HOVER = '#00000040'
@@ -2552,8 +2545,6 @@ async function compactCard($: EngineInterface, working = false) {
   return card
 }
 
-/** The glow behind the white Handoff button. Check a change on tools/render-band before shipping: an earlier glow looked
- * tight in a preview but far bigger and blurrier in the app. */
 /** Context share from which the dashboard's Handoff button turns white: below it a handoff saves little. */
 const HANDOFF_LOUD_AT = 30
 // Handoff is calm until Haiku says a fresh chat would suit now (handoffAdvice); then it is the white box with a glow.
@@ -2596,7 +2587,8 @@ export function handoffGlowStep(percent: number): number {
 }
 /** The glow behind the Handoff button, one design per step, drawn on a screenshot of the real bar: a tight violet rim
  * just past the button (about 121 by 32 px there), wider, softer and brighter each step, pulsing between a low and a
- * peak. Centred on the button by the layer the dashboard puts it in. */
+ * peak. Centred on the button by the layer the dashboard puts it in. A preview draws it tighter than the app does, so
+ * judge a change in the app. */
 const GLOW_LEVELS: ReadonlyArray<{ spread: number; blur: number; peak: number; low: number; period: number }> = [
   { spread: 0, blur: 0, peak: 0, low: 0, period: 0 },
   { spread: 1.5, blur: 1.2, peak: 0.55, low: 0.2, period: 3.4 },
@@ -2605,7 +2597,7 @@ const GLOW_LEVELS: ReadonlyArray<{ spread: number; blur: number; peak: number; l
   { spread: 3, blur: 2.1, peak: 0.85, low: 0.35, period: 1.9 },
   { spread: 3.5, blur: 2.4, peak: 0.95, low: 0.4, period: 1.5 },
 ]
-/** The glow's drawing in CSS px, measured on a faithful render of the desktop band (tools/render-band): the primary
+/** The glow's drawing in CSS px, measured on the desktop band: the primary
  * Handoff button is 77 by 20 with a 6 px radius, and the band leaves 8 px above and below it. The drawing is no wider
  * than the layer it sits in, so the app never scales it (a Svg is at most as wide as its box). */
 const GLOW_W = HANDOFF_PILL_W + 16
@@ -2634,10 +2626,10 @@ export function autoSwitchSvg(on: boolean, slideMs: number | null = null): strin
   return slide ? inPhase(svg, slideMs) : svg
 }
 /** The handoff bar's Quick | Full switch: a dark track with both words in it and a light knob under the picked one,
- * as tall as Go (20 px, 5 px radius, measured on tools/render-band) so the row's controls line up,
+ * as tall as Go (20 px, 5 px radius) so the row's controls line up,
  * KIND_CELLS wide each half (the words are app Text laid over it; an image would draw them in another font). */
 const KIND_CELLS = 9
-/** One cell of the desktop band in CSS px (`1ch` of its font, measured on tools/render-band). */
+/** One cell of the desktop band in CSS px (`1ch` of its font, measured). */
 const CELL_PX = 7.9
 const KIND_W = Math.round(KIND_CELLS * 2 * CELL_PX)
 const KIND_H = 20
@@ -2667,15 +2659,6 @@ let kindFlipAt = 0
 const AUTO_GLOW_MS = 2600
 const AUTO_GLOW_W = 760
 const AUTO_GLOW_H = 37
-/** The image starts inside the band's side borders but over its top and bottom ones (the layer's top and bottom are the
- * band's outer edge, its sides the inner), so the line is inset 0.75 px at the sides and 1.75 px at top and bottom: 1 px
- * inside the border all round.
- * The glow inside the bar's edges as Auto comes on: a violet light that rises along the rim, holds, and fades once. Drawn
- * for AUTO_GLOW_MS only (every redraw would replay it). Stretched across the band's width (preserveAspectRatio none: the
- * app scales a Svg to its box's width and keeps its height); drawn at about the band's real width so the sides stay
- * as thick as the top and bottom. Clipped to the bar's inside, so the light falls inward. */
-/** The cold band's rim: the Auto glow's light in ice, breathing slowly for as long as the band shows, so a cold chat
- * looks alive rather than parked. Placed by the clock (inPhase), so a redraw picks up where the breath was. */
 const COLD_GLOW_MS = 4200
 /** This install's id, context-lens@<marketplace>, read off the cache path (…/plugins/cache/<marketplace>/context-lens/<version>). */
 const pluginId = ($: EngineInterface) => `context-lens@${$.plugin.root.match(/cache[\\/]([^\\/]+)[\\/]/)?.[1] ?? 'context-lens'}`
@@ -2747,7 +2730,7 @@ let drawLead = 20
 let judgeStartedAt = 0
 let judgeEndedAt: number | null = 0
 /** The verdict is in: the rim starts fading now, together with the effort word's flash, not after the effort and model
- * are applied (that came a beat later and read as a second glow). Redraws when the fade swaps in and once it is over. */
+ * are applied. Redraws when the fade swaps in and once it is over. */
 async function endJudgeGlow($: EngineInterface, why: string) {
   if (judgeEndedAt !== null) return
   judgeEndedAt = await $.clock.now().catch(() => Date.now())
@@ -2757,17 +2740,26 @@ async function endJudgeGlow($: EngineInterface, why: string) {
   $.ui.invalidate('ui.render')
 }
 
+/** The cold band's rim: the Auto glow's light in ice, breathing slowly for as long as the band shows, so a cold chat
+ * looks alive rather than parked. Placed by the clock (inPhase), so a redraw picks up where the breath was. */
 export function coldGlowSvg(): string {
   const W = AUTO_GLOW_W, H = AUTO_GLOW_H
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><style>.r{opacity:.15;animation:r ${COLD_GLOW_MS / 1000}s ease-in-out infinite}@keyframes r{0%,100%{opacity:.15}50%{opacity:.6}}</style><defs><filter id="b" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation="1.5"/></filter></defs><g class="r"><rect x="0" y="0" width="${W}" height="${H}" rx="8" fill="none" stroke="${ICE}" stroke-width="4" opacity=".16" filter="url(#b)"/><rect x=".75" y="1.75" width="${W - 1.5}" height="${H - 3.5}" rx="8.25" fill="none" stroke="#cfeeff" stroke-width="1.5" vector-effect="non-scaling-stroke"/></g></svg>`
 }
+/** The image starts inside the band's side borders but over its top and bottom ones (the layer's top and bottom are the
+ * band's outer edge, its sides the inner), so the line is inset 0.75 px at the sides and 1.75 px at top and bottom: 1 px
+ * inside the border all round.
+ * The glow inside the bar's edges as Auto comes on: a violet light that rises along the rim, holds, and fades once. Drawn
+ * for AUTO_GLOW_MS only (every redraw would replay it). Stretched across the band's width (preserveAspectRatio none: the
+ * app scales a Svg to its box's width and keeps its height); drawn at about the band's real width so the sides stay
+ * as thick as the top and bottom. Clipped to the bar's inside, so the light falls inward. */
 export function autoGlowSvg(on: boolean): string {
   const W = AUTO_GLOW_W, H = AUTO_GLOW_H
   const rim = `x="0" y="0" width="${W}" height="${H}" rx="8"`
   const [wash, line, strength] = on ? [ACCENT, '#b9a7ff', 0.9] : ['#8b8b93', '#c8c8d0', 0.6]
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><style>.r{opacity:0;animation:r ${AUTO_GLOW_MS / 1000}s ease-in-out}@keyframes r{0%{opacity:0}15%{opacity:${strength}}45%{opacity:${(strength * 0.85).toFixed(2)}}100%{opacity:0}}</style><defs><filter id="b" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation="1.5"/></filter><filter id="s" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation=".8"/></filter></defs><g class="r"><rect ${rim} fill="none" stroke="${wash}" stroke-width="4" opacity=".14" filter="url(#b)"/><rect x=".75" y="1.75" width="${W - 1.5}" height="${H - 3.5}" rx="8.25" fill="none" stroke="${line}" stroke-width="1.5" vector-effect="non-scaling-stroke"/></g></svg>`
 }
-// When the bar last saw Auto off or on, when Auto came on (for the edge glow), and when it last changed (for the slide).
+// Auto as the bar last saw it, and when it last flipped, either way (for the edge glow and the switch's slide).
 let autoSeen: boolean | undefined
 let autoOnAt = -Infinity
 let autoFlipAt = 0
@@ -2853,7 +2845,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
       : [
           // One button in one place: Compact until Haiku says a fresh chat would suit, then Handoff, loud. Pressing it opens
           // the matching card, which can switch to the other. Desktop draws it: no box on a fresh chat, then a
-          // step a percent of context to a white box at HANDOFF_FULL_AT (handoffLook), the label as Text over the box and
+          // step a percent of context to a white box at HANDOFF_LOUD_AT (handoffLook), the label as Text over the box and
           // a blank button over both to take the click. The terminal keeps the plain buttons: grey, white from
           // HANDOFF_LOUD_AT.
           'Svg' in els && e.surface !== 'terminal' ? (
@@ -2872,7 +2864,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
                 </Box>
               ) : null}
               {/* Its width is a spacer in the flow, not the image: the app can lay an image out at no width, and the
-                  label (centred over it) then ran into Auto. */}
+                  label (centred over it) would run into Auto. */}
               <Box key="dash-handoff-box" flexShrink={0} flexDirection="row" alignItems="center">
                 <Box width={9} height={1} flexShrink={0} />
                 <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
@@ -2902,7 +2894,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
     // No-break spaces, not braille blanks: some fonts draw U+2800 as a dot.
     <Button key="dash-settings" plain label={'Svg' in els && e.surface !== 'terminal' ? '   ' : 'Settings'} onPress={toggleSettings} />,
   ].filter(Boolean)
-  // The terminal flashes the effort word as the desktop does: violet on a change, fading back to white.
+  // The terminal flashes the effort word as the desktop does: in the accent on a change, fading back to white.
   if (e.surface === 'terminal')
     return terminalBand($, e, { key: 'dash', kind: 'calm', color: DASH_TEXT, bg: DASH_BG, edge: DASH_EDGE, title: head.replace(/^✦ /, ''), detail, buttons, autoInBar: true, extra: lens,
       word: { text: what, color: await effortFlash($, what, judgingHere, entering), rest } })
@@ -2931,7 +2923,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
           <Svg source={inPhase(autoGlowSvg(v.auto), nowMs - autoOnAt)} alt="auto glow" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
         </Box>
       ) : null}
-      {/* The judge decides: the violet rim lights up, holds, and fades from full once the verdict is in. */}
+      {/* The judge decides: the rim lights up in the accent, holds, and fades from full once the verdict is in. */}
       {Svg && glowSource ? (
         <Box key="dash-judge-glow" position="absolute" top={0} left={0} right={0} bottom={0}>
           <Svg source={glowSource} alt="deciding glow" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
@@ -3267,11 +3259,11 @@ messages come nearly uncut: carry the code and errors from them over in full, si
 Be precise: keep names, paths, numbers, commands and error messages exact. Leave out pleasantries.
 Reply with the summary only.`
 
-/** The transcript as plain text for the summarizer: each message, its tool calls and their results, the long ones cut. */
 // The last messages go to Haiku nearly whole: the work in progress (the code just written, the error just seen) lives
-// in their tool calls and results, and a 400-character cut lost it mid-task.
+// in their tool calls and results, which a short cut would lose mid-task.
 export const COMPACT_TAIL = 6
 const COMPACT_TAIL_CHARS = 20_000
+/** The transcript as plain text for the summarizer: each message, its tool calls and their results, the long ones cut. */
 export function compactTranscript(messages: readonly { role: string; text: string; toolUses?: readonly { tool: string; input: unknown; text?: string }[]; toolResults?: readonly { text?: string }[] }[], toolChars = 2000, tailChars = COMPACT_TAIL_CHARS): string {
   const cut = (s: string, n: number) => (s.length > n ? `${s.slice(0, n)} …[${s.length - n} more characters]` : s)
   const tailFrom = messages.length - COMPACT_TAIL
@@ -3658,7 +3650,6 @@ export const register: Register = (on, options) => {
       await toggleAutoEffort($)
       return { text: (await read($, isAuto)) ? 'Auto on: effort is picked for every prompt.' : 'Auto off: the effort is yours.' }
     }
-    // A test aid: marks the cache cold now, so the Compact button can be tried without waiting out the hour.
     if (arg === 'hot') {
       // Shows the running-hot band now, to try it: the next check puts back the real figures.
       await update($, hotHidden, () => null)
@@ -3746,6 +3737,7 @@ model used: ${lastRequest ? `${lastRequest.model} at ${lastRequest.effort ?? 'no
 
 Saved to ${out}.md and .json` }
     }
+    // A test aid: marks the cache cold now, so the Compact button can be tried without waiting out the hour.
     if (arg === 'cold') {
       coldForced = true
       cacheExpires = await $.clock.now()
@@ -4013,9 +4005,9 @@ Saved to ${out}.md and .json` }
     return result
   })
 
-  // The only desktop UI: the effort in use, as purple text in the prompt footer, under the chat box, and a small
-  // button that switches Auto off and on. A Button cannot be coloured and the footer draws no outline or tint, so
-  // plain Text is what is purple. While the judge decides it says "Deciding…", for a moment after Auto switches the level it says
+  // The desktop footer in the minimal look: the effort in use, as text in the accent in the prompt footer, under the chat
+  // box, and a small button that switches Auto off and on. A Button cannot be coloured and the footer draws no outline
+  // or tint, so plain Text is what takes the accent. While the judge decides it says "Deciding…", for a moment after Auto switches the level it says
   // "Low → High", and while Auto is off it says "Off" in the dim colour. Auto is switched with /context-lens auto.
   on('ui.render', { component: 'SessionMode' }, async ($, e, next) => {
     // The dashboard look keeps all of this in the band above the prompt; the app's own footer shows.
@@ -4055,7 +4047,7 @@ Saved to ${out}.md and .json` }
         )}
         {/* The one thing to click: it switches Auto off and on. Text cannot be clicked, so it is a small button. */}
         <Button key="auto" plain dimColor label=" ⏻ " hover={{ scope: 'power', backgroundColor: HOVER_BOX }} onPress={() => toggleAutoEffort($)} />
-        {/* Until a judge is picked the footer offers the setup; after that the same place opens the settings panel. */}
+        {/* Until the setup is done the footer offers it; after that the same place opens the settings panel. */}
         {needsSetup ? (
           <Button
             key="setup"
@@ -4110,8 +4102,6 @@ Saved to ${out}.md and .json` }
     )
   })
 
-  // The terminal's line under each reply ("Baked 3s") in the brand's colours, with the effort and the cache. The
-  // desktop draws no such line; the bands above the prompt warn there (a card under the reply repeated them, removed).
   on('agent.spawn', async ($, e, next) => {
     // Effort for helpers: the judge reads the subagent's task before it starts (a fork shares the chat's context and
     // keeps its effort). Without a verdict it runs at the chat's effort, as with the setting off.
@@ -4139,6 +4129,9 @@ Saved to ${out}.md and .json` }
 
   // A line drawn before turn.complete saved it keeps what it first drew, should the turn end without a save.
   const firstDrawn = new Map<string, TurnLine>()
+
+  // The terminal's line under each reply ("Baked 3s") in the brand's colours, with the effort and the cache. The
+  // desktop draws no such line; the bands above the prompt warn there.
   on('ui.render', { component: 'TurnDuration' }, async ($, e, next) => {
     const { Box, Text } = themedEls($.ui.resolve(e))
     const key = String(e.props.durationMs)
@@ -4313,8 +4306,8 @@ Saved to ${out}.md and .json` }
       )
       // The terminal's dropdown opens its list inside the wrapping row, which jumps the layout and is hard to click.
       // There a short list is a row of buttons, the picked one boxed; a long one (the skills) stays a dropdown.
-      type Choice = { key: string; label?: string; value: string; options: { value: string; label: string }[]; onSelect: (v: string) => unknown }
-      const choice = (p: Choice) => term && p.options.length <= 5 ? (
+      type SettingRow = { key: string; label?: string; value: string; options: { value: string; label: string }[]; onSelect: (v: string) => unknown }
+      const settingRow = (p: SettingRow) => term && p.options.length <= 5 ? (
         <Box key={p.key} width="100%" flexDirection="row" flexWrap="wrap" columnGap={1} alignItems="center">
           {p.label ? <Text key={`${p.key}-label`} dimColor>{p.label}</Text> : null}
           {p.options.map(o => o.value === p.value ? (
@@ -4370,7 +4363,7 @@ Saved to ${out}.md and .json` }
           ) : null}
           {/* Title and buttons are centred in the whole bar (it reaches from the border to the line under it), so the
               space above them equals the space below. The terminal has no bar: both sit in the flow on one row that
-              wraps, since two absolute layers drew over each other in a narrow window ("SettCheck for updates"). */}
+              wraps, since two absolute layers would draw over each other in a narrow window. */}
           {headRow([
           <Box key="settings-title" {...(term ? { flexShrink: 0 } : { position: 'absolute', top: 0, left: 2, height: 2.5 })} flexDirection="row" alignItems="center" gap={1}>
             {term ? <Text color={ACCENT} bold>✦</Text> : null}
@@ -4422,8 +4415,7 @@ Saved to ${out}.md and .json` }
                       whole (its own hover); two, spaced around, left its edges and a stripe between the lines dead. */}
                   {term ? null : <Box position="absolute" top={0} bottom={0} left={0} right={0} flexDirection="column" justifyContent="space-between">
                     {/* Each button sits in a clipping box and does not shrink: in a narrow card a shrunk button cut its
-                        blank label to "\u2026", three stacked dots on the card. 800 no-break spaces (about 2,000 px: one is ~2.6 px, measured with
-                        tools/render-band --hit) cover a card alone on its row edge to edge; the box clips the rest. */}
+                        blank label to "\u2026", three stacked dots on the card. 800 no-break spaces (about 2,000 px: one is ~2.6 px) cover a card alone on its row edge to edge; the box clips the rest. */}
                     {['', '-2', '-3'].map(n => (
                       <Box key={`settings-card-box-${c.id}${n}`} flexDirection="row" justifyContent="center" overflow="hidden">
                         <Box flexShrink={0}>
@@ -4455,8 +4447,8 @@ Saved to ${out}.md and .json` }
               ? []
               : [
                   <Box key="gap" width={2} />,
-                  choice({ key: "settings-floor", label: "Min", value: shown.floor, options: opts(EFFORTS), onSelect: set('floor') }),
-                  choice({ key: "settings-ceiling", label: "Max", value: shown.ceiling, options: opts(EFFORTS), onSelect: set('ceiling') }),
+                  settingRow({ key: "settings-floor", label: "Min", value: shown.floor, options: opts(EFFORTS), onSelect: set('floor') }),
+                  settingRow({ key: "settings-ceiling", label: "Max", value: shown.ceiling, options: opts(EFFORTS), onSelect: set('ceiling') }),
                   // Effort for helpers on a row of its own: the dashboard's Auto switch exactly (switch, word, slide,
                   // one blank button laid over both), then what it does now.
                   <Box key="settings-helpers-row" width="100%" flexDirection="row" alignItems="center" gap={1}>
@@ -4480,26 +4472,26 @@ Saved to ${out}.md and .json` }
                 ]),
 ] : card === 'model' ? (bare ? [] : [
             // Which model writes a compaction's summary.
-            choice({ key: "settings-compact-with", label: "Compact with", value: shown.compactWith, options: [{ value: 'haiku', label: 'Haiku 5.5' }, { value: 'session', label: "Chat's model" }], onSelect: set('compactWith') }),
+            settingRow({ key: "settings-compact-with", label: "Compact with", value: shown.compactWith, options: [{ value: 'haiku', label: 'Haiku 5.5' }, { value: 'session', label: "Chat's model" }], onSelect: set('compactWith') }),
             <Box key="settings-helper-model" flexDirection="column">
               <Button key="settings-helper-model-switch" plain label={`${shown.helperModel === 'on' ? '◉' : '○'} Cheaper model for helpers`} onPress={() => set('helperModel')(shown.helperModel === 'on' ? 'off' : 'on')} />
               <Text dimColor wrap="wrap">{shown.helperModel === 'on' ? (shown.helpers === 'on' ? "A subagent the judge calls simple runs on a cheaper model than it was given, never a dearer one" : "Needs Helpers on (Effort card)") : "A subagent keeps the model it was given"}</Text>
             </Box>,
           ]) : card === 'handoff' ? (bare ? [] : [
-            choice({ key: "settings-skill", label: "Handoff skill", value: shown.handoffSkill || '-', options: [
+            settingRow({ key: "settings-skill", label: "Handoff skill", value: shown.handoffSkill || '-', options: [
                 { value: '-', label: 'Built in' },
                 ...[...new Set([...(shown.handoffSkill ? [shown.handoffSkill] : []), ...skillNames])].map(name => ({ value: name, label: `/${name}` })),
               ], onSelect: v => set('handoffSkill')(v === '-' ? '' : v) }),
-            choice({ key: "settings-swamp", label: "Compact alert at", value: shown.swampAt, options: SWAMP_STEPS.map(n => ({ value: String(n), label: `${n}%` })), onSelect: set('swampAt') }),
-            choice({ key: "settings-handoff-button", label: "Handoff button", value: shown.handoffButton, options: [{ value: 'advised', label: 'When advised' }, { value: 'always', label: 'Always' }], onSelect: set('handoffButton') }),
+            settingRow({ key: "settings-swamp", label: "Compact alert at", value: shown.swampAt, options: SWAMP_STEPS.map(n => ({ value: String(n), label: `${n}%` })), onSelect: set('swampAt') }),
+            settingRow({ key: "settings-handoff-button", label: "Handoff button", value: shown.handoffButton, options: [{ value: 'advised', label: 'When advised' }, { value: 'always', label: 'Always' }], onSelect: set('handoffButton') }),
             ...alertToggles,
 ]) : [
             ...(bare
               ? []
               : [
-                  choice({ key: "settings-layout", label: "Look", value: shown.layout, options: [{ value: 'default', label: 'Dashboard' }, { value: 'minimal', label: 'Minimal' }], onSelect: set('layout') }),
-                  choice({ key: "settings-appearance", label: "Appearance", value: shown.appearance, options: [{ value: 'auto', label: 'Match Claude Code' }, { value: 'dark', label: 'Dark' }, { value: 'light', label: 'Light' }], onSelect: set('appearance') }),
-                  choice({ key: "settings-theme", label: "Theme", value: shown.theme, options: [{ value: 'violet', label: 'Violet' }, { value: 'orange', label: 'Claude orange' }, { value: 'rose', label: 'Cherry blossom' }], onSelect: set('theme') }),
+                  settingRow({ key: "settings-layout", label: "Look", value: shown.layout, options: [{ value: 'default', label: 'Dashboard' }, { value: 'minimal', label: 'Minimal' }], onSelect: set('layout') }),
+                  settingRow({ key: "settings-appearance", label: "Appearance", value: shown.appearance, options: [{ value: 'auto', label: 'Match Claude Code' }, { value: 'dark', label: 'Dark' }, { value: 'light', label: 'Light' }], onSelect: set('appearance') }),
+                  settingRow({ key: "settings-theme", label: "Theme", value: shown.theme, options: [{ value: 'violet', label: 'Violet' }, { value: 'orange', label: 'Claude orange' }, { value: 'rose', label: 'Cherry blossom' }], onSelect: set('theme') }),
                 ]),
             ...toggles,
             ...(bare ? [] : [uninstallButton($, themedEls($.ui.resolve(e)))]),
@@ -4510,8 +4502,6 @@ Saved to ${out}.md and .json` }
         </Box>
       )
     }
-    // The handoff bar: quick or full, then what follows, and a line saying what that does. Opened by ⇥ or the swamp
-    // band's Handoff; Go keeps the choice for next time. Enter presses Go once the bar holds the keyboard.
     // The compact bar: an optional note for the summary, then Compact (or Enter).
     if (e.surface !== 'terminal' && (await read($, compactAsk))) {
       const { Input } = themedEls($.ui.resolve(e))
@@ -4580,6 +4570,8 @@ Saved to ${out}.md and .json` }
         </Box>
       )
     }
+    // The handoff bar: quick or full, then what follows, and a line saying what that does. Opened by ⇥ or the swamp
+    // band's Handoff; Go keeps the choice for next time. Enter presses Go once the bar holds the keyboard.
     const choice = await read($, handoffPick)
     if (choice) {
       const setBar = (change: Partial<HandoffChoice>) => async () => {
@@ -4671,9 +4663,8 @@ Saved to ${out}.md and .json` }
         </Box>
       )
     }
-    // The setup guide, one step at a time: the judge (and only what that judge needs), the lean, the handoff, the
-    // footer, then a word on what else is there. The choices are saved together at Done or ✕ (see setupDraft).
-    // A step an older build left in the state (the judge's pick or key) is the guide's first step now.
+    // The setup guide, one step at a time: the lean, the handoff, the look, then a word on what else is there. The
+    // choices are saved together at Done or ✕ (see setupDraft). A stored step the guide does not know starts it at the lean.
     const storedStep = await read($, setupStep)
     const step = storedStep && !(['lean', 'handoff', 'look', 'done'] as const).includes(storedStep) ? 'lean' : storedStep
     if (step) {
@@ -4684,7 +4675,6 @@ Saved to ${out}.md and .json` }
       const go = (to: SetupStep | null) => () => goSetup($, to)
       const back = setupBack(step)
       const counter = setupCounter(step)
-      // The ✕ closes the guide without picking: until a judge is picked the footer keeps offering "Setup".
       const nav = (forward: unknown) => [
         ...(back ? [<Button key="setup-back" plain dimColor label="Back" onPress={go(back)} />] : []),
         forward,
@@ -4716,7 +4706,7 @@ Saved to ${out}.md and .json` }
         </Box>
       )
       if (step === 'lean') {
-        // Five stops, the marker on the one picked. The track is lit in purple from the middle out to the marker, so it
+        // Five stops, the marker on the one picked. The track is lit in the accent from the middle out to the marker, so it
         // shows which way it leans, and the words name the stop and say what it does.
         const lean = shown.bias
         const track: unknown[] = []
@@ -4847,7 +4837,6 @@ Saved to ${out}.md and .json` }
         </Box>
       )
     }
-    // A handoff or compact running or just done: said above the prompt, where it is seen at once.
     const savedAt = (await $.store.get('settingsSavedAt').catch(() => null)) as number | null
     if (typeof savedAt === 'number') {
       const since = (await $.clock.now().catch(() => Date.now())) - savedAt
@@ -4856,6 +4845,7 @@ Saved to ${out}.md and .json` }
         return savedCardTree($, e)
       }
     }
+    // A handoff or compact running or just done: said above the prompt, where it is seen at once.
     const compactNow = e.surface === 'terminal' ? null : await compactCard($, !!e.props.isWorking)
     if (compactNow)
       return handoffCardTree($, e, compactNow, undefined,
