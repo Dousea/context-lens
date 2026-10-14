@@ -1209,7 +1209,8 @@ async function restoreCache($: EngineInterface) {
   const memo = await read($, cacheMemo)
   if (!memo || cacheExpires !== 0 || memo.expires <= 0) {
     // Nothing to go on: a "Cold" left in the shared state by the copy before is not this chat's cache.
-    if (cacheExpires === 0 && !coldForced && (await read($, cacheLeft)) === 0) await update($, cacheLeft, () => null)
+    // restoreCache runs inside the band's draw, where a state write is denied: the clear waits for a timer, and checks again then.
+    if (cacheExpires === 0 && !coldForced) $.clock.after(0, () => void update($, cacheLeft, l => (l === 0 && cacheExpires === 0 && !coldForced ? null : l)))
     return
   }
   cacheExpires = memo.expires
@@ -4177,14 +4178,20 @@ Saved to ${out}.md and .json` }
       asked && typeof asked === 'object' && (asked as { session?: string }).session === (await $.session.id().catch(() => ''))
         ? (asked as { at: number }).at
         : null
+    // The app denies a state write made while the band is being drawn, so an open asked for here is drawn now and
+    // written from a timer.
+    let open = Boolean(await read($, settingsOpen))
     if (typeof askedHere === 'number') {
       await $.store.set('openSettingsAt', null)
-      if (Date.now() - askedHere < 60_000 && !(await read($, settingsOpen))) await update($, settingsOpen, () => true)
+      if (Date.now() - askedHere < 60_000 && !open) {
+        open = true
+        $.clock.after(0, () => void update($, settingsOpen, () => true))
+      }
     }
-    lastRenderBranch = (await read($, settingsOpen)) ? 'drew the settings panel' : 'drew a band or nothing'
+    lastRenderBranch = open ? 'drew the settings panel' : 'drew a band or nothing'
     const { Box, Text, Button, Svg, Link } = themedEls($.ui.resolve(e))
     // The settings panel: a branded header bar, then one compact row per setting, a dim hint at the end of each row.
-    if (await read($, settingsOpen)) {
+    if (open) {
       // The app gives this slot maxRows rows and drops a taller tree whole, without a word. With gaps the panel is 12
       // rows (2 border, 2 header, 4 settings, 4 gaps); without, 7.
       const roomy = (typeof e.props.maxRows === 'number' ? e.props.maxRows : 12) >= 12
