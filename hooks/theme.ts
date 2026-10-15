@@ -7,7 +7,7 @@ export type ThemeName = 'cyan' | 'violet' | 'orange' | 'rose'
 export const THEMES: readonly ThemeName[] = ['cyan', 'violet', 'orange', 'rose']
 // The hue each theme turns the violets to. Claude's orange (#d97757) sits at hue 15, saturation 63%, lightness 60%; the
 // brand violet is lighter and stronger, so the saturation and the lightness of what turns come down to meet it. Rose is
-// a cherry-blossom pink; its sparkles are drawn as falling petals (see petals). Cyan is the brand's glass, at hue 182.
+// a cherry-blossom pink; its bokeh is drawn as falling petals (see petals). Cyan is the brand's glass, at hue 182.
 const HUES: Record<Exclude<ThemeName, 'violet'>, number> = { cyan: 182, orange: 15, rose: 340 }
 
 let current: ThemeName = 'cyan'
@@ -91,8 +91,8 @@ export function tintHex(hex: string): string {
   return out
 }
 
-// A cherry-blossom petal, and the fall it makes: each sparkle of the art becomes a petal at the same place, falling slowly
-// and turning as it goes. The drawing's own CSS animates sparkles in place; the petals bring their own.
+// A cherry-blossom petal, and the fall it makes: each bokeh disc of the art becomes a petal at the same place, falling slowly
+// and turning as it goes. The drawing's own CSS animates the discs in place; the petals bring their own.
 const PETAL = 'M0 -2.2C1.7 -1.7 1.9 0.9 0 2.2C-1.9 0.9 -1.7 -1.7 0 -2.2Z'
 const PETAL_CSS =
   '.pt{fill:#ffb3cf;opacity:0;animation-name:fall;animation-timing-function:linear;animation-iteration-count:infinite}@keyframes fall{0%{opacity:0;transform:translate(0,-4px) rotate(0deg)}12%{opacity:.6}85%{opacity:.5}100%{opacity:0;transform:translate(-16px,34px) rotate(280deg)}}'
@@ -100,7 +100,7 @@ function petals(text: string): string {
   if (!text.includes('class="sp"')) return text
   return text
     .replace(
-      /<path class="sp" style="transform-origin:([\d.]+)px [\d.]+px;animation-duration:([\d.]+)s;animation-delay:([\d.]+)s" d="[^"]*"\/>/g,
+      /<(?:path|circle) class="sp" style="transform-origin:([\d.]+)px [\d.]+px;animation-duration:([\d.]+)s;animation-delay:([\d.]+)s"[^>]*\/>/g,
       (_m, x: string, dur: string, delay: string) =>
         `<g transform="translate(${x} 0)"><path class="pt" style="animation-duration:${(Number(dur) * 2.2).toFixed(1)}s;animation-delay:${delay}s" d="${PETAL}"/></g>`,
     )
@@ -158,7 +158,7 @@ const lightRe = /#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?(?![0-9a-fA-F])/g
 export function tint(text: string): string {
   if (current === 'violet' && !light) return text
   const turned = current === 'violet' ? text : text.replace(hexRe, tintHex)
-  // Petals only where the art was violet and has turned pink: the green, yellow, blue and red cards keep their sparkles.
+  // Petals only where the art was violet and has turned pink: the green, yellow, blue and red cards keep their bokeh.
   const drawn = current === 'rose' && turned !== text ? petals(turned) : turned
   if (!light) return drawn
   // A shape marked data-keep (a switch's knob) keeps its colour: it sits on a colour of its own, not on the panel.

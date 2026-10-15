@@ -45,7 +45,7 @@ const PALETTE: Record<ArtKind, { ground: Rgb; deep: Rgb; light: Rgb; glow: Rgb }
   hot: { ground: hex('#1a110c'), deep: hex('#b8461b'), light: hex('#ffb06a'), glow: hex('#f08a3c') },
   down: { ground: hex('#12141b'), deep: hex('#39415a'), light: hex('#b4b8c4'), glow: hex('#6b7288') },
   brand: { ground: hex('#15121f'), deep: hex('#4a3f80'), light: hex('#e4dfff'), glow: hex('#a79cf7') },
-  // The dashboard's: the brand's sparkles in grey, since it shows all the time.
+  // The dashboard's: the brand's lens in grey, since it shows all the time.
   calm: { ground: hex('#141416'), deep: hex('#2a2a2f'), light: hex('#d4d4d8'), glow: hex('#6e6e76') },
   compacting: { ground: hex('#15121f'), deep: hex('#4a3f80'), light: hex('#e4dfff'), glow: hex('#a79cf7') },
   done: { ground: hex('#0f1c15'), deep: hex('#2f7a4c'), light: hex('#d8f5e3'), glow: hex('#5ec48a') },
@@ -110,11 +110,12 @@ export function artPixel(kind: ArtKind, t: number, x: number, y: number, cols = 
     const pulse = 0.5 + 0.5 * Math.sin(t / 8)
     if (rand(x * 7 + y * 13) > 0.82) c = mix(c, p.light, 0.25 + 0.35 * pulse)
   } else if (kind === 'brand' || kind === 'calm' || kind === 'compacting') {
-    // Sparkles in fixed places: still for brand, twinkling while compacting.
-    if (rand(x * 5 + y * 11 + 3) > 0.84) {
-      const twinkle = kind === 'compacting' ? 0.5 + 0.5 * Math.sin(t / 2 + x * 1.7 + y) : 0.8
-      c = mix(p.glow, p.light, twinkle)
-    }
+    // A lens near the right, its rim and its core: still for brand, pulling focus in and out while compacting.
+    const radius = kind === 'compacting' ? 1.9 + 0.7 * Math.sin(t / 4) : 2.2
+    const distance = Math.hypot(x - (cols - 4.5), y - (h - 1) / 2)
+    const rim = 1 - Math.abs(distance - radius) / 0.7
+    if (rim > 0) c = mix(c, p.glow, Math.min(1, rim) * 0.55)
+    if (distance < 0.8) c = mix(p.glow, p.light, 0.85)
   } else if (kind === 'done') {
     if (TICK.some(([tx, ty]) => tx === x && ty === y)) c = p.light
   }

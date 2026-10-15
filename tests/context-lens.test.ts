@@ -4910,6 +4910,12 @@ describe('theme', () => {
       expect(petals).toContain('<g transform="translate(168 0)">')
       expect(petals).toContain('@keyframes fall')
       expect(petals).not.toContain('class="sp"')
+      // The brand art's bokeh discs turn to petals the same way.
+      const bokeh = tint(
+        '<svg><style>.sp{fill:#fff}</style><rect fill="#7c6cf0" width="9" height="9"/><circle class="sp" style="transform-origin:168px 8px;animation-duration:4.2s;animation-delay:0.3s" cx="168" cy="8" r="1.36"/></svg>',
+      )
+      expect(bokeh).toContain('<g transform="translate(168 0)">')
+      expect(bokeh).not.toContain('class="sp"')
       // Art with no violet in it (the green Done card) keeps its sparkles.
       const green =
         '<svg><style>.sp{fill:#fff}</style><rect fill="#2fae62" width="9" height="9"/><path class="sp" style="transform-origin:168px 8px;animation-duration:4.2s;animation-delay:0.3s" d="M168 6.4 L168.34 7.66 Z"/></svg>'

@@ -157,8 +157,8 @@ function bandArt($: EngineInterface, e: RenderInput<'AbovePrompt'>, kind: ArtKin
   const els = themedEls($.ui.resolve(e))
   const columns = typeof e.props.bodyColumns === 'number' ? e.props.bodyColumns : 0
   if (e.surface !== 'terminal' || !('Raster' in els) || columns < ART_MIN_WIDTH) return null
-  // The still sparkles (the resting dashboard, the guide) are 16 by 4 pixels: in a terminal they read as noise, not
-  // art. Only the art that says something stays: the alerts, compacting and the done tick.
+  // The still lens (the resting dashboard, the guide) is 16 by 4 pixels and says nothing a terminal needs. Only the art
+  // that says something stays: the alerts, compacting and the done tick.
   if (kind === 'calm' || kind === 'brand') return null
   const { Box, Raster } = els
   artShown = { requestId: e.requestId, kind }
