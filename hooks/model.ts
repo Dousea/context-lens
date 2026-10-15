@@ -171,11 +171,12 @@ export type LineLayout = { ctxBar: number; usageBar: number; ctxText: string; st
  * half to the context bar and half shared by the usage bars. When the bars no
  * longer fit at their minimum, the context drops its window size (never its
  * token count), then the usage windows lose their reset times, then their bars,
- * then drop from the end, and last the context bar goes.
+ * then drop from the end, and last the context bar goes. A null `headWidth`
+ * is a row with no cache clock, which starts at the context.
  */
 export const layoutLine = (
   columns: number,
-  headWidth: number,
+  headWidth: number | null,
   ctxTexts: readonly string[],
   windows: readonly UsageWindow[],
 ): LineLayout => {
@@ -183,7 +184,8 @@ export const layoutLine = (
     for (const style of USAGE_STYLES) {
       for (const ctxText of ctxTexts) {
         const usageText = windows.slice(0, n).reduce((sum, w) => sum + SEPARATOR + usageTextWidth(w, style), 0)
-        const room = columns - headWidth - SEPARATOR - 'ctx '.length - 1 - ctxText.length - usageText
+        const room =
+          columns - (headWidth === null ? 0 : headWidth + SEPARATOR) - 'ctx '.length - 1 - ctxText.length - usageText
         const bars = style === 'percent' ? 0 : n
         const usageBar = bars === 0 ? 0 : Math.floor(room / 2 / bars)
         const ctxBar = room - usageBar * bars

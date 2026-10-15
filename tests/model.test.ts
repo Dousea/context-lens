@@ -152,6 +152,12 @@ describe('the line layout', () => {
     }
   })
 
+  test('a line with no cache clock gives its columns to the bars', () => {
+    for (const columns of [70, 90, 110, 140, 200]) {
+      expect(drawnWidth(layoutLine(columns, null, ctx, windows)) - HEAD - 3).toBe(columns)
+    }
+  })
+
   test('narrower lines drop the window size, then the reset times, then the usage bars, then windows', () => {
     expect(layoutLine(66, HEAD, ctx, windows)).toMatchObject({ ctxText: '84k', style: 'full', windows: 2 })
     expect(layoutLine(58, HEAD, ctx, windows)).toMatchObject({ style: 'bar', windows: 2 })

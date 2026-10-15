@@ -1,6 +1,7 @@
 import { atom, type EngineInterface, read, type RenderInput } from 'claude-code'
 
 import type { AgentCache } from '../../types'
+import { config } from '../core/config'
 import { LENS_WARMTH_COLOR } from '../logic/lens'
 import {
   bar,
@@ -36,7 +37,7 @@ function lensCacheTime(state: Warmth, left: number | null): string {
 }
 
 /** The lens's row, `columns` wide: the cache timer, the context bar and the usage windows; null when there is
- * nothing to show yet. A subagent in view shows its own clock. */
+ * nothing to show yet. A subagent in view shows its own clock. Hiding the cache timer in the settings drops the clock. */
 export async function lensRow($: EngineInterface, e: RenderInput<'AbovePrompt'>, columns: number) {
   const [mainClock, ctx, live, rewritten, limits, at, agentList] = await Promise.all([
     read($, lensMain),
@@ -59,7 +60,8 @@ export async function lensRow($: EngineInterface, e: RenderInput<'AbovePrompt'>,
   const state = warmth(clock, at)
   const time = lensCacheTime(state, remainingMs(clock, at))
   const showRewritten = agent === undefined && rewritten && state !== 'cold'
-  const headWidth = 2 + time.length + (showRewritten ? ' re-cached'.length : 0)
+  const showClock = !config.hide.includes('timer')
+  const headWidth = showClock ? 2 + time.length + (showRewritten ? ' re-cached'.length : 0) : null
 
   const max = ctx?.maxTokens ?? 0
   const used = agent === undefined ? (live ?? ctx?.totalTokens ?? 0) : clockTokens(agent)
@@ -94,10 +96,10 @@ export async function lensRow($: EngineInterface, e: RenderInput<'AbovePrompt'>,
 
   return (
     <Box key="lens-row" flexDirection="row" gap={1}>
-      <Text color={LENS_WARMTH_COLOR[state]}>●</Text>
-      <Text color={state === 'uncached' ? 'inactive' : LENS_WARMTH_COLOR[state]}>{time}</Text>
-      {showRewritten && <Text color="warning">re-cached</Text>}
-      <Text dimColor>│</Text>
+      {showClock && <Text color={LENS_WARMTH_COLOR[state]}>●</Text>}
+      {showClock && <Text color={state === 'uncached' ? 'inactive' : LENS_WARMTH_COLOR[state]}>{time}</Text>}
+      {showClock && showRewritten && <Text color="warning">re-cached</Text>}
+      {showClock && <Text dimColor>│</Text>}
       <Text>ctx</Text>
       {segments.length > 0 && !glyphs && boxedBar('ctx-bar', segments, layout.ctxBar)}
       {segments.length > 0 && glyphs && (

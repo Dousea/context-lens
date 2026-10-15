@@ -703,7 +703,7 @@ var layoutLine = (columns, headWidth, ctxTexts, windows) => {
     for (const style of USAGE_STYLES) {
       for (const ctxText of ctxTexts) {
         const usageText = windows.slice(0, n).reduce((sum, w) => sum + SEPARATOR + usageTextWidth(w, style), 0);
-        const room = columns - headWidth - SEPARATOR - "ctx ".length - 1 - ctxText.length - usageText;
+        const room = columns - (headWidth === null ? 0 : headWidth + SEPARATOR) - "ctx ".length - 1 - ctxText.length - usageText;
         const bars = style === "percent" ? 0 : n;
         const usageBar = bars === 0 ? 0 : Math.floor(room / 2 / bars);
         const ctxBar = room - usageBar * bars;
@@ -2695,7 +2695,8 @@ async function lensRow($, e, columns) {
   const state = warmth(clock, at);
   const time = lensCacheTime(state, remainingMs(clock, at));
   const showRewritten = agent === void 0 && rewritten && state !== "cold";
-  const headWidth = 2 + time.length + (showRewritten ? " re-cached".length : 0);
+  const showClock = !config.hide.includes("timer");
+  const headWidth = showClock ? 2 + time.length + (showRewritten ? " re-cached".length : 0) : null;
   const max = ctx?.maxTokens ?? 0;
   const used = agent === void 0 ? live ?? ctx?.totalTokens ?? 0 : clockTokens(agent);
   const ctxTexts = max > 0 ? [`${formatTokens(used)}/${formatTokens(max)}`, formatTokens(used)] : [formatTokens(used)];
@@ -2712,7 +2713,7 @@ async function lensRow($, e, columns) {
     }
   )));
   const glyphs = e.surface === "terminal";
-  return /* @__PURE__ */ h(Box, { key: "lens-row", flexDirection: "row", gap: 1 }, /* @__PURE__ */ h(Text, { color: LENS_WARMTH_COLOR[state] }, "●"), /* @__PURE__ */ h(Text, { color: state === "uncached" ? "inactive" : LENS_WARMTH_COLOR[state] }, time), showRewritten && /* @__PURE__ */ h(Text, { color: "warning" }, "re-cached"), /* @__PURE__ */ h(Text, { dimColor: true }, "│"), /* @__PURE__ */ h(Text, null, "ctx"), segments.length > 0 && !glyphs && boxedBar("ctx-bar", segments, layout.ctxBar), segments.length > 0 && glyphs && /* @__PURE__ */ h(Box, { flexDirection: "row" }, segments.filter((s) => s.cells > 0).map((s, i) => /* @__PURE__ */ h(Text, { key: `s${i}`, color: s.color }, segmentGlyph(s.kind).repeat(s.cells)))), /* @__PURE__ */ h(Text, null, layout.ctxText), windows.slice(0, layout.windows).map((w) => /* @__PURE__ */ h(
+  return /* @__PURE__ */ h(Box, { key: "lens-row", flexDirection: "row", gap: 1 }, showClock && /* @__PURE__ */ h(Text, { color: LENS_WARMTH_COLOR[state] }, "●"), showClock && /* @__PURE__ */ h(Text, { color: state === "uncached" ? "inactive" : LENS_WARMTH_COLOR[state] }, time), showClock && showRewritten && /* @__PURE__ */ h(Text, { color: "warning" }, "re-cached"), showClock && /* @__PURE__ */ h(Text, { dimColor: true }, "│"), /* @__PURE__ */ h(Text, null, "ctx"), segments.length > 0 && !glyphs && boxedBar("ctx-bar", segments, layout.ctxBar), segments.length > 0 && glyphs && /* @__PURE__ */ h(Box, { flexDirection: "row" }, segments.filter((s) => s.cells > 0).map((s, i) => /* @__PURE__ */ h(Text, { key: `s${i}`, color: s.color }, segmentGlyph(s.kind).repeat(s.cells)))), /* @__PURE__ */ h(Text, null, layout.ctxText), windows.slice(0, layout.windows).map((w) => /* @__PURE__ */ h(
     Box,
     {
       key: `u-${w.label}`,

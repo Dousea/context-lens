@@ -189,6 +189,27 @@ test('a subagent in view shows its own five-minute clock', async ($, on) => {
   expect(await mainLine.find({ text: /^—$/ })).toBeDefined()
 })
 
+baseTest(
+  'hiding the cache timer drops the clock from the row on both surfaces',
+  { options: { layout: 'default', hide: 'timer' } },
+  async ($, on) => {
+    mock.clock(on, { now: 0 })
+    engine(on)
+    answering(on, 140_000, 4_000)
+    await begin($)
+    await step($)
+
+    for (const surface of ['terminal', 'desktop'] as const) {
+      const line = await $.ui.mount({ plugin: PLUGIN, surface, component: 'AbovePrompt', props: band(140) })
+      expect(await line.find({ text: /^ctx$/ })).toBeDefined()
+      expect(await line.find({ text: /^152k\/250k$/ })).toBeDefined()
+      expect(await line.find({ text: /^60m$/ })).toBeUndefined()
+      expect(await line.find({ text: /^●$/ })).toBeUndefined()
+      await line.unmount()
+    }
+  },
+)
+
 test('the lens row stays under an alert band on the terminal', async ($, on) => {
   mock.clock(on, { now: 0 })
   engine(on)
