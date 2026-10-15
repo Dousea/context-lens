@@ -171,7 +171,7 @@ export async function setupGuide($: EngineInterface, e: RenderInput<'AbovePrompt
       ...nav(nextButton),
     ])
   }
-  return band('⏻ Auto on or off. ⚙ all settings. Auto pauses on Fable.', 24, [
+  return band('Model and Effort each have an Auto. Settings holds the rest. Auto pauses on Fable.', 24, [
     ...nav(<Button key="setup-done" variant="primary" autoFocus label="Done" onPress={() => closeSetup($)} />),
   ])
 }

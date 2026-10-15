@@ -74,7 +74,7 @@ export async function judgeDownBand($: EngineInterface, e: RenderInput<'AbovePro
       bg: SLATE_BG,
       edge: SLATE_EDGE,
       title: 'Judge down',
-      detail: `${downReason}. The effort stays as it is.`,
+      detail: `${downReason}. The model and effort stay as they are.`,
       buttons: [
         <Button
           key="down-close"
@@ -108,7 +108,7 @@ export async function judgeDownBand($: EngineInterface, e: RenderInput<'AbovePro
           ◉ Judge down
         </Text>
       </Box>
-      <Text wrap="truncate">{`${downReason}. The effort stays as it is.`}</Text>
+      <Text wrap="truncate">{`${downReason}. The model and effort stay as they are.`}</Text>
       <Box flexGrow={1} minWidth={30} />
       <Box
         key="down-actions"

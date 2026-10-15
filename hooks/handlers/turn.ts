@@ -141,7 +141,7 @@ export function registerTurnHooks(on: On) {
         void proof($, `request ${e.index}: you set effort ${seen} yourself, Auto off`)
         // The app has no event for its effort picker: this is the first request after the pick, so say it plainly.
         $.ui.toast(
-          `Context Lens: Auto is off. You picked ${EFFORT_LABELS[seen as Effort] ?? seen}; turn Auto on to hand it back.`,
+          `Context Lens: Auto effort is off. You picked ${EFFORT_LABELS[seen as Effort] ?? seen}; turn Auto effort on to hand it back.`,
         )
         return yield* send(e)
       }

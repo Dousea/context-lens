@@ -3,7 +3,7 @@ import { atom, type EngineInterface, read, type RenderInput, update } from 'clau
 import type { Effort, ModelKey } from '../../types'
 import { config } from '../core/config'
 import { EFFORTS, MODELS } from '../core/constants'
-import { effortOf, pickEffort, snap, toggleAutoEffort, toggleAutoModel } from '../logic/effort'
+import { autoNote, effortOf, pickEffort, snap, toggleAutoEffort, toggleAutoModel } from '../logic/effort'
 import { saveSetting } from '../logic/settings'
 import { subagentEffortOf } from '../logic/subagents'
 import {
@@ -121,9 +121,7 @@ export async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt
     ? 'Deciding…'
     : current
       ? `${current.by === 'manual' || current.by === 'named' ? 'You' : 'Why'}: ${current.why}`
-      : auto
-        ? 'Picks the effort at the next prompt'
-        : 'Pick an effort'
+      : autoNote(autoModel, auto)
   // The app's own model and effort, which its status line, /model and /effort show, are marked ( ) in the pickers. A
   // subagent in view has none of its own.
   const appModel = inAgent ? undefined : keyOf(await $.session.model())

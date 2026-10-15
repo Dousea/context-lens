@@ -197,7 +197,7 @@ function warnJudge($: EngineInterface, reason: string) {
   void update($, judgeDown, () => reason).then(() => $.ui.invalidate('ui.render'))
   if (warned.has(reason)) return
   warned.add(reason)
-  $.ui.toast(`Context Lens: ${reason}. The effort stays as it is.`)
+  $.ui.toast(`Context Lens: ${reason}. The model and effort stay as they are.`)
 }
 
 /** The text the judge reads: the current pair, the last turns and the next message. */

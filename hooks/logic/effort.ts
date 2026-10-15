@@ -41,6 +41,16 @@ export async function pickEffort($: EngineInterface, level: Effort) {
   void proof($, `click ${level}: ${Date.now() - t0} ms (read ${t1 - t0}, state ${Date.now() - t1})`)
 }
 
+/** What Auto does at the next prompt, from its two switches: the note under the pickers before anything is decided. */
+export const autoNote = (autoModel: boolean, autoEffort: boolean) =>
+  autoModel && autoEffort
+    ? 'Auto picks the model and effort at the next prompt'
+    : autoEffort
+      ? 'Auto picks the effort at the next prompt; the model is yours'
+      : autoModel
+        ? 'Auto picks the model at the next prompt; the effort is yours'
+        : 'You pick the model and effort'
+
 export async function toggleAutoEffort($: EngineInterface) {
   const turnOn = !(await read($, isAuto))
   await update($, isAuto, () => turnOn)

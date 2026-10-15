@@ -1090,7 +1090,7 @@ function warnJudge($, reason) {
   void update3($, judgeDown, () => reason).then(() => $.ui.invalidate("ui.render"));
   if (warned.has(reason)) return;
   warned.add(reason);
-  $.ui.toast(`Context Lens: ${reason}. The effort stays as it is.`);
+  $.ui.toast(`Context Lens: ${reason}. The model and effort stay as they are.`);
 }
 function judgeQuestion(prompt, current2, context) {
   return [
@@ -1571,6 +1571,7 @@ async function pickEffort($, level) {
   ]);
   void proof($, `click ${level}: ${Date.now() - t0} ms (read ${t1 - t0}, state ${Date.now() - t1})`);
 }
+var autoNote = (autoModel, autoEffort) => autoModel && autoEffort ? "Auto picks the model and effort at the next prompt" : autoEffort ? "Auto picks the effort at the next prompt; the model is yours" : autoModel ? "Auto picks the model at the next prompt; the effort is yours" : "You pick the model and effort";
 async function toggleAutoEffort($) {
   const turnOn = !await read6($, isAuto);
   await update6($, isAuto, () => turnOn);
@@ -2692,7 +2693,7 @@ async function effortRows($, e) {
     }
   ))) : null;
   if (e.surface !== "terminal") return { question, rows: null };
-  const reasonNote = judging ? "Deciding…" : current2 ? `${current2.by === "manual" || current2.by === "named" ? "You" : "Why"}: ${current2.why}` : auto ? "Picks the effort at the next prompt" : "Pick an effort";
+  const reasonNote = judging ? "Deciding…" : current2 ? `${current2.by === "manual" || current2.by === "named" ? "You" : "Why"}: ${current2.why}` : autoNote(autoModel, auto);
   const appModel = inAgent ? void 0 : keyOf(await $.session.model());
   const appEffort3 = inAgent || !EFFORTS.includes(v.shownByApp) ? void 0 : v.shownByApp;
   const marked = (label, isApp) => isApp ? `( ${label} )` : label;
@@ -3106,7 +3107,7 @@ async function judgeDownBand($, e, downReason) {
       bg: SLATE_BG,
       edge: SLATE_EDGE,
       title: "Judge down",
-      detail: `${downReason}. The effort stays as it is.`,
+      detail: `${downReason}. The model and effort stay as they are.`,
       buttons: [
         /* @__PURE__ */ h(
           Button,
@@ -3138,7 +3139,7 @@ async function judgeDownBand($, e, downReason) {
     /* @__PURE__ */ h(Box, { key: "down-art", position: "absolute", top: -1, right: 0, bottom: -1 }, /* @__PURE__ */ h(Svg, { source: DOWN_SVG, alt: "judge down", width: FROST_WIDTH, height: FROST_HEIGHT })),
     introLayer({ Box, Svg }, "down", await introShows($, "down"), SLATE_WASH, SLATE_LIGHT),
     /* @__PURE__ */ h(Box, { flexShrink: 0 }, /* @__PURE__ */ h(Text, { color: SLATE, bold: true, wrap: "truncate" }, "◉ Judge down")),
-    /* @__PURE__ */ h(Text, { wrap: "truncate" }, `${downReason}. The effort stays as it is.`),
+    /* @__PURE__ */ h(Text, { wrap: "truncate" }, `${downReason}. The model and effort stay as they are.`),
     /* @__PURE__ */ h(Box, { flexGrow: 1, minWidth: 30 }),
     /* @__PURE__ */ h(
       Box,
@@ -3658,7 +3659,7 @@ async function dashboardBand($, e) {
   const shownModel = inAgent ? viewed?.model : v.modelNow ?? void 0;
   const effortNow = inAgent ? viewed?.effort ?? await subagentEffortOf($, e.props.view.agentId).catch(() => void 0) : effortOf(v);
   const by = v.current?.by;
-  const reason = v.current ? `${by === "manual" || by === "named" ? "You" : "Why"}: ${v.current.why}` : v.auto ? "Auto picks the effort at the next prompt" : "You pick the effort";
+  const reason = v.current ? `${by === "manual" || by === "named" ? "You" : "Why"}: ${v.current.why}` : autoNote(v.autoModel, v.auto);
   const cacheShown = config.hide.includes("timer") || v.cacheNow !== null && v.cacheNow <= 0 ? null : v.cacheNow;
   const columns = typeof e.props.bodyColumns === "number" ? e.props.bodyColumns : 100;
   const desktop = e.surface === "desktop";
@@ -4316,7 +4317,7 @@ var CARDS = [
   {
     id: "auto",
     title: "Auto",
-    about: "How Auto picks. The slider tips the judge's close calls; Never below and Never above bound every pick."
+    about: "How Auto picks. The slider tips the judge's close calls; Never below and Never above bound every effort it picks."
   },
   { id: "subagents", title: "Subagents", about: "What the subagents the chat sends off run on." },
   {
@@ -4878,7 +4879,7 @@ async function setupGuide($, e, step) {
       ...nav(nextButton)
     ]);
   }
-  return band("⏻ Auto on or off. ⚙ all settings. Auto pauses on Fable.", 24, [
+  return band("Model and Effort each have an Auto. Settings holds the rest. Auto pauses on Fable.", 24, [
     ...nav(/* @__PURE__ */ h(Button, { key: "setup-done", variant: "primary", autoFocus: true, label: "Done", onPress: () => closeSetup($) }))
   ]);
 }
@@ -5221,7 +5222,7 @@ function registerCommandHooks(on) {
     if (arg === "auto") {
       await toggleAutoEffort($);
       return {
-        text: await read19($, isAuto2) ? "Auto on: effort is picked for every prompt." : "Auto off: the effort is yours."
+        text: await read19($, isAuto2) ? "Auto effort on: the effort is picked for every prompt." : "Auto effort off: the effort is yours."
       };
     }
     if (arg === "hot") {
@@ -5860,7 +5861,7 @@ function registerTurnHooks(on) {
         await choose($, { model: await sessionModel($), effort: seen, why: "your pick in the app", by: "manual" });
         void proof($, `request ${e.index}: you set effort ${seen} yourself, Auto off`);
         $.ui.toast(
-          `Context Lens: Auto is off. You picked ${EFFORT_LABELS[seen] ?? seen}; turn Auto on to hand it back.`
+          `Context Lens: Auto effort is off. You picked ${EFFORT_LABELS[seen] ?? seen}; turn Auto effort on to hand it back.`
         );
         return yield* send(e);
       }

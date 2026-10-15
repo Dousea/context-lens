@@ -1067,7 +1067,7 @@ describe('footer text', () => {
     expect(await drawn(footer)).toContain(`"color":"${ACCENT}"`)
 
     // The command does the same.
-    expect(await auto($)).toContain('Auto off')
+    expect(await auto($)).toContain('Auto effort off')
     expect(await drawn(footer)).toContain('"children":[" Off "]')
     await footer.unmount()
   })
@@ -3554,8 +3554,10 @@ describe('dashboard', () => {
     await step($, 'high')
     await step($, 'low')
     expect(sent.at(-1)!.effort).toBe('low')
-    expect(said.join(' ')).toContain('Auto is off. You picked Low')
-    expect(String((await $.command.run({ command: 'context-lens', args: 'auto' } as never)).text)).toContain('Auto on')
+    expect(said.join(' ')).toContain('Auto effort is off. You picked Low')
+    expect(String((await $.command.run({ command: 'context-lens', args: 'auto' } as never)).text)).toContain(
+      'Auto effort on',
+    )
   })
 
   test('/context-lens debug says what the app asked for and what was sent', async ($, on) => {
@@ -4039,7 +4041,7 @@ describe('dashboard', () => {
         await closeSetup($, DESK_BAND)
 
         const band = await $.ui.mount(DESK_BAND)
-        const reason = await band.find({ text: /^Auto picks the effort at the next prompt$/ })
+        const reason = await band.find({ text: /^Auto picks the effort at the next prompt; the model is yours$/ })
         expect(Boolean(await band.find({ key: 'dash-detail' }))).toBe(!hide)
         expect(reason).toBeDefined()
         // The model and effort hint at a hover, and keep a card, only while the reason has no row of its own.
@@ -4283,9 +4285,9 @@ describe('a message typed while a turn runs', () => {
       origin: { kind: 'composer' },
     })
     await stepOf($, 't1', 0)
-    expect(String((await auto()).text)).toContain('Auto off')
+    expect(String((await auto()).text)).toContain('Auto effort off')
     await stepOf($, 't1', 1)
-    expect(String((await auto()).text)).toContain('Auto on')
+    expect(String((await auto()).text)).toContain('Auto effort on')
     await stepOf($, 't1', 2)
 
     expect(sent.map(s => s.effort)).toEqual(['high', 'high', 'high'])

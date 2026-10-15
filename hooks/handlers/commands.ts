@@ -75,8 +75,8 @@ export function registerCommandHooks(on: On) {
       await toggleAutoEffort($)
       return {
         text: (await read($, isAuto))
-          ? 'Auto on: effort is picked for every prompt.'
-          : 'Auto off: the effort is yours.',
+          ? 'Auto effort on: the effort is picked for every prompt.'
+          : 'Auto effort off: the effort is yours.',
       }
     }
     if (arg === 'hot') {

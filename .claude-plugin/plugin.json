@@ -1,7 +1,7 @@
 {
   "name": "context-lens",
   "version": "0.4.2",
-  "description": "Sets the reasoning effort for every prompt automatically, and shows the prompt-cache timers, context window and rate-limit usage above the prompt. A fork of HeyCubit/effortless (MIT).",
+  "description": "Sets the reasoning effort for every prompt automatically, and the model too if you let it, and shows the prompt-cache timers, context window and rate-limit usage above the prompt. A fork of HeyCubit/effortless (MIT).",
   "author": {
     "name": "Orlando Hutapea"
   },

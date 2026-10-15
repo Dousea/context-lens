@@ -114,7 +114,8 @@ const CARDS: readonly { id: SettingsCard; title: string; about: string }[] = [
   {
     id: 'auto',
     title: 'Auto',
-    about: "How Auto picks. The slider tips the judge's close calls; Never below and Never above bound every pick.",
+    about:
+      "How Auto picks. The slider tips the judge's close calls; Never below and Never above bound every effort it picks.",
   },
   { id: 'subagents', title: 'Subagents', about: 'What the subagents the chat sends off run on.' },
   {

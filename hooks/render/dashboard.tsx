@@ -8,7 +8,7 @@ import { loadedSession, renderLog } from '../core/debug'
 import { ACCENT, DASH_BG, DASH_DIM, DASH_EDGE, DASH_TEXT, FLASH_COLOR, themeHex } from '../core/palette'
 import { cacheLabel } from '../logic/cache'
 import { openCompact } from '../logic/compact'
-import { effortOf, snap, toggleAutoEffort, toggleAutoModel } from '../logic/effort'
+import { autoNote, effortOf, snap, toggleAutoEffort, toggleAutoModel } from '../logic/effort'
 import {
   adviceNow,
   COMPACT_BUTTON_MIN_COLUMNS,
@@ -201,9 +201,7 @@ export async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePro
   const by = v.current?.by
   const reason = v.current
     ? `${by === 'manual' || by === 'named' ? 'You' : 'Why'}: ${v.current.why}`
-    : v.auto
-      ? 'Auto picks the effort at the next prompt'
-      : 'You pick the effort'
+    : autoNote(v.autoModel, v.auto)
   // A cold cache is the cold band's to say; the resting bar shows the countdown only while there is one.
   const cacheShown = config.hide.includes('timer') || (v.cacheNow !== null && v.cacheNow <= 0) ? null : v.cacheNow
   // The lens's row (cache timers, context bar, usage) sits under the detail line. Its width is the band's inside: the

@@ -1,14 +1,14 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "context-lens",
-  "description": "Automatic reasoning effort, a prompt-cache countdown, the context window and rate-limit usage in one band for Claude Code.",
+  "description": "Automatic reasoning effort and model, a prompt-cache countdown, the context window and rate-limit usage in one band for Claude Code.",
   "owner": {
     "name": "Orlando Hutapea"
   },
   "plugins": [
     {
       "name": "context-lens",
-      "description": "Sets the reasoning effort for every prompt automatically, and shows the prompt-cache timers, context window and rate-limit usage above the prompt.",
+      "description": "Sets the reasoning effort for every prompt automatically, and the model too if you let it, and shows the prompt-cache timers, context window and rate-limit usage above the prompt.",
       "source": "./",
       "category": "productivity",
       "author": {
