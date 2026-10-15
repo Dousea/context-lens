@@ -12,7 +12,8 @@ import { registerSessionHooks } from './handlers/session'
 import { registerTurnHooks } from './handlers/turn'
 import { setTimersFrom, setTimersScheduled } from './logic/timers'
 
-export const register: Register = (on, options) => {
+// A declaration: the host before 2.1.299 takes `register` only as a function declared at the top of the shipped file.
+export function register(on: Parameters<Register>[0], options: Parameters<Register>[1]) {
   setLoadedAt(Date.now())
   setTimersFrom(null)
   setTimersScheduled(false)

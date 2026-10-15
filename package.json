@@ -4,9 +4,12 @@
   "scripts": {
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "typecheck": "tsc --noEmit -p ."
+    "typecheck": "tsc --noEmit -p .",
+    "build": "node scripts/build.mjs",
+    "build:check": "node scripts/build.mjs --check"
   },
   "devDependencies": {
+    "esbuild": "0.25.10",
     "prettier": "3.9.10",
     "typescript": "5.9.3"
   }

@@ -2,3 +2,4 @@
 .claude/
 bench/results/
 node_modules/
+hooks/dist/

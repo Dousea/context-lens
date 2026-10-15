@@ -7,6 +7,7 @@ A Claude Code plugin (a mod) that draws a band above the prompt: it sets the rea
 ## Layout
 
 - `hooks/register.tsx`: the entry module. It resets the per-load state, reads the settings and calls each `register…Hooks(on)`.
+- `hooks/dist/register.tsx`: what the host loads (`hooks/hooks.json`), `hooks/register.tsx` and everything it imports bundled into one file by `npm run build` (`scripts/build.mjs`). It is generated and committed, since an install copies the repo as it is.
 - `hooks/handlers/`: the hooks, a file per group of events: `session`, `turn`, `commands`, `prompt`, `agents`, `footer` (the desktop footer and the reply footers) and `above-prompt`, which picks the band to draw.
 - `hooks/render/`: what is drawn above the prompt: the terminal band, the dashboard, the alert bands, the effort rows, the lens row, the settings panel, the compact and handoff bars, the handoff card and the setup guide.
 - `hooks/logic/`: what the mod does, a module per domain: `judge`, `bench`, `switching` (model switches and offers), `effort`, `spend`, `cache`, `alerts` (swamp and hot), `handoff`, `compact`, `subagents`, `lens`, `settings`, `setup`, `timers`.
@@ -26,6 +27,7 @@ For the mod API (`$`, `on(...)`, `ui.render`, state, timers), load the `plugin-a
 
 ## Checks
 
+- `npm run build` rebuilds `hooks/dist/register.tsx` (`npm install` first). Run it after every change to `hooks/` and before testing: the tests load the bundle through `hooks.json`. `npm run build:check` fails when the committed bundle is out of date.
 - `claude plugin test .` runs every test. All pass; there are no known failures, so any failure is yours.
 - `claude plugin validate .` checks the manifest and marketplace.
 - `npm run typecheck` type-checks the hooks and the tests against the host's types in `.claude-plugin/types/`, which the host writes when it loads the plugin (`claude --plugin-dir .`). It reports no errors, so any error is yours.
@@ -37,6 +39,7 @@ For the mod API (`$`, `on(...)`, `ui.render`, state, timers), load the `plugin-a
 - The host denies a state write made while `ui.render` is being dispatched (`state.set: denied … while ui.render is being dispatched`). Defer it with `$.clock.after(0, …)` and draw from a local value meanwhile.
 - `/model` persists as the app's default. A switch that should last only for the session changes the request's model instead.
 - A `$.clock.now()` per request in the `send` path made the cache-countdown tests time out; reuse `cacheExpires`.
+- Claude Code 2.1.296 and older follow `$` only into a function of the same file, and take `register` only as a function declared at its top: passing `$` to an imported function stops the module from loading. Claude Desktop pins such a version (its own copy under `~/.config/Claude/claude-code/<version>/`), so the mod ships as one bundled file and `register` stays a `function` declaration. Check a change against Desktop's copy with `<that claude> plugin validate .`.
 - Outside `register.tsx`, a function that takes `$` must be a `function` declaration. Past an import the host follows `$` only into one, and an arrow stops the module from loading (`$ is passed to "x", a name bound to a function expression`).
 - The host reads an atom only from a `const` of the file that calls `read` or `update` on it. Each file that uses an atom declares it, with the same key and initial value; the contract in `types/index.d.ts` holds its type.
 - An imported `let` can be read but not assigned. A module whose `let` another module writes exports a `setX` beside it.
