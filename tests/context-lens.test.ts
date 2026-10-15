@@ -1,6 +1,6 @@
 import { describe, expect, mock, test as baseTest } from 'claude-code/testing'
 import type { On } from 'claude-code'
-import type { Engine } from 'claude-code/testing'
+import type { Engine, MountTarget, TestOptions, TestRest } from 'claude-code/testing'
 import { readConfig } from '../hooks/core/config'
 import { cacheSafe } from '../hooks/core/constants'
 import { claudeCandidates, noClaudeHint } from '../hooks/core/env'
@@ -48,20 +48,20 @@ import {
   judgeGlowSvg,
 } from '../hooks/svg/glows'
 import { ART_COLUMNS, artFrame, artPixel, MOVING } from '../hooks/svg/art'
-import { isLight, lightHex, lightProps, setLight, setTheme, themedEls, themedSvg, tint, tintHex } from '../hooks/theme'
 import { thinkingSvg } from '../hooks/svg/thinking'
+import { isLight, lightHex, lightProps, setLight, setTheme, themedEls, themedSvg, tint, tintHex } from '../hooks/theme'
+
+// The test runner has a timer; the lib the host's tsconfig names declares none.
+declare function setTimeout(callback: (value?: unknown) => void, ms: number): unknown
 
 // Most tests below were written for the footer's buttons: they run in the minimal look unless they name another.
 // The dashboard's own tests pass { layout: 'default' }.
-type Opts = Parameters<typeof baseTest>[1]
-const minimal = (o?: Record<string, unknown>) => ({
-  ...(o ?? {}),
-  options: { layout: 'minimal', ...((o?.options as object) ?? {}) },
+const minimal = (testOptions?: TestOptions): TestOptions => ({
+  ...testOptions,
+  options: { layout: 'minimal', ...testOptions?.options },
 })
-const test = ((name: string, a: unknown, b?: unknown) =>
-  b === undefined
-    ? baseTest(name, minimal() as Opts, a as never)
-    : baseTest(name, minimal(a as Record<string, unknown>) as Opts, b as never)) as typeof baseTest
+const test = (name: string, ...rest: TestRest) =>
+  rest.length === 1 ? baseTest(name, minimal(), rest[0]) : baseTest(name, minimal(rest[0]), rest[1])
 
 const BAND = {
   component: 'AbovePrompt',
@@ -149,7 +149,7 @@ async function step(
 const FOOTER = { plugin: 'context-lens', surface: 'desktop', component: 'SessionMode', props: { modes: [] } } as never
 
 /** The band above the prompt on desktop: it draws nothing (only the terminal has rows there). */
-const DESK_BAND = { plugin: 'context-lens', surface: 'desktop', ...BAND } as never
+const DESK_BAND = { plugin: 'context-lens', surface: 'desktop', ...BAND } as MountTarget<'desktop', 'AbovePrompt'>
 
 /** What a mounted tree draws, as text: its elements, props and strings. */
 /** Nothing shows above the prompt on desktop: only the hidden hover cards, revealed by hovering the footer. */
@@ -207,14 +207,14 @@ describe('auto', () => {
     const sent = recordSteps(on)
     await $.prompt.submit({ text: 'rename this one variable for me', wait: false, origin: { kind: 'composer' } })
     await step($, 'xhigh')
-    expect(sent[0].effort).toBe('low')
+    expect(sent[0]?.effort).toBe('low')
     // Auto off, the app still on Extra (no change the mod could see): Extra goes out, not the judge's old low.
-    await $.command.run({ command: 'context-lens', args: 'auto' })
+    await $.command.run({ command: 'context-lens', args: 'auto' } as never)
     await step($, 'xhigh')
-    expect(sent[1].effort).toBe('xhigh')
+    expect(sent[1]?.effort).toBe('xhigh')
     await $.prompt.submit({ text: 'now plan the whole architecture', wait: false, origin: { kind: 'composer' } })
     await step($, 'xhigh')
-    expect(sent[2].effort).toBe('xhigh')
+    expect(sent[2]?.effort).toBe('xhigh')
   })
 
   test('an agent report is judged for its own effort when Auto is on, and runs on the last pick when Auto is off', async ($, on) => {
@@ -225,12 +225,12 @@ describe('auto', () => {
     ]
     let asked = 0
     on('model.complete', () => ({
-      value: { isAnswered: true as const, text: said[Math.min(asked++, said.length - 1)], usage: USAGE },
+      value: { isAnswered: true as const, text: said[Math.min(asked++, said.length - 1)] ?? '', usage: USAGE },
     }))
     const sent = recordSteps(on)
     await $.prompt.submit({ text: 'design the whole trainer architecture', wait: false, origin: { kind: 'composer' } })
     await step($, 'xhigh')
-    expect(sent[0].effort).toBe('high')
+    expect(sent[0]?.effort).toBe('high')
     await $.prompt.submit({ text: 'The background task finished.', wait: false, origin: { kind: 'task-notification' } })
     await step($, 'xhigh')
     // Judged on its own: the last typed prompt's high is not kept, and the model stays.
@@ -245,7 +245,7 @@ describe('auto', () => {
       origin: { kind: 'auto-continuation' },
     })
     expect(asked).toBe(5)
-    await $.command.run({ command: 'context-lens', args: 'auto' })
+    await $.command.run({ command: 'context-lens', args: 'auto' } as never)
     await $.prompt.submit({
       text: 'The background task finished again.',
       wait: false,
@@ -341,7 +341,7 @@ describe('auto', () => {
     })) {
       // drain
     }
-    expect(sent[0].model).toBe('claude-sonnet-5-5')
+    expect(sent[0]?.model).toBe('claude-sonnet-5-5')
     await ui.unmount()
   })
 
@@ -379,17 +379,17 @@ describe('manual effort', () => {
 
     await $.prompt.submit({ text: 'hard task', wait: false, origin: { kind: 'composer' } })
     await drain(0, 'medium')
-    expect(sent[0].effort).toBe('high')
+    expect(sent[0]?.effort).toBe('high')
 
     // The person picks Low in the app between two requests.
     await drain(1, 'low')
-    expect(sent[1].effort).toBe('low')
+    expect(sent[1]?.effort).toBe('low')
     const ui = await $.ui.mount({ plugin: 'context-lens', surface: 'terminal', ...BAND })
     expect((await ui.find({ key: 'auto' }))?.text).toContain('Manual')
     await ui.unmount()
 
     await drain(2, 'low')
-    expect(sent[2].effort).toBe('low')
+    expect(sent[2]?.effort).toBe('low')
   })
 })
 
@@ -441,7 +441,7 @@ describe('two autos', () => {
     expect(await ui.find({ key: 'accept' })).toBeUndefined()
 
     await step($, 'medium')
-    expect(sent[0].effort).toBe('low')
+    expect(sent[0]?.effort).toBe('low')
     expect(ran).toEqual([])
     await ui.unmount()
   })
@@ -586,7 +586,7 @@ describe('offer a model first', () => {
       context_tokens: 0,
     } as never)
     await step($)
-    expect(sent[0].model).toBe('claude-opus-5-5')
+    expect(sent[0]?.model).toBe('claude-opus-5-5')
     await ui.unmount()
   })
 
@@ -644,7 +644,7 @@ describe('offer a model first', () => {
     expect(ran).toEqual([])
     expect(through).toEqual(['design the whole trainer architecture'])
     await step($)
-    expect(sent[0].model).toBe('claude-opus-5-5')
+    expect(sent[0]?.model).toBe('claude-opus-5-5')
     await ui.unmount()
   })
 
@@ -743,7 +743,7 @@ describe('offer a model first', () => {
       expect((await ui.find({ key: 'accept' }))?.props.hotkey).toBeUndefined()
       expect(await ui.find({ key: 'never' })).toBeUndefined()
       await step($)
-      expect(sent[0].model).toBe('claude-opus-5-5')
+      expect(sent[0]?.model).toBe('claude-opus-5-5')
       await ui.unmount()
     },
   )
@@ -891,7 +891,7 @@ describe('typed commands', () => {
     expect(filled).toEqual([])
     expect(ran).toEqual([])
     await step($)
-    expect(sent[0].model).toBe('claude-haiku-5-5')
+    expect(sent[0]?.model).toBe('claude-haiku-5-5')
     await ui.unmount()
   })
 
@@ -918,10 +918,10 @@ describe('typed commands', () => {
     const ui = await $.ui.mount({ plugin: 'context-lens', surface: 'terminal', ...BAND })
 
     await ui.press({ key: 'm-haiku' })
-    await $.command.run({ command: 'model', args: 'opus' })
+    await $.command.run({ command: 'model', args: 'opus' } as never)
     await step($)
 
-    expect(sent[0].model).toBe('claude-opus-5-5')
+    expect(sent[0]?.model).toBe('claude-opus-5-5')
     await ui.unmount()
   })
 
@@ -936,7 +936,7 @@ describe('typed commands', () => {
     await ui.redraw()
 
     expect(filled).toEqual([])
-    expect(sent[0].effort).toBe('high')
+    expect(sent[0]?.effort).toBe('high')
     // Your pick goes out for this session only, so the app's /effort still says Medium: the hint says so.
     expect(await drawn(ui)).toContain('App: ')
     expect(await drawn(ui)).toContain('Medium')
@@ -959,7 +959,8 @@ describe('typed commands', () => {
 
 describe('footer text', () => {
   const PURPLE = '#a79cf7'
-  const auto = async ($: Engine) => String((await $.command.run({ command: 'context-lens', args: 'auto' })).text)
+  const auto = async ($: Engine) =>
+    String((await $.command.run({ command: 'context-lens', args: 'auto' } as never)).text)
   const saving = (on: On, outputTokens: number) =>
     on('turn.step', async function* (_$, e) {
       return {
@@ -971,7 +972,8 @@ describe('footer text', () => {
         usage: { ...USAGE, output_tokens: outputTokens, model: 'claude-opus-5-5' },
       } as never
     })
-  const asked = async ($: Engine) => String((await $.command.run({ command: 'context-lens', args: 'stats' })).text)
+  const asked = async ($: Engine) =>
+    String((await $.command.run({ command: 'context-lens', args: 'stats' } as never)).text)
 
   test('the footer is purple text and one small button; no box, nothing lit', async ($, on) => {
     engine(on)
@@ -1248,7 +1250,7 @@ describe('follow-ups', () => {
     await $.prompt.submit({ text: 'go', wait: false, origin: { kind: 'composer' } })
     await step($, 'medium')
     expect(asked.length).toBe(1)
-    expect(sent[0].effort).toBe('high')
+    expect(sent[0]?.effort).toBe('high')
   })
 })
 
@@ -1281,12 +1283,12 @@ describe('named level', () => {
       })
       await step($, 'medium')
       expect(asked.length).toBe(0)
-      expect(sent[0].effort).toBe('max')
+      expect(sent[0]?.effort).toBe('max')
       // The next prompt without a level goes back to the judge, within Max.
       await $.prompt.submit({ text: 'now rename the subagent in utils', wait: false, origin: { kind: 'composer' } })
       await step($, 'medium')
       expect(asked.length).toBe(1)
-      expect(sent[1].effort).toBe('low')
+      expect(sent[1]?.effort).toBe('low')
     },
   )
 })
@@ -1504,7 +1506,7 @@ describe('cache countdown', () => {
     await start($, on)
     const footer = await $.ui.mount(FOOTER)
     await step($)
-    const reply = await $.command.run({ command: 'context-lens', args: 'cold' })
+    const reply = await $.command.run({ command: 'context-lens', args: 'cold' } as never)
     expect(String(reply.text)).toContain('cold')
     expect(await drawn(footer)).toContain(shows('❄ Cold'))
     expect(await footer.find({ key: 'compact' })).toBeUndefined()
@@ -1593,7 +1595,7 @@ describe('footer', () => {
     await $.prompt.submit({ text: 'rename the function', wait: false, origin: { kind: 'composer' } })
     await step($, 'medium')
 
-    expect(sent[0].effort).toBe('low')
+    expect(sent[0]?.effort).toBe('low')
     expect(ran).toEqual([])
   })
 
@@ -1615,7 +1617,7 @@ describe('footer', () => {
     await sending
     expect(ran).toEqual([])
     await step($)
-    expect(sent[0].model).toBe('claude-haiku-5-5')
+    expect(sent[0]?.model).toBe('claude-haiku-5-5')
     await ui.unmount()
   })
 
@@ -1695,7 +1697,7 @@ describe('review fixes', () => {
 
     await $.prompt.submit({ text: 'hej', wait: false, origin: { kind: 'composer' } })
     await step($, 'xhigh')
-    expect(sent[0].effort).toBe('low')
+    expect(sent[0]?.effort).toBe('low')
 
     // The person picks another model; the engine's own effort for it is different.
     await $.classic.PostModelSwitch({
@@ -1708,7 +1710,7 @@ describe('review fixes', () => {
     await step($, 'medium')
 
     // Auto still decides: the request keeps the judged effort instead of the engine's 'medium'.
-    expect(sent[1].effort).toBe('low')
+    expect(sent[1]?.effort).toBe('low')
   })
 
   test('/context-lens switch switches to the offered model and /context-lens keep turns it down', async ($, on) => {
@@ -1716,7 +1718,7 @@ describe('review fixes', () => {
     // Haiku is offered first; on Haiku, the next prompt is offered Opus back.
     const says = ['{"model":"haiku","effort":"low","why":"simple"}', '{"model":"opus","effort":"high","why":"hard"}']
     on('model.complete', () => ({
-      value: { isAnswered: true as const, text: says.length > 1 ? says.shift()! : says[0], usage: USAGE },
+      value: { isAnswered: true as const, text: says.length > 1 ? says.shift()! : (says[0] ?? ''), usage: USAGE },
     }))
     const ran = recordCommands(on)
     const mocked = mock.clock(on)
@@ -1724,7 +1726,7 @@ describe('review fixes', () => {
 
     const first = $.prompt.submit({ text: 'hej', wait: false, origin: { kind: 'composer' } })
     for (let i = 0; i < 5; i++) await ui.redraw()
-    const result = await $.command.run({ command: 'context-lens', args: 'switch' })
+    const result = await $.command.run({ command: 'context-lens', args: 'switch' } as never)
     await first
     expect(String(result.text)).toContain('haiku')
     expect(ran).toEqual([])
@@ -1735,7 +1737,7 @@ describe('review fixes', () => {
       origin: { kind: 'composer' },
     })
     for (let i = 0; i < 5; i++) await ui.redraw()
-    const kept = await $.command.run({ command: 'context-lens', args: 'keep' })
+    const kept = await $.command.run({ command: 'context-lens', args: 'keep' } as never)
     await second
     expect(String(kept.text)).toContain('Keeping')
     await ui.unmount()
@@ -1786,9 +1788,9 @@ describe('context for the judge', () => {
       }
     })
     await $.prompt.submit({ text: 'B', wait: false, origin: { kind: 'composer' } })
-    expect(seen[0].prompt).toContain('B (a complicated multi-step layout)')
-    expect(seen[0].system).toContain('judge only the work that answer starts')
-    expect(seen[0].system).toContain('should I archive this?')
+    expect(seen[0]?.prompt).toContain('B (a complicated multi-step layout)')
+    expect(seen[0]?.system).toContain('judge only the work that answer starts')
+    expect(seen[0]?.system).toContain('should I archive this?')
   })
 })
 
@@ -1804,15 +1806,15 @@ describe('model-aware effort', () => {
       }
     })
     await $.prompt.submit({ text: 'refactor the parser', wait: false, origin: { kind: 'composer' } })
-    expect(seen[0].prompt).toContain('Current: sonnet')
-    expect(seen[0].system).toContain('Opus at medium does about what Sonnet does at high')
+    expect(seen[0]?.prompt).toContain('Current: sonnet')
+    expect(seen[0]?.system).toContain('Opus at medium does about what Sonnet does at high')
   })
 })
 
 describe('keys', () => {})
 
 describe('setup guide', () => {
-  const DESK = { plugin: 'context-lens', surface: 'desktop', ...BAND } as never
+  const DESK = { plugin: 'context-lens', surface: 'desktop', ...BAND } as MountTarget<'desktop', 'AbovePrompt'>
   const start = async ($: Engine, on: On) => {
     on('session.start', (_$, e) => ({ cwd: e.cwd }) as never)
     on('command.register', () => ({ value: undefined }) as never)
@@ -1853,7 +1855,7 @@ describe('setup guide', () => {
     await mocked.advance(16_000)
     expect(said.join(' ')).not.toContain('could not save')
     await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
-    await $.command.run({ command: 'context-lens', args: 'settings' })
+    await $.command.run({ command: 'context-lens', args: 'settings' } as never)
     const panel = await $.ui.mount(DESK)
     // The judge is Haiku alone: no card to pick or test it in.
     expect(await panel.find({ key: 'settings-card-judge' })).toBeUndefined()
@@ -1938,7 +1940,7 @@ describe('setup guide', () => {
     // A new session: the guide stays closed; /context-lens setup opens it again.
     await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
     await expect($.ui.mount(DESK)).rejects.toThrow()
-    await $.command.run({ command: 'context-lens', args: 'setup' })
+    await $.command.run({ command: 'context-lens', args: 'setup' } as never)
     const again = await $.ui.mount(DESK)
     expect(await again.find({ key: 'setup-bias2' })).toBeDefined()
     await again.unmount()
@@ -2011,7 +2013,7 @@ describe('judge benchmark', () => {
     on('session.start', (_$, e) => ({ cwd: e.cwd }) as never)
     on('command.register', () => ({ value: undefined }) as never)
     await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
-    const res = await $.command.run({ command: 'context-lens', args: 'bench' })
+    const res = await $.command.run({ command: 'context-lens', args: 'bench' } as never)
     expect(asked.length).toBe(1)
     expect(res.text).toContain('| haiku | 100% |')
     expect(res.text).toContain('| always medium |')
@@ -2096,7 +2098,7 @@ describe('compaction by Haiku', () => {
     }))
     const text = compactTranscript(old as never)
     // The first message is cut, the last one is whole.
-    expect(text.split('turn 0')[1].split('turn 1')[0]).toContain('more characters')
+    expect(text.split('turn 0')[1]?.split('turn 1')[0]).toContain('more characters')
     expect(text.split('turn 9')[1]).not.toContain('more characters')
   })
 
@@ -2116,13 +2118,13 @@ describe('compaction by Haiku', () => {
       asked.push({ model: e.model, prompt: e.prompt })
       return { value: { isAnswered: true as const, text: SUMMARY, usage: USAGE } }
     })
-    const out = (await $.session.compact({ instructions: 'keep the API decisions' })) as {
+    const out = (await $.session.compact({ instructions: 'keep the API decisions' } as never)) as {
       messages?: { text: string }[]
     }
     expect(ran.core).toBe(0)
-    expect(asked[0].model).toBe('claude-haiku-5-5')
-    expect(asked[0].prompt).toContain('keep the API decisions')
-    expect(out.messages?.[0].text).toContain('rename userId across the app')
+    expect(asked[0]?.model).toBe('claude-haiku-5-5')
+    expect(asked[0]?.prompt).toContain('keep the API decisions')
+    expect(out.messages?.[0]?.text).toContain('rename userId across the app')
   })
 
   test('when Haiku fails, Claude Code compacts as usual and a toast says why', async ($, on) => {
@@ -2134,7 +2136,7 @@ describe('compaction by Haiku', () => {
       return { value: undefined } as never
     })
     on('model.complete', () => ({ value: { isAnswered: false as const, reason: 'api-error', status: 500 } }) as never)
-    await $.session.compact({})
+    await $.session.compact({} as never)
     expect(ran.core).toBe(1)
     expect(toasts.join(' ')).toContain('Haiku could not compact')
   })
@@ -2150,7 +2152,7 @@ describe('compaction by Haiku', () => {
         asked++
         return { value: { isAnswered: true as const, text: SUMMARY, usage: USAGE } }
       })
-      await $.session.compact({})
+      await $.session.compact({} as never)
       expect(ran.core).toBe(1)
       expect(asked).toBe(0)
     },
@@ -2184,9 +2186,9 @@ describe('deciding glow', () => {
       const p = pts(judgeGlowSvg('fade', t))
       expect(p.length).toBe(5)
       // Starts on the curve, only goes down, and ends where the curve is at the end of the piece.
-      expect(Math.abs(p[0] - judgeBrightnessAt('fade', t))).toBeLessThan(0.001)
-      for (let k = 1; k < 5; k++) expect(p[k]).toBeLessThanOrEqual(p[k - 1])
-      expect(Math.abs(p[4] - judgeBrightnessAt('fade', Math.min(JUDGE_FADE_MS, t + JUDGE_PIECE_MS)))).toBeLessThan(
+      expect(Math.abs(p[0]! - judgeBrightnessAt('fade', t))).toBeLessThan(0.001)
+      for (let k = 1; k < 5; k++) expect(p[k]).toBeLessThanOrEqual(p[k - 1]!)
+      expect(Math.abs(p[4]! - judgeBrightnessAt('fade', Math.min(JUDGE_FADE_MS, t + JUDGE_PIECE_MS)))).toBeLessThan(
         0.001,
       )
     }
@@ -2204,11 +2206,11 @@ describe('cold band', () => {
     on('session.start', (_$, e) => ({ cwd: e.cwd }) as never)
     on('command.register', () => ({ value: undefined }) as never)
     await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
-    const DESK = { plugin: 'context-lens', surface: 'desktop', ...BAND } as never
+    const DESK = { plugin: 'context-lens', surface: 'desktop', ...BAND } as MountTarget<'desktop', 'AbovePrompt'>
     const guide = await $.ui.mount(DESK)
     await guide.press({ key: 'setup-close' })
     await guide.unmount()
-    await $.command.run({ command: 'context-lens', args: 'cold' })
+    await $.command.run({ command: 'context-lens', args: 'cold' } as never)
     const band = await $.ui.mount(DESK)
     expect(await drawn(band)).toContain('Chat went cold')
     expect(await drawn(band)).toContain('class=\\"f\\"')
@@ -2316,7 +2318,7 @@ describe('handoff', () => {
     })
     const mocked = mock.clock(on)
     await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
-    await $.command.run({ command: 'context-lens', args: 'cold' })
+    await $.command.run({ command: 'context-lens', args: 'cold' } as never)
     const footer = await $.ui.mount(FOOTER)
     await handOff($, footer, ['handoff-quick'])
     await mocked.advance(2500)
@@ -2621,7 +2623,7 @@ describe('handoff', () => {
     await mocked.advance(1000)
     expect(submitted.at(-1)).toBe(HANDOFF_PROMPT)
     expect(toasts.join(' ')).toContain('api-error 529 overloaded')
-    const debug = String((await $.command.run({ command: 'context-lens', args: 'debug' })).text)
+    const debug = String((await $.command.run({ command: 'context-lens', args: 'debug' } as never)).text)
     expect(debug).toContain('last fork: api-error 529 overloaded')
     await footer.unmount()
   })
@@ -2916,18 +2918,22 @@ describe('swamp band and setup entry', () => {
     engine(on)
     mock.clock(on)
     await start($, on)
-    expect(String((await $.command.run({ command: 'context-lens', args: 'save' })).text)).toContain('save mode on')
-    expect(String((await $.command.run({ command: 'context-lens', args: 'save' })).text)).toContain('save mode off')
+    expect(String((await $.command.run({ command: 'context-lens', args: 'save' } as never)).text)).toContain(
+      'save mode on',
+    )
+    expect(String((await $.command.run({ command: 'context-lens', args: 'save' } as never)).text)).toContain(
+      'save mode off',
+    )
   })
 
   test('save mode paints the footer level ember; off again, it is purple', async ($, on) => {
     engine(on)
     mock.clock(on)
     await start($, on)
-    await $.command.run({ command: 'context-lens', args: 'save' })
+    await $.command.run({ command: 'context-lens', args: 'save' } as never)
     const footer = await $.ui.mount(FOOTER)
     expect(await drawn(footer)).toContain('"color":"#f08a3c"')
-    await $.command.run({ command: 'context-lens', args: 'save' })
+    await $.command.run({ command: 'context-lens', args: 'save' } as never)
     await footer.unmount()
     const again = await $.ui.mount(FOOTER)
     const text = await drawn(again)
@@ -3500,15 +3506,15 @@ describe('dashboard', () => {
     await step($, 'low')
     expect(sent.at(-1)!.effort).toBe('low')
     expect(said.join(' ')).toContain('Auto is off. You picked Low')
-    expect(String((await $.command.run({ command: 'context-lens', args: 'auto' })).text)).toContain('Auto on')
+    expect(String((await $.command.run({ command: 'context-lens', args: 'auto' } as never)).text)).toContain('Auto on')
   })
 
   test('/context-lens debug says what the app asked for and what was sent', async ($, on) => {
     engine(on)
     const sent = recordSteps(on)
-    const debug = async () => String((await $.command.run({ command: 'context-lens', args: 'debug' })).text)
+    const debug = async () => String((await $.command.run({ command: 'context-lens', args: 'debug' } as never)).text)
     expect(await debug()).toContain('last request: none yet')
-    await $.command.run({ command: 'context-lens', args: 'auto' })
+    await $.command.run({ command: 'context-lens', args: 'auto' } as never)
     await step($, 'xhigh')
     expect(sent.at(-1)!.effort).toBe('xhigh')
     expect(await debug()).toContain(
@@ -3687,7 +3693,7 @@ describe('dashboard', () => {
     } as never)
 
     const all = writes.turnLines as Record<string, Record<string, { effort?: string; model?: string }>>
-    expect(all.s1['9000']).toMatchObject({ effort: 'low', model: 'opus' })
+    expect(all.s1?.['9000']).toMatchObject({ effort: 'low', model: 'opus' })
   })
 
   test('the effort word and the figures after it are drawn apart, so the figures can be cut and the word stays whole', () => {
@@ -4111,7 +4117,7 @@ describe('a message typed while a turn runs', () => {
     const says = { effort: 'high' }
     judgeSaysNow(on, says)
     const sent = recordSteps(on)
-    const auto = () => $.command.run({ command: 'context-lens', args: 'auto' })
+    const auto = () => $.command.run({ command: 'context-lens', args: 'auto' } as never)
 
     await $.prompt.submit({
       text: 'refactor the whole auth module across the app',
@@ -4173,7 +4179,7 @@ describe('updates', () => {
     const envs: (Record<string, string> | undefined)[] = []
     on('process.run', (_$, e) => {
       // No claude where the app looks: the engine refuses to start it, as it does for a desktop-only user.
-      if (v.noCli?.(e.argv[0]))
+      if (v.noCli?.(e.argv[0] ?? ''))
         return {
           deny: `$.process.run(${e.argv[0]}) failed to start: ENOENT: Command '${e.argv[0]}' not found or is in an unsafe location (current directory)`,
         } as never
@@ -4347,7 +4353,7 @@ describe('subagent effort', () => {
         '{"model":"haiku","effort":"low","sure":0.9,"why":"quick search"}',
         'claude-opus-5-5',
       )
-      expect(sent[0].model).toBe('claude-haiku-5-5')
+      expect(sent[0]?.model).toBe('claude-haiku-5-5')
     },
   )
 
@@ -4362,7 +4368,7 @@ describe('subagent effort', () => {
         '{"model":"opus","effort":"high","sure":0.95,"why":"hard"}',
         'claude-sonnet-5-5',
       )
-      expect(up[0].model).toBe('claude-sonnet-5-5')
+      expect(up[0]?.model).toBe('claude-sonnet-5-5')
     },
   )
 
@@ -4376,7 +4382,7 @@ describe('subagent effort', () => {
         '{"model":"haiku","effort":"low","sure":0.4,"why":"maybe small"}',
         'claude-opus-5-5',
       )
-      expect(sent[0].model).toBe('claude-opus-5-5')
+      expect(sent[0]?.model).toBe('claude-opus-5-5')
     },
   )
 
@@ -4390,8 +4396,8 @@ describe('subagent effort', () => {
         '{"model":"haiku","effort":"low","sure":0.9,"why":"quick search"}',
         'claude-opus-5-5',
       )
-      expect(sent[0].model).toBe('claude-opus-5-5')
-      expect(sent[0].effort).toBe('medium')
+      expect(sent[0]?.model).toBe('claude-opus-5-5')
+      expect(sent[0]?.effort).toBe('medium')
     },
   )
 

@@ -1,16 +1,11 @@
 import type { On, SessionContextBreakdown, SessionUsage, TurnStepResult } from 'claude-code'
 import { expect, mock, test as baseTest } from 'claude-code/testing'
-import type { Engine } from 'claude-code/testing'
+import type { Engine, TestBody } from 'claude-code/testing'
 
 const MINUTE = 60_000
 
 // The lens row lives in the dashboard band, so every test runs in the dashboard look.
-type Opts = Parameters<typeof baseTest>[1]
-const test = ((name: string, run: unknown) =>
-  baseTest(name, { options: { layout: 'default' } } as Opts, run as never)) as unknown as (
-  name: string,
-  run: ($: Engine, on: On) => unknown,
-) => void
+const test = (name: string, run: TestBody) => baseTest(name, { options: { layout: 'default' } }, run)
 const PLUGIN = 'context-lens'
 
 const BREAKDOWN: SessionContextBreakdown = {
