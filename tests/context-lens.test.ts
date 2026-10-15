@@ -6,7 +6,7 @@ import { cacheSafe } from '../hooks/core/constants'
 import { claudeCandidates, noClaudeHint } from '../hooks/core/env'
 import { hotVisible, resetLabel } from '../hooks/logic/alerts'
 import { benchGrade, benchReport, stepsGrade } from '../hooks/logic/bench'
-import { cacheClock, cacheColor, cacheLabel, cacheTtlOf, mostlyCached } from '../hooks/logic/cache'
+import { cacheColor, cacheLabel, cacheTtlOf, mostlyCached } from '../hooks/logic/cache'
 import { compactTranscript } from '../hooks/logic/compact'
 import {
   forkOutcome,
@@ -1377,10 +1377,6 @@ describe('cache countdown', () => {
     expect(cacheTtlOf({ cache_creation: { ephemeral_1h_input_tokens: 0, ephemeral_5m_input_tokens: 10 } })).toBe('5m')
     expect(cacheTtlOf({ input_tokens: 1 })).toBeUndefined()
     expect(cacheLabel(60)).toBe('59m')
-    expect(cacheClock(3_521_000)).toBe('58:41')
-    expect(cacheClock(59_400)).toBe('1:00')
-    expect(cacheClock(5_000)).toBe('0:05')
-    expect(cacheClock(0)).toBe('❄ Cold')
     expect(cacheLabel(1)).toBe('<1m')
     expect(cacheLabel(0)).toBe('❄ Cold')
     expect(cacheColor(60)).toBeUndefined()

@@ -67,11 +67,13 @@ export const formatTokens = (n: number): string => {
   return String(n)
 }
 
-/** `47m` from ten minutes up, `9:05` below, `0:00` once lapsed. */
+/** Whole minutes left, `47m`; `1h` and `1h5m` from an hour; `<1m` in the last minute and once lapsed. A redraw lands
+ * seconds late, so the time says no finer than a minute. */
 export const formatRemaining = (ms: number): string => {
-  const seconds = Math.max(0, Math.ceil(ms / 1000))
-  if (seconds >= 600) return `${Math.ceil(seconds / 60)}m`
-  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
+  const minutes = Math.floor(Math.max(0, ms) / MINUTE_MS)
+  if (minutes < 1) return '<1m'
+  if (minutes < 60) return `${minutes}m`
+  return `${Math.floor(minutes / 60)}h${minutes % 60 ? `${minutes % 60}m` : ''}`
 }
 
 /** Time to a rate-limit reset: `3d`, `14h`, `2h14m`, `38m`. */

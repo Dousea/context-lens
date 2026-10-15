@@ -67,10 +67,13 @@ describe('formatting', () => {
     expect(formatTokens(1_000_000)).toBe('1.0M')
   })
 
-  test('remaining time is minutes from ten up, m:ss below', () => {
-    expect(formatRemaining(47 * MINUTE)).toBe('47m')
-    expect(formatRemaining(9 * MINUTE + 5_000)).toBe('9:05')
-    expect(formatRemaining(-1)).toBe('0:00')
+  test('remaining time is whole minutes, hours from an hour, and <1m in the last minute', () => {
+    expect(formatRemaining(47 * MINUTE + 30_000)).toBe('47m')
+    expect(formatRemaining(9 * MINUTE + 5_000)).toBe('9m')
+    expect(formatRemaining(60 * MINUTE)).toBe('1h')
+    expect(formatRemaining(65 * MINUTE)).toBe('1h5m')
+    expect(formatRemaining(30_000)).toBe('<1m')
+    expect(formatRemaining(-1)).toBe('<1m')
   })
 
   test('time to a rate-limit reset', () => {

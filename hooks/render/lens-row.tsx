@@ -71,16 +71,17 @@ const clockTime = (at: number) => {
   return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
 }
 
-/** The cache clock in words, two lines for a hover: how warm it is with the time left of its time to live, then when it
- * lapses and whether the last prompt re-cached it. */
+/** The cache clock in words, two lines for a hover: how warm it is with the time left, then when it lapses, how long it
+ * lives and whether the last prompt re-cached it. */
 export function cacheDetails(clock: NonNullable<Awaited<ReturnType<typeof lensClock>>>): [string, string] {
   const cold = clock.state === 'cold'
   return [
     cold
       ? 'Prompt cache cold'
-      : `Prompt cache ${clock.state === 'expiring' ? 'expiring' : 'warm'} · ${clock.time} of ${clock.ttl} left`,
+      : `Prompt cache ${clock.state === 'expiring' ? 'expiring' : 'warm'} · ${clock.time} left`,
     [
       clock.expiresAt === null ? null : `${cold ? 'Expired' : 'Expires'} at ${clockTime(clock.expiresAt)}`,
+      `${clock.ttl} cache`,
       clock.rewritten ? 'the last prompt re-cached it' : null,
     ]
       .filter(Boolean)

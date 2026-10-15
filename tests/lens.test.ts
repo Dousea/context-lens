@@ -127,7 +127,7 @@ test('the line counts the main cache down and shows the context and usage', asyn
 
   for (const surface of ['terminal', 'mobile'] as const) {
     const line = await $.ui.mount({ plugin: PLUGIN, surface, component: 'AbovePrompt', props: band(140) })
-    expect(await line.find({ text: /^60m$/ })).toBeDefined()
+    expect(await line.find({ text: /^1h$/ })).toBeDefined()
     expect(await line.find({ text: /^152k$/ })).toBeDefined()
     expect(await line.find({ text: /^\/ 250k$/ })).toBeDefined()
     expect(await line.find({ text: /^Session$/ })).toBeDefined()
@@ -212,7 +212,7 @@ test('a subagent in view shows its own five-minute clock', async ($, on) => {
     props: band(140, 'agent-1'),
   })
   expect(await line.find({ text: /^pz-implementer$/ })).toBeUndefined()
-  expect(await line.find({ text: /^4:00$/ })).toBeDefined()
+  expect(await line.find({ text: /^4m$/ })).toBeDefined()
   expect(await line.find({ text: /^22k$/ })).toBeDefined()
   expect(await line.find({ text: /^\/ 250k$/ })).toBeDefined()
 
@@ -239,7 +239,7 @@ baseTest(
       expect(await line.find({ text: /^Context$/ })).toBeDefined()
       expect(await line.find({ text: /^152k$/ })).toBeDefined()
       expect(await line.find({ text: /^\/ 250k$/ })).toBeDefined()
-      expect(await line.find({ text: /^60m$/ })).toBeUndefined()
+      expect(await line.find({ text: /^1h$/ })).toBeUndefined()
       expect(await line.find({ text: /^●$/ })).toBeUndefined()
       await line.unmount()
     }
@@ -313,17 +313,17 @@ test('the desktop shows the context and the usage itself: the dashboard keeps th
   expect(await line.find({ text: /^Cache $/ })).toBeDefined()
   // Apart from the title's words, between them and the buttons.
   expect(JSON.stringify(keyed(await line.drawn(), 'dash-words'))).not.toContain('dash-cache')
-  expect(await line.find({ text: /^60m$/ })).toBeDefined()
+  expect(await line.find({ text: /^1h$/ })).toBeDefined()
   // The ring's hover says it in words.
-  expect(await line.find({ text: /^Prompt cache warm · 60m of 1h left$/ })).toBeDefined()
-  expect(await line.find({ text: /^Expires at \d\d:\d\d$/ })).toBeDefined()
+  expect(await line.find({ text: /^Prompt cache warm · 1h left$/ })).toBeDefined()
+  expect(await line.find({ text: /^Expires at \d\d:\d\d · 1h cache$/ })).toBeDefined()
   expect(JSON.stringify(await line.drawn())).not.toContain('% context')
   await line.unmount()
 
-  // The last minutes count down to the second, as the lens row does.
+  // The last minutes count down by the minute, as the lens row does.
   await clock.advance(55 * MINUTE)
   const later = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', component: 'AbovePrompt', props: band(140) })
-  expect(await later.find({ text: /^5:00$/ })).toBeDefined()
+  expect(await later.find({ text: /^5m$/ })).toBeDefined()
 })
 
 /** The element keyed `key` in a drawn tree, with everything under it. */

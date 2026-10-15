@@ -650,9 +650,10 @@ var formatTokens = (n) => {
   return String(n);
 };
 var formatRemaining = (ms) => {
-  const seconds = Math.max(0, Math.ceil(ms / 1e3));
-  if (seconds >= 600) return `${Math.ceil(seconds / 60)}m`;
-  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+  const minutes = Math.floor(Math.max(0, ms) / MINUTE_MS);
+  if (minutes < 1) return "<1m";
+  if (minutes < 60) return `${minutes}m`;
+  return `${Math.floor(minutes / 60)}h${minutes % 60 ? `${minutes % 60}m` : ""}`;
 };
 var formatUntil = (ms) => {
   const left = Math.max(0, ms);
@@ -2779,9 +2780,10 @@ var clockTime = (at) => {
 function cacheDetails(clock) {
   const cold = clock.state === "cold";
   return [
-    cold ? "Prompt cache cold" : `Prompt cache ${clock.state === "expiring" ? "expiring" : "warm"} · ${clock.time} of ${clock.ttl} left`,
+    cold ? "Prompt cache cold" : `Prompt cache ${clock.state === "expiring" ? "expiring" : "warm"} · ${clock.time} left`,
     [
       clock.expiresAt === null ? null : `${cold ? "Expired" : "Expires"} at ${clockTime(clock.expiresAt)}`,
+      `${clock.ttl} cache`,
       clock.rewritten ? "the last prompt re-cached it" : null
     ].filter(Boolean).join(" · ")
   ];

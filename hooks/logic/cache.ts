@@ -70,13 +70,6 @@ export function cacheLabel(minutesLeft: number): string {
   return `${minutesLeft - 1}m`
 }
 
-/** The dashboard's countdown to the second: "58:41", or "Cold" once it ran out. */
-export function cacheClock(msLeft: number): string {
-  if (msLeft <= 0) return '❄ Cold'
-  const s = Math.ceil(msLeft / 1000)
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
-}
-
 export let cacheTtl: keyof typeof CACHE_TTL = '1h'
 export let cacheExpires = 0
 export const setCacheExpires = (value: typeof cacheExpires) => {
