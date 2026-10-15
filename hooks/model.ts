@@ -28,6 +28,15 @@ export type Warmth = 'uncached' | 'warm' | 'expiring' | 'cold'
 export const remainingMs = (clock: CacheClock, now: number): number | null =>
   clock.lastAt === null ? null : clock.lastAt + ttlMs(clock.ttl) - now
 
+/** The share of the cache's time to live still left, 0 once it lapsed or before any request. */
+export const cacheLeft = (clock: CacheClock, now: number): number =>
+  Math.min(1, Math.max(0, (remainingMs(clock, now) ?? 0) / ttlMs(clock.ttl)))
+
+const PIE = '○◔◑◕●'
+
+/** A ring in one glyph, drained by quarters: full just after a request, empty once the cache is cold. */
+export const pie = (fraction: number): string => PIE[Math.round(Math.min(1, Math.max(0, fraction)) * 4)]!
+
 export const warmth = (clock: CacheClock, now: number): Warmth => {
   const left = remainingMs(clock, now)
   if (left === null) return 'uncached'
@@ -147,6 +156,7 @@ const MIN_CTX_BAR = 8
 // A usage window draws a bar of its own only when the row gives each one this much; else a one-cell gauge.
 const MIN_USAGE_BAR = 10
 export const CONTEXT_LABEL = { label: 'Context', short: 'Ctx' } as const
+export const CACHE_LABEL = 'Cache'
 
 const RATE_LABEL: Record<string, { label: string; short: string }> = {
   five_hour: { label: 'Session', short: '5h' },
@@ -173,6 +183,7 @@ const usageWidth = (w: UsageWindow, style: UsageStyle, short: boolean): number =
 
 /** Bar widths in cells, `usageBar` each usage window's (0 draws gauges), and which texts and labels fit beside them. */
 export type LineLayout = {
+  cacheLabel: boolean
   ctxBar: number
   usageBar: number
   ctxText: string
@@ -185,13 +196,21 @@ export type LineLayout = {
  * Fills `columns`: the text takes what it needs and the bars the rest. On a wide
  * row the usage windows draw bars of their own, sharing half of it, beside the
  * context's; else each is a one-cell gauge and the context bar takes it all.
- * When the context bar no longer fits at its minimum, the labels shorten
- * (Context to Ctx, Session to 5h, Week to 7d), then the context drops its window
+ * When the context bar no longer fits at its minimum, the cache clock drops its
+ * label, the labels shorten (Context to Ctx, Session to 5h, Week to 7d), then the context drops its window
  * size (never its token count), then the usage windows lose their reset times,
  * then their gauges, then drop from the end, and last the context bar goes. A
- * null `headWidth` is a row with no cache clock, which starts at the context;
+ * `headWidth` is the cache clock's mark and time, without its label; null is a
+ * row with no cache clock, which starts at the context;
  * `usageBars` false keeps the usage windows to their gauges.
  */
+// The labels give way in steps: the cache clock's first, then the rest shorten.
+const LABEL_STAGES = [
+  { cacheLabel: true, short: false },
+  { cacheLabel: false, short: false },
+  { cacheLabel: false, short: true },
+] as const
+
 export const layoutLine = (
   columns: number,
   headWidth: number | null,
@@ -202,26 +221,27 @@ export const layoutLine = (
   for (let n = windows.length; n >= 0; n--) {
     for (const style of USAGE_STYLES) {
       for (const ctxText of ctxTexts) {
-        for (const short of [false, true]) {
+        for (const { cacheLabel, short } of LABEL_STAGES) {
           const usage = windows.slice(0, n).reduce((sum, w) => sum + SEPARATOR + usageWidth(w, style, short), 0)
           const label = short ? CONTEXT_LABEL.short : CONTEXT_LABEL.label
-          const room =
-            columns - (headWidth === null ? 0 : headWidth + SEPARATOR) - label.length - 2 - ctxText.length - usage
+          const head = headWidth === null ? 0 : (cacheLabel ? CACHE_LABEL.length + 1 : 0) + headWidth + SEPARATOR
+          const room = columns - head - label.length - 2 - ctxText.length - usage
 
           // A bar in place of each gauge gives its cell back to the bars.
           if (usageBars && style === 'full' && !short && n > 0) {
             const usageBar = Math.floor((room + n) / 2 / n)
             const ctxBar = room + n - usageBar * n
             if (usageBar >= MIN_USAGE_BAR && ctxBar >= MIN_CTX_BAR) {
-              return { ctxBar, usageBar, ctxText, style, windows: n, short }
+              return { cacheLabel, ctxBar, usageBar, ctxText, style, windows: n, short }
             }
           }
-          if (room >= MIN_CTX_BAR) return { ctxBar: room, usageBar: 0, ctxText, style, windows: n, short }
+          if (room >= MIN_CTX_BAR) return { cacheLabel, ctxBar: room, usageBar: 0, ctxText, style, windows: n, short }
         }
       }
     }
   }
   return {
+    cacheLabel: false,
     ctxBar: 0,
     usageBar: 0,
     ctxText: ctxTexts[ctxTexts.length - 1] ?? '',

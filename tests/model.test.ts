@@ -8,6 +8,8 @@ import {
   formatUntil,
   gauge,
   isRecache,
+  cacheLeft,
+  pie,
   layoutLine,
   stackedBar,
   warmth,
@@ -139,7 +141,7 @@ describe('the line layout', () => {
 
   /** The columns a layout draws, as the band lays it out with one-cell gaps. */
   const drawnWidth = (layout: ReturnType<typeof layoutLine>, head: number | null = HEAD): number =>
-    (head === null ? 0 : head + 3) +
+    (head === null ? 0 : (layout.cacheLabel ? 'Cache '.length : 0) + head + 3) +
     (layout.short ? 'Ctx' : 'Context').length +
     1 +
     (layout.ctxBar > 0 ? layout.ctxBar + 1 : 0) +
@@ -160,8 +162,9 @@ describe('the line layout', () => {
 
   test('a wide line gives the usage windows bars, sharing half of what the text leaves', () => {
     expect(layoutLine(140, HEAD, ctx, windows)).toMatchObject({
-      ctxBar: 37,
-      usageBar: 18,
+      cacheLabel: true,
+      ctxBar: 35,
+      usageBar: 16,
       ctxText: '84k / 200k',
       style: 'full',
       windows: 2,
@@ -170,7 +173,12 @@ describe('the line layout', () => {
   })
 
   test('a narrower line draws gauges and gives the context bar all the room', () => {
-    expect(layoutLine(100, HEAD, ctx, windows)).toMatchObject({ ctxBar: 31, usageBar: 0, short: false })
+    expect(layoutLine(100, HEAD, ctx, windows)).toMatchObject({
+      cacheLabel: true,
+      ctxBar: 25,
+      usageBar: 0,
+      short: false,
+    })
   })
 
   test('the line fills its columns exactly, with or without the cache clock', () => {
@@ -189,6 +197,13 @@ describe('the line layout', () => {
     expect(layoutLine(38, HEAD, ctx, windows).windows).toBeLessThan(2)
   })
 
+  test("the cache clock's label goes first, before the other labels shorten", () => {
+    // 77 columns hold everything in words with an 8-cell bar; the label's six columns are the first to give way.
+    expect(layoutLine(77 + 6, HEAD, ctx, windows)).toMatchObject({ cacheLabel: true, short: false })
+    expect(layoutLine(77 + 5, HEAD, ctx, windows)).toMatchObject({ cacheLabel: false, short: false })
+    expect(layoutLine(76, HEAD, ctx, windows)).toMatchObject({ cacheLabel: false, short: true })
+  })
+
   test('the context keeps its token count however narrow', () => {
     expect(layoutLine(20, HEAD, ctx, windows).ctxText).toBe('84k')
   })
@@ -205,6 +220,18 @@ describe('the line layout', () => {
     expect(gauge(0)).toBe('▁')
     expect(gauge(0.46)).toBe('▄')
     expect(gauge(1)).toBe('█')
+  })
+})
+
+describe('the cache ring', () => {
+  test('drains by quarters from full after a request to empty once cold', () => {
+    const clock = applyUsage(usage(90_000, 2_000), 0, '1h')
+    expect(pie(cacheLeft(clock, 0))).toBe('●')
+    expect(pie(cacheLeft(clock, 15 * MINUTE))).toBe('◕')
+    expect(pie(cacheLeft(clock, 30 * MINUTE))).toBe('◑')
+    expect(pie(cacheLeft(clock, 45 * MINUTE))).toBe('◔')
+    expect(pie(cacheLeft(clock, 60 * MINUTE))).toBe('○')
+    expect(cacheLeft(emptyClock('1h'), 0)).toBe(0)
   })
 })
 

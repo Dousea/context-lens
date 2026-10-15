@@ -125,7 +125,7 @@ test('the line counts the main cache down and shows the context and usage', asyn
   await begin($)
   await step($)
 
-  for (const surface of ['terminal', 'desktop'] as const) {
+  for (const surface of ['terminal', 'mobile'] as const) {
     const line = await $.ui.mount({ plugin: PLUGIN, surface, component: 'AbovePrompt', props: band(140) })
     expect(await line.find({ text: /^60m$/ })).toBeDefined()
     expect(await line.find({ text: /^152k$/ })).toBeDefined()
@@ -138,9 +138,19 @@ test('the line counts the main cache down and shows the context and usage', asyn
     await line.unmount()
   }
 
+  // The clock is labelled and its ring drains: a full glyph on the terminal, a drawn ring on mobile.
+  const terminal = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', component: 'AbovePrompt', props: band(140) })
+  expect(await terminal.find({ text: /^Cache$/ })).toBeDefined()
+  expect(await terminal.find({ text: /^●$/ })).toBeDefined()
+  await terminal.unmount()
+  const mobile = await $.ui.mount({ plugin: PLUGIN, surface: 'mobile', component: 'AbovePrompt', props: band(140) })
+  expect(await mobile.find({ key: 'cache-ring' })).toBeDefined()
+  await mobile.unmount()
+
   await clock.advance(30 * MINUTE)
   const line = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', component: 'AbovePrompt', props: band(140) })
   expect(await line.find({ text: /^30m$/ })).toBeDefined()
+  expect(await line.find({ text: /^◑$/ })).toBeDefined()
 })
 
 test('the usage windows draw bars on a wide terminal and one-cell gauges on a narrower one', async ($, on) => {
@@ -211,7 +221,7 @@ test('a subagent in view shows its own five-minute clock', async ($, on) => {
 })
 
 baseTest(
-  'hiding the cache timer drops the clock from the row on both surfaces',
+  'hiding the cache timer drops the clock from the row, and from the desktop title',
   { options: { layout: 'default', hide: 'timer' } },
   async ($, on) => {
     mock.clock(on, { now: 0 })
@@ -220,7 +230,11 @@ baseTest(
     await begin($)
     await step($)
 
-    for (const surface of ['terminal', 'desktop'] as const) {
+    const desktop = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', component: 'AbovePrompt', props: band(140) })
+    expect(await desktop.find({ key: 'dash-cache' })).toBeUndefined()
+    await desktop.unmount()
+
+    for (const surface of ['terminal', 'mobile'] as const) {
       const line = await $.ui.mount({ plugin: PLUGIN, surface, component: 'AbovePrompt', props: band(140) })
       expect(await line.find({ text: /^Context$/ })).toBeDefined()
       expect(await line.find({ text: /^152k$/ })).toBeDefined()
@@ -248,7 +262,7 @@ test('the lens row stays under an alert band on the terminal', async ($, on) => 
 })
 
 baseTest(
-  'the desktop strip and rings follow the light look',
+  'the drawn strip and rings follow the light look',
   { options: { layout: 'default', appearance: 'light' } },
   async ($, on) => {
     mock.clock(on, { now: 0 })
@@ -257,7 +271,7 @@ baseTest(
     await begin($)
     await step($)
 
-    const line = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', component: 'AbovePrompt', props: band(140) })
+    const line = await $.ui.mount({ plugin: PLUGIN, surface: 'mobile', component: 'AbovePrompt', props: band(140) })
     const dashboard = JSON.stringify(keyed(await line.drawn(), 'dash'))
     expect(dashboard).toContain('"u-5h-ring"')
     expect(dashboard).toContain('preserveAspectRatio=\\"none\\"')
@@ -268,6 +282,33 @@ baseTest(
     expect((await line.find({ text: /^152k$/ }))?.props.color).toMatch(/^#/)
   },
 )
+
+test('the desktop shows the context and the usage itself: the dashboard keeps the cache clock alone, in its title', async ($, on) => {
+  const clock = mock.clock(on, { now: 0 })
+  engine(on)
+  answering(on, 140_000, 4_000)
+  await begin($)
+  await step($)
+
+  const line = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', component: 'AbovePrompt', props: band(140) })
+  expect(await line.find({ key: 'lens-row' })).toBeUndefined()
+  expect(await line.find({ text: /^Session$/ })).toBeUndefined()
+  expect(await line.find({ key: 'dash-cache' })).toBeDefined()
+  expect(await line.find({ text: /^Cache $/ })).toBeDefined()
+  // Apart from the title's words, between them and the buttons.
+  expect(JSON.stringify(keyed(await line.drawn(), 'dash-words'))).not.toContain('dash-cache')
+  expect(await line.find({ text: /^60m$/ })).toBeDefined()
+  // The ring's hover says it in words.
+  expect(await line.find({ text: /^Prompt cache warm · 60m of 1h left$/ })).toBeDefined()
+  expect(await line.find({ text: /^Expires at \d\d:\d\d$/ })).toBeDefined()
+  expect(JSON.stringify(await line.drawn())).not.toContain('% context')
+  await line.unmount()
+
+  // The last minutes count down to the second, as the lens row does.
+  await clock.advance(55 * MINUTE)
+  const later = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', component: 'AbovePrompt', props: band(140) })
+  expect(await later.find({ text: /^5:00$/ })).toBeDefined()
+})
 
 /** The element keyed `key` in a drawn tree, with everything under it. */
 function keyed(node: unknown, key: string): unknown {
@@ -282,14 +323,14 @@ function keyed(node: unknown, key: string): unknown {
   return undefined
 }
 
-test('desktop draws the lens row inside the dashboard, the context as a strip and the limits as rings', async ($, on) => {
+test('mobile draws the lens row inside the dashboard, the context as a strip and the limits as rings', async ($, on) => {
   mock.clock(on, { now: 0 })
   engine(on)
   answering(on, 140_000, 4_000)
   await begin($)
   await step($)
 
-  const line = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', component: 'AbovePrompt', props: band(140) })
+  const line = await $.ui.mount({ plugin: PLUGIN, surface: 'mobile', component: 'AbovePrompt', props: band(140) })
   const dashboard = JSON.stringify(keyed(await line.drawn(), 'dash'))
   expect(dashboard).toContain('"lens-row"')
   expect(dashboard).toContain('"ctx-bar"')

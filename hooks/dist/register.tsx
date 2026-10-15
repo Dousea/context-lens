@@ -630,6 +630,9 @@ var emptyClock = (ttl) => ({
   uncached: 0
 });
 var remainingMs = (clock, now) => clock.lastAt === null ? null : clock.lastAt + ttlMs(clock.ttl) - now;
+var cacheLeft = (clock, now) => Math.min(1, Math.max(0, (remainingMs(clock, now) ?? 0) / ttlMs(clock.ttl)));
+var PIE = "○◔◑◕●";
+var pie = (fraction) => PIE[Math.round(Math.min(1, Math.max(0, fraction)) * 4)];
 var warmth = (clock, now) => {
   const left = remainingMs(clock, now);
   if (left === null) return "uncached";
@@ -706,6 +709,7 @@ var SEPARATOR = 3;
 var MIN_CTX_BAR = 8;
 var MIN_USAGE_BAR = 10;
 var CONTEXT_LABEL = { label: "Context", short: "Ctx" };
+var CACHE_LABEL = "Cache";
 var RATE_LABEL = {
   five_hour: { label: "Session", short: "5h" },
   seven_day: { label: "Week", short: "7d" },
@@ -720,27 +724,34 @@ var usageWindow = (limit, now) => {
   };
 };
 var usageWidth = (w, style, short) => (short ? w.short : w.label).length + 1 + (style === "percent" ? 0 : 2) + `${w.percent}%`.length + (style === "full" && w.reset !== null ? 3 + w.reset.length : 0);
+var LABEL_STAGES = [
+  { cacheLabel: true, short: false },
+  { cacheLabel: false, short: false },
+  { cacheLabel: false, short: true }
+];
 var layoutLine = (columns, headWidth, ctxTexts, windows, usageBars = true) => {
   for (let n = windows.length; n >= 0; n--) {
     for (const style of USAGE_STYLES) {
       for (const ctxText of ctxTexts) {
-        for (const short of [false, true]) {
+        for (const { cacheLabel: cacheLabel2, short } of LABEL_STAGES) {
           const usage = windows.slice(0, n).reduce((sum, w) => sum + SEPARATOR + usageWidth(w, style, short), 0);
           const label = short ? CONTEXT_LABEL.short : CONTEXT_LABEL.label;
-          const room = columns - (headWidth === null ? 0 : headWidth + SEPARATOR) - label.length - 2 - ctxText.length - usage;
+          const head = headWidth === null ? 0 : (cacheLabel2 ? CACHE_LABEL.length + 1 : 0) + headWidth + SEPARATOR;
+          const room = columns - head - label.length - 2 - ctxText.length - usage;
           if (usageBars && style === "full" && !short && n > 0) {
             const usageBar = Math.floor((room + n) / 2 / n);
             const ctxBar = room + n - usageBar * n;
             if (usageBar >= MIN_USAGE_BAR && ctxBar >= MIN_CTX_BAR) {
-              return { ctxBar, usageBar, ctxText, style, windows: n, short };
+              return { cacheLabel: cacheLabel2, ctxBar, usageBar, ctxText, style, windows: n, short };
             }
           }
-          if (room >= MIN_CTX_BAR) return { ctxBar: room, usageBar: 0, ctxText, style, windows: n, short };
+          if (room >= MIN_CTX_BAR) return { cacheLabel: cacheLabel2, ctxBar: room, usageBar: 0, ctxText, style, windows: n, short };
         }
       }
     }
   }
   return {
+    cacheLabel: false,
     ctxBar: 0,
     usageBar: 0,
     ctxText: ctxTexts[ctxTexts.length - 1] ?? "",
@@ -1145,7 +1156,7 @@ async function endJudgeGlow($, why) {
 }
 
 // hooks/logic/handoff.ts
-var cacheLeft = atom4({ plugin: "context-lens", key: "cacheLeft" }, null);
+var cacheLeft2 = atom4({ plugin: "context-lens", key: "cacheLeft" }, null);
 var handoffStage = atom4({ plugin: "context-lens", key: "handoffStage" }, null);
 var handoffPick = atom4({ plugin: "context-lens", key: "handoffPick" }, null);
 var handoffAdvice = atom4({ plugin: "context-lens", key: "handoffAdvice" }, null);
@@ -1342,7 +1353,7 @@ async function writeHandoff($) {
       return;
     }
     const now = await $.clock.now().catch(() => Date.now());
-    if (await read4($, cacheLeft) === 0 || cacheExpires > 0 && now >= cacheExpires) {
+    if (await read4($, cacheLeft2) === 0 || cacheExpires > 0 && now >= cacheExpires) {
       const messages = await $.session.messages().catch(() => []);
       const got = messages.length ? await haikuHandoff($, messages).catch(() => null) : null;
       await $.store.set("lastFork", {
@@ -1539,7 +1550,7 @@ var appEffort = atom6({ plugin: "context-lens", key: "appEffort" }, null);
 var model = atom6({ plugin: "context-lens", key: "model" }, null);
 var switched = atom6({ plugin: "context-lens", key: "switched" }, null);
 var paused = atom6({ plugin: "context-lens", key: "paused" }, false);
-var cacheLeft2 = atom6({ plugin: "context-lens", key: "cacheLeft" }, null);
+var cacheLeft3 = atom6({ plugin: "context-lens", key: "cacheLeft" }, null);
 var isCompacting = atom6({ plugin: "context-lens", key: "isCompacting" }, false);
 var SWITCHED_MS = 2500;
 async function pickEffort($, level) {
@@ -1597,7 +1608,7 @@ async function snap($) {
     read6($, model),
     read6($, switched),
     read6($, paused),
-    read6($, cacheLeft2),
+    read6($, cacheLeft3),
     read6($, isCompacting)
   ]);
   return {
@@ -1758,7 +1769,7 @@ function subagentPays(verdict, inUse, task) {
 }
 
 // hooks/logic/cache.ts
-var cacheLeft3 = atom8({ plugin: "context-lens", key: "cacheLeft" }, null);
+var cacheLeft4 = atom8({ plugin: "context-lens", key: "cacheLeft" }, null);
 var cacheMemo = atom8({ plugin: "context-lens", key: "cacheMemo" }, null);
 var isCompacting2 = atom8({ plugin: "context-lens", key: "isCompacting" }, false);
 var compactAsk2 = atom8({ plugin: "context-lens", key: "compactAsk" }, false);
@@ -1779,7 +1790,7 @@ function mostlyCached(usage) {
   return all > 0 && read_ / all > 0.5;
 }
 async function coldWorth($) {
-  if (await read8($, cacheLeft3) !== 0 || config.hide.includes("cold") || await read8($, isColdHidden)) return null;
+  if (await read8($, cacheLeft4) !== 0 || config.hide.includes("cold") || await read8($, isColdHidden)) return null;
   const tokens2 = lastContext?.tokens;
   if (coldForced) return tokens2 ?? 0;
   return tokens2 !== void 0 && tokens2 >= COLD_MIN_TOKENS ? tokens2 : null;
@@ -1807,7 +1818,7 @@ async function restoreCache($) {
   const memo2 = await read8($, cacheMemo);
   if (!memo2 || cacheExpires !== 0 || memo2.expires <= 0) {
     if (cacheExpires === 0 && !coldForced)
-      $.clock.after(0, () => void update8($, cacheLeft3, (l) => l === 0 && cacheExpires === 0 && !coldForced ? null : l));
+      $.clock.after(0, () => void update8($, cacheLeft4, (l) => l === 0 && cacheExpires === 0 && !coldForced ? null : l));
     return;
   }
   cacheExpires = memo2.expires;
@@ -1819,16 +1830,16 @@ function rememberCache($) {
 }
 async function showCache($) {
   if (cacheExpires === 0) {
-    if (!coldForced && await read8($, cacheLeft3) !== null) {
-      await update8($, cacheLeft3, () => null);
+    if (!coldForced && await read8($, cacheLeft4) !== null) {
+      await update8($, cacheLeft4, () => null);
       $.ui.invalidate("ui.render");
     }
     return;
   }
   const minutes = await cacheMinutes($);
-  const was = await read8($, cacheLeft3);
+  const was = await read8($, cacheLeft4);
   if (minutes === was) return;
-  await update8($, cacheLeft3, () => minutes);
+  await update8($, cacheLeft4, () => minutes);
   if (minutes === 0 !== (was === 0)) $.ui.invalidate("ui.render");
 }
 async function cacheMinutes($) {
@@ -1871,7 +1882,7 @@ async function compactCold($, note = "") {
     cacheExpires = 0;
     modelCaches.clear();
     await rememberCache($);
-    await update8($, cacheLeft3, () => null);
+    await update8($, cacheLeft4, () => null);
     compacted = true;
   } catch (error) {
     const why = error instanceof Error ? error.message : String(error);
@@ -2759,6 +2770,44 @@ function lensCacheTime(state, left) {
   if (state === "cold") return "cold";
   return formatRemaining(left ?? 0);
 }
+function clockOf(mainClock, agent, rewritten, at) {
+  const clock = agent ?? mainClock;
+  const state = warmth(clock, at);
+  return {
+    state,
+    time: lensCacheTime(state, remainingMs(clock, at)),
+    left: cacheLeft(clock, at),
+    ttl: clock.ttl,
+    expiresAt: clock.lastAt === null ? null : clock.lastAt + ttlMs(clock.ttl),
+    rewritten: agent === void 0 && rewritten && state !== "cold"
+  };
+}
+var viewedAgent = (agentList, agentId) => agentId === void 0 ? void 0 : agentList.find((a) => a.id === agentId) ?? { ...emptyClock("5m"), id: agentId, type: "agent" };
+var clockTime = (at) => {
+  const date = new Date(at);
+  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+};
+function cacheDetails(clock) {
+  const cold = clock.state === "cold";
+  return [
+    cold ? "Prompt cache cold" : `Prompt cache ${clock.state === "expiring" ? "expiring" : "warm"} · ${clock.time} of ${clock.ttl} left`,
+    [
+      clock.expiresAt === null ? null : `${cold ? "Expired" : "Expires"} at ${clockTime(clock.expiresAt)}`,
+      clock.rewritten ? "the last prompt re-cached it" : null
+    ].filter(Boolean).join(" · ")
+  ];
+}
+async function lensClock($, e) {
+  if (config.hide.includes("timer")) return null;
+  const [mainClock, rewritten, at, agentList] = await Promise.all([
+    read13($, lensMain2),
+    read13($, lensRewritten2),
+    read13($, lensNow2),
+    read13($, lensAgents3)
+  ]);
+  const clock = clockOf(mainClock, viewedAgent(agentList, e.props.view.agentId), rewritten, at);
+  return clock.state === "uncached" ? null : clock;
+}
 async function lensRow($, e, columns) {
   const [mainClock, ctx, live, rewritten, limits, at, agentList] = await Promise.all([
     read13($, lensMain2),
@@ -2769,16 +2818,12 @@ async function lensRow($, e, columns) {
     read13($, lensNow2),
     read13($, lensAgents3)
   ]);
-  const agentId = e.props.view.agentId;
-  const agent = agentId === void 0 ? void 0 : agentList.find((a) => a.id === agentId) ?? { ...emptyClock("5m"), id: agentId, type: "agent" };
+  const agent = viewedAgent(agentList, e.props.view.agentId);
   if (agent === void 0 && mainClock.lastAt === null && ctx === null && limits.length === 0) return null;
   const els = themedEls($.ui.resolve(e));
   const { Box, Text } = els;
   const Svg = e.surface !== "terminal" && "Svg" in els ? els.Svg : void 0;
-  const clock = agent ?? mainClock;
-  const state = warmth(clock, at);
-  const time = lensCacheTime(state, remainingMs(clock, at));
-  const showRewritten = agent === void 0 && rewritten && state !== "cold";
+  const { state, time, left, rewritten: showRewritten } = clockOf(mainClock, agent, rewritten, at);
   const showClock = !config.hide.includes("timer");
   const headWidth = showClock ? 2 + time.length + (showRewritten ? " re-cached".length : 0) : null;
   const max = ctx?.maxTokens ?? 0;
@@ -2791,7 +2836,15 @@ async function lensRow($, e, columns) {
   const lineBar = (key, parts) => /* @__PURE__ */ h(Box, { key, flexDirection: "row" }, parts.filter((s) => s.cells > 0).map((s, i) => /* @__PURE__ */ h(Text, { key: `${key}-${i}`, color: s.color }, segmentGlyph(s.kind).repeat(s.cells))));
   const breakdown = agent === void 0 && ctx !== null ? ctx.categories : [];
   const [usedText, maxText] = layout.ctxText.split(" / ");
-  return /* @__PURE__ */ h(Box, { key: "lens-row", flexDirection: "row", gap: 1, alignItems: "center" }, showClock && /* @__PURE__ */ h(Text, { color: LENS_WARMTH_COLOR[state] }, "●"), showClock && /* @__PURE__ */ h(Text, { color: state === "uncached" ? "inactive" : LENS_WARMTH_COLOR[state] }, time), showClock && showRewritten && /* @__PURE__ */ h(Text, { color: "warning" }, "re-cached"), showClock && /* @__PURE__ */ h(Text, { dimColor: true }, "·"), /* @__PURE__ */ h(
+  return /* @__PURE__ */ h(Box, { key: "lens-row", flexDirection: "row", gap: 1, alignItems: "center" }, showClock && layout.cacheLabel && /* @__PURE__ */ h(Text, { dimColor: true }, CACHE_LABEL), showClock && !Svg && /* @__PURE__ */ h(Text, { color: LENS_WARMTH_COLOR[state] }, pie(left)), showClock && Svg && /* @__PURE__ */ h(Box, { key: "cache-ring", flexShrink: 0 }, /* @__PURE__ */ h(
+    Svg,
+    {
+      source: ringSvg(left * 100, themeHex(LENS_WARMTH_COLOR[state])),
+      alt: `prompt cache: ${time} left`,
+      width: 14,
+      height: 14
+    }
+  )), showClock && /* @__PURE__ */ h(Text, { color: state === "uncached" ? "inactive" : LENS_WARMTH_COLOR[state] }, time), showClock && showRewritten && /* @__PURE__ */ h(Text, { color: "warning" }, "re-cached"), showClock && /* @__PURE__ */ h(Text, { dimColor: true }, "·"), /* @__PURE__ */ h(
     Box,
     {
       key: "lens-context",
@@ -3561,7 +3614,9 @@ async function dashboardBand($, e) {
   const reason = v.current ? `${by === "manual" || by === "named" ? "You" : "Why"}: ${v.current.why}` : v.auto ? "Auto picks the effort at the next prompt" : "You pick the effort";
   const cacheShown = config.hide.includes("timer") || v.cacheNow !== null && v.cacheNow <= 0 ? null : v.cacheNow;
   const columns = typeof e.props.bodyColumns === "number" ? e.props.bodyColumns : 100;
-  const lens = await lensRow($, e, Math.max(20, columns - 4)).catch(() => null);
+  const desktop = e.surface === "desktop";
+  const lens = desktop ? null : await lensRow($, e, Math.max(20, columns - 4)).catch(() => null);
+  const clock = desktop ? await lensClock($, e).catch(() => null) : null;
   const judgingHere = !inAgent && Boolean(v.judging);
   const modelName = MODELS.find((m) => m.key === shownModel)?.long;
   const { head, what, pair, rest, detail } = dashboardLines({
@@ -3571,8 +3626,8 @@ async function dashboardBand($, e) {
     agent: inAgent,
     effort: effortNow,
     model: modelName,
-    cacheNow: lens ? null : cacheShown,
-    contextPercent: !lens && lastContext && lastContext.window ? lastContext.percent : null,
+    cacheNow: lens || desktop ? null : cacheShown,
+    contextPercent: !lens && !desktop && lastContext && lastContext.window ? lastContext.percent : null,
     // The judge's reason and the handoff advice are about the chat's own prompt, not a subagent's work.
     reason: inAgent ? "" : adviceNow ? `Handoff would suit: ${adviceNow}` : config.hide.includes("reason") ? "" : reason
   });
@@ -3789,7 +3844,7 @@ async function dashboardBand($, e) {
         key: "dash-words",
         position: "relative",
         flexDirection: "row",
-        flexGrow: 1,
+        flexGrow: clock ? 0 : 1,
         flexShrink: 1,
         minWidth: 0,
         overflow: "hidden"
@@ -3807,7 +3862,15 @@ async function dashboardBand($, e) {
         ))
       ) : /* @__PURE__ */ h(Text, { color: v.auto ? ACCENT : DASH_DIM, bold: true }, "✦", " "), /* @__PURE__ */ h(Text, { key: "dash-level", color: wordColor, bold: true }, judgingHere && Svg ? modelName ? `${modelName} · Deciding` : "Deciding" : pair), judgingHere && Svg ? /* @__PURE__ */ h(Box, { key: "dash-thinking", flexShrink: 0, marginLeft: 1, alignItems: "center" }, /* @__PURE__ */ h(Svg, { source: thinkingSvg(), alt: "deciding", width: THINK_W, height: PILL_H })) : null),
       rest ? /* @__PURE__ */ h(Box, { flexShrink: 1, minWidth: 0 }, /* @__PURE__ */ h(Text, { color: DASH_TEXT, bold: true, wrap: "truncate" }, rest)) : null
-    ), /* @__PURE__ */ h(Box, { minWidth: 1 }), /* @__PURE__ */ h(Box, { key: "dash-actions", flexShrink: 0, flexDirection: "row", gap: 1, alignItems: "center", marginLeft: 1 }, /* @__PURE__ */ h(Box, { position: "absolute", top: 0, left: 0 }), Svg ? (
+    ), clock ? /* @__PURE__ */ h(Box, { flexGrow: 1 }) : null, clock ? /* @__PURE__ */ h(Box, { key: "dash-cache", position: "relative", flexShrink: 0, flexDirection: "row", alignItems: "center" }, /* @__PURE__ */ h(Text, { color: DASH_DIM, bold: true }, `${CACHE_LABEL} `), Svg ? /* @__PURE__ */ h(Box, { flexShrink: 0, marginRight: 1 }, /* @__PURE__ */ h(
+      Svg,
+      {
+        source: ringSvg(clock.left * 100, themeHex(LENS_WARMTH_COLOR[clock.state])),
+        alt: `prompt cache: ${clock.time} left`,
+        width: 14,
+        height: 14
+      }
+    )) : null, /* @__PURE__ */ h(Text, { color: LENS_WARMTH_COLOR[clock.state], bold: true }, clock.time), /* @__PURE__ */ h(Box, { position: "absolute", left: 0, display: "none", hover: { display: "flex" }, flexDirection: "column" }, cacheDetails(clock).map((line, n) => /* @__PURE__ */ h(Text, { key: `dash-cache-${n}`, wrap: "truncate" }, line)))) : null, clock ? /* @__PURE__ */ h(Box, { flexGrow: 1 }) : null, /* @__PURE__ */ h(Box, { minWidth: 1 }), /* @__PURE__ */ h(Box, { key: "dash-actions", flexShrink: 0, flexDirection: "row", gap: 1, alignItems: "center", marginLeft: 1 }, /* @__PURE__ */ h(Box, { position: "absolute", top: 0, left: 0 }), Svg ? (
       // Each Auto as a switch, drawn, with a blank button laid over it to take the click (the cog's pattern).
       [
         {
@@ -5098,7 +5161,7 @@ async function runBench($, cases) {
 var isAuto2 = atom23({ plugin: "context-lens", key: "isAuto" }, true);
 var suggestion4 = atom23({ plugin: "context-lens", key: "suggestion" }, null);
 var saved4 = atom23({ plugin: "context-lens", key: "saved" }, EMPTY_SPENT);
-var cacheLeft4 = atom23({ plugin: "context-lens", key: "cacheLeft" }, null);
+var cacheLeft5 = atom23({ plugin: "context-lens", key: "cacheLeft" }, null);
 var handoffStage3 = atom23({ plugin: "context-lens", key: "handoffStage" }, null);
 var swamped3 = atom23({ plugin: "context-lens", key: "swamped" }, null);
 var swampHiddenAt3 = atom23({ plugin: "context-lens", key: "swampHiddenAt" }, null);
@@ -5173,7 +5236,7 @@ function registerCommandHooks(on) {
           `plugin: ${ownVersion || "?"}, ${/cache[\\/][^\\/]+[\\/]/.test($.plugin.root) ? pluginId($) : `local copy at ${$.plugin.root}`}`,
           `session.start ${ago(sessionStarted)}`,
           `app SessionStart: ${classicStart ? `${ago(classicStart.at)} (${classicStart.said})` : "never"}`,
-          `cache: ${cacheExpires === 0 ? "not started" : `${await cacheMinutes($)} min left`}, shown ${await read19($, cacheLeft4)}, ttl ${cacheTtl}, last reply ${lastResponseAt ? ago(lastResponseAt) : "none seen"}, replies seen ${repliesSeen}, forced ${coldForced}`,
+          `cache: ${cacheExpires === 0 ? "not started" : `${await cacheMinutes($)} min left`}, shown ${await read19($, cacheLeft5)}, ttl ${cacheTtl}, last reply ${lastResponseAt ? ago(lastResponseAt) : "none seen"}, replies seen ${repliesSeen}, forced ${coldForced}`,
           `rate limits: app ${appLimits ? limitsText(appLimits) : "unreadable"}, band ${limitsText(await read19($, lensLimits3))}`,
           `model caches: ${[...modelCaches].map(([k, c]) => `${k} ${kTokens(c.tokens)} ${Math.max(0, Math.ceil((c.expires - debugNow) / 6e4))} min`).join(", ") || "none"}${sessionPick ? `, session on ${sessionPick}` : ""}`,
           `band asked for ${renderCalls} times, last ${ago(lastRenderAt)}`,
@@ -5218,7 +5281,7 @@ Saved to ${out}.md and .json`
     if (arg === "cold") {
       setColdForced(true);
       setCacheExpires(await $.clock.now());
-      await update22($, cacheLeft4, () => 0);
+      await update22($, cacheLeft5, () => 0);
       $.ui.invalidate("ui.render");
       return {
         text: "The cache shows as cold now (a test). Compact is in the footer. The next response restarts the countdown."
@@ -5358,7 +5421,7 @@ var isAutoModel3 = atom25({ plugin: "context-lens", key: "isAutoModel" }, false)
 var pick3 = atom25({ plugin: "context-lens", key: "pick" }, null);
 var isJudging2 = atom25({ plugin: "context-lens", key: "isJudging" }, false);
 var suggestion5 = atom25({ plugin: "context-lens", key: "suggestion" }, null);
-var cacheLeft5 = atom25({ plugin: "context-lens", key: "cacheLeft" }, null);
+var cacheLeft6 = atom25({ plugin: "context-lens", key: "cacheLeft" }, null);
 var handoffCard5 = atom25({ plugin: "context-lens", key: "handoffCard" }, null);
 var saveUntil5 = atom25({ plugin: "context-lens", key: "saveUntil" }, null);
 function registerPromptHooks(on) {
@@ -5464,7 +5527,7 @@ function registerPromptHooks(on) {
             await choose($, applied);
           }
         }
-        const cold = await read21($, cacheLeft5) === 0 || coldForced;
+        const cold = await read21($, cacheLeft6) === 0 || coldForced;
         const now = await $.clock.now().catch(() => Date.now());
         const tokens2 = lastContext?.tokens ?? modelCaches.get(inUse)?.tokens;
         const offered = verdict.model === declined ? null : switchWorth(verdict.model, inUse, {

@@ -3765,13 +3765,12 @@ describe('dashboard', () => {
       await closeSetup($, DESK_BAND)
       await mocked.advance(16_000)
       const band = await $.ui.mount(DESK_BAND)
-      // The title with the controls, then the detail line. With no lens row yet, the title says
-      // the context in words.
+      // The title with the controls, then the detail line. The desktop shows the context itself, so the title does not.
       expect(await band.find({ key: 'dash-title' })).toBeDefined()
       expect(await band.find({ key: 'dash-detail' })).toBeDefined()
       expect(await band.find({ key: 'dash-ring' })).toBeUndefined()
       expect(await band.find({ key: 'dash-tail' })).toBeUndefined()
-      expect(await drawn(band)).toContain('18% context')
+      expect(await drawn(band)).not.toContain('% context')
       expect(await band.find({ key: 'dash-auto' })).toBeDefined()
       expect(await band.find({ key: 'dash-settings' })).toBeDefined()
       // A drawn icon on desktop, not the word.

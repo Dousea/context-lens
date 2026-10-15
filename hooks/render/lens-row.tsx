@@ -1,6 +1,6 @@
 import { atom, type EngineInterface, read, type RenderInput } from 'claude-code'
 
-import type { AgentCache } from '../../types'
+import type { AgentCache, CacheClock } from '../../types'
 import { config } from '../core/config'
 import { DASH_TEXT, themeHex } from '../core/palette'
 import { LENS_WARMTH_COLOR } from '../logic/lens'
@@ -8,6 +8,8 @@ import {
   type BarSegment,
   BUFFER_COLOR,
   clockTokens,
+  CACHE_LABEL,
+  cacheLeft,
   CONTEXT_LABEL,
   emptyClock,
   fillBar,
@@ -16,9 +18,11 @@ import {
   formatTokens,
   gauge,
   layoutLine,
+  pie,
   remainingMs,
   segmentGlyph,
   stackedBar,
+  ttlMs,
   usageWindow,
   type Warmth,
   warmth,
@@ -42,6 +46,62 @@ function lensCacheTime(state: Warmth, left: number | null): string {
   return formatRemaining(left ?? 0)
 }
 
+/** The clock in view, the subagent's own or the chat's, as the lens draws it: its warmth, its time, the share of its time
+ * to live left, when it lapses and whether the chat's last request re-cached. */
+function clockOf(mainClock: CacheClock, agent: AgentCache | undefined, rewritten: boolean, at: number) {
+  const clock = agent ?? mainClock
+  const state = warmth(clock, at)
+  return {
+    state,
+    time: lensCacheTime(state, remainingMs(clock, at)),
+    left: cacheLeft(clock, at),
+    ttl: clock.ttl,
+    expiresAt: clock.lastAt === null ? null : clock.lastAt + ttlMs(clock.ttl),
+    rewritten: agent === undefined && rewritten && state !== 'cold',
+  }
+}
+
+const viewedAgent = (agentList: readonly AgentCache[], agentId: string | undefined): AgentCache | undefined =>
+  agentId === undefined
+    ? undefined
+    : (agentList.find(a => a.id === agentId) ?? { ...emptyClock('5m'), id: agentId, type: 'agent' })
+
+const clockTime = (at: number) => {
+  const date = new Date(at)
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+}
+
+/** The cache clock in words, two lines for a hover: how warm it is with the time left of its time to live, then when it
+ * lapses and whether the last prompt re-cached it. */
+export function cacheDetails(clock: NonNullable<Awaited<ReturnType<typeof lensClock>>>): [string, string] {
+  const cold = clock.state === 'cold'
+  return [
+    cold
+      ? 'Prompt cache cold'
+      : `Prompt cache ${clock.state === 'expiring' ? 'expiring' : 'warm'} · ${clock.time} of ${clock.ttl} left`,
+    [
+      clock.expiresAt === null ? null : `${cold ? 'Expired' : 'Expires'} at ${clockTime(clock.expiresAt)}`,
+      clock.rewritten ? 'the last prompt re-cached it' : null,
+    ]
+      .filter(Boolean)
+      .join(' · '),
+  ]
+}
+
+/** The cache clock alone, for a surface that shows the context and the usage itself; null while the settings hide it
+ * or before the first request. */
+export async function lensClock($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
+  if (config.hide.includes('timer')) return null
+  const [mainClock, rewritten, at, agentList] = await Promise.all([
+    read($, lensMain),
+    read($, lensRewritten),
+    read($, lensNow),
+    read($, lensAgents),
+  ])
+  const clock = clockOf(mainClock, viewedAgent(agentList, e.props.view.agentId), rewritten, at)
+  return clock.state === 'uncached' ? null : clock
+}
+
 /** The lens's row, `columns` wide: the cache timer, the context bar and the usage windows; null when there is
  * nothing to show yet. A subagent in view shows its own clock. Hiding the cache timer in the settings drops the clock. */
 export async function lensRow($: EngineInterface, e: RenderInput<'AbovePrompt'>, columns: number) {
@@ -54,11 +114,7 @@ export async function lensRow($: EngineInterface, e: RenderInput<'AbovePrompt'>,
     read($, lensNow),
     read($, lensAgents),
   ])
-  const agentId = e.props.view.agentId
-  const agent: AgentCache | undefined =
-    agentId === undefined
-      ? undefined
-      : (agentList.find(a => a.id === agentId) ?? { ...emptyClock('5m'), id: agentId, type: 'agent' })
+  const agent = viewedAgent(agentList, e.props.view.agentId)
   if (agent === undefined && mainClock.lastAt === null && ctx === null && limits.length === 0) return null
 
   const els = themedEls($.ui.resolve(e))
@@ -66,10 +122,7 @@ export async function lensRow($: EngineInterface, e: RenderInput<'AbovePrompt'>,
   // Off the terminal the font is proportional: a run of rule glyphs wraps and leaves gaps, and a one-cell gauge reads as
   // a stray glyph. There the context bar is a drawn strip and each usage window a ring.
   const Svg = e.surface !== 'terminal' && 'Svg' in els ? els.Svg : undefined
-  const clock = agent ?? mainClock
-  const state = warmth(clock, at)
-  const time = lensCacheTime(state, remainingMs(clock, at))
-  const showRewritten = agent === undefined && rewritten && state !== 'cold'
+  const { state, time, left, rewritten: showRewritten } = clockOf(mainClock, agent, rewritten, at)
   const showClock = !config.hide.includes('timer')
   const headWidth = showClock ? 2 + time.length + (showRewritten ? ' re-cached'.length : 0) : null
 
@@ -106,7 +159,18 @@ export async function lensRow($: EngineInterface, e: RenderInput<'AbovePrompt'>,
 
   return (
     <Box key="lens-row" flexDirection="row" gap={1} alignItems="center">
-      {showClock && <Text color={LENS_WARMTH_COLOR[state]}>●</Text>}
+      {showClock && layout.cacheLabel && <Text dimColor>{CACHE_LABEL}</Text>}
+      {showClock && !Svg && <Text color={LENS_WARMTH_COLOR[state]}>{pie(left)}</Text>}
+      {showClock && Svg && (
+        <Box key="cache-ring" flexShrink={0}>
+          <Svg
+            source={ringSvg(left * 100, themeHex(LENS_WARMTH_COLOR[state]))}
+            alt={`prompt cache: ${time} left`}
+            width={14}
+            height={14}
+          />
+        </Box>
+      )}
       {showClock && <Text color={state === 'uncached' ? 'inactive' : LENS_WARMTH_COLOR[state]}>{time}</Text>}
       {showClock && showRewritten && <Text color="warning">re-cached</Text>}
       {showClock && <Text dimColor>·</Text>}

@@ -5,7 +5,7 @@ import { MARK_SVG } from '../svg/brand-mark'
 import { config } from '../core/config'
 import { EFFORT_LABELS, FROST_HEIGHT, FROST_WIDTH, MODELS } from '../core/constants'
 import { loadedSession, renderLog } from '../core/debug'
-import { ACCENT, DASH_BG, DASH_DIM, DASH_EDGE, DASH_TEXT, FLASH_COLOR } from '../core/palette'
+import { ACCENT, DASH_BG, DASH_DIM, DASH_EDGE, DASH_TEXT, FLASH_COLOR, themeHex } from '../core/palette'
 import { cacheLabel } from '../logic/cache'
 import { openCompact } from '../logic/compact'
 import { effortOf, snap, toggleAutoEffort, toggleAutoModel } from '../logic/effort'
@@ -19,10 +19,11 @@ import {
   setAdviceNow,
 } from '../logic/handoff'
 import { judgeEndedAt, judgeStartedAt } from '../logic/judge'
-import { lastContext } from '../logic/lens'
+import { LENS_WARMTH_COLOR, lastContext } from '../logic/lens'
 import { openPluginSettings } from '../logic/settings'
 import { subagentEffortOf } from '../logic/subagents'
-import { autoSwitchSvg, handoffLook, handoffPillSvg, settingsSvg } from '../svg/controls'
+import { CACHE_LABEL } from '../model'
+import { autoSwitchSvg, handoffLook, handoffPillSvg, ringSvg, settingsSvg } from '../svg/controls'
 import {
   AUTO_GLOW_H,
   AUTO_GLOW_MS,
@@ -42,7 +43,7 @@ import { DASH_MARK_OFF, DASH_SVG } from '../svg/scenes'
 import { themedEls } from '../theme'
 import { PILL_H, THINK_W, thinkingSvg } from '../svg/thinking'
 import { detailLine, introFresh, introShows, setIntroFresh, terminalBand } from './band'
-import { lensRow } from './lens-row'
+import { cacheDetails, lensClock, lensRow } from './lens-row'
 
 const handoffAdvice = atom({ plugin: 'context-lens', key: 'handoffAdvice' } as const, null)
 const settingsOpen = atom({ plugin: 'context-lens', key: 'settingsOpen' } as const, false)
@@ -208,7 +209,10 @@ export async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePro
   // The lens's row (cache timers, context bar, usage) sits under the detail line. Its width is the band's inside: the
   // border and the padding take four columns. The resting band draws no art beside it.
   const columns = typeof e.props.bodyColumns === 'number' ? e.props.bodyColumns : 100
-  const lens = await lensRow($, e, Math.max(20, columns - 4)).catch(() => null)
+  // Claude Desktop shows the context and the usage itself, so there the lens is its cache clock alone, in the title.
+  const desktop = e.surface === 'desktop'
+  const lens = desktop ? null : await lensRow($, e, Math.max(20, columns - 4)).catch(() => null)
+  const clock = desktop ? await lensClock($, e).catch(() => null) : null
   const judgingHere = !inAgent && Boolean(v.judging)
   const modelName = MODELS.find(m => m.key === shownModel)?.long
   // The lens row carries the cache and the context; the title says them in words until it has anything to show.
@@ -219,8 +223,8 @@ export async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePro
     agent: inAgent,
     effort: effortNow,
     model: modelName,
-    cacheNow: lens ? null : cacheShown,
-    contextPercent: !lens && lastContext && lastContext.window ? lastContext.percent : null,
+    cacheNow: lens || desktop ? null : cacheShown,
+    contextPercent: !lens && !desktop && lastContext && lastContext.window ? lastContext.percent : null,
     // The judge's reason and the handoff advice are about the chat's own prompt, not a subagent's work.
     reason: inAgent
       ? ''
@@ -461,7 +465,7 @@ export async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePro
           key="dash-words"
           position="relative"
           flexDirection="row"
-          flexGrow={1}
+          flexGrow={clock ? 0 : 1}
           flexShrink={1}
           minWidth={0}
           overflow="hidden"
@@ -503,6 +507,37 @@ export async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePro
             </Box>
           ) : null}
         </Box>
+        {/* The cache clock sits apart from the title, centred in the room between it and the buttons. A hover scope: the
+            pointer on the ring or the time reveals the cache in words, which the app draws as a card by it. */}
+        {clock ? <Box flexGrow={1} /> : null}
+        {clock ? (
+          <Box key="dash-cache" position="relative" flexShrink={0} flexDirection="row" alignItems="center">
+            <Text color={DASH_DIM} bold>
+              {`${CACHE_LABEL} `}
+            </Text>
+            {Svg ? (
+              <Box flexShrink={0} marginRight={1}>
+                <Svg
+                  source={ringSvg(clock.left * 100, themeHex(LENS_WARMTH_COLOR[clock.state]))}
+                  alt={`prompt cache: ${clock.time} left`}
+                  width={14}
+                  height={14}
+                />
+              </Box>
+            ) : null}
+            <Text color={LENS_WARMTH_COLOR[clock.state]} bold>
+              {clock.time}
+            </Text>
+            <Box position="absolute" left={0} display="none" hover={{ display: 'flex' }} flexDirection="column">
+              {cacheDetails(clock).map((line, n) => (
+                <Text key={`dash-cache-${n}`} wrap="truncate">
+                  {line}
+                </Text>
+              ))}
+            </Box>
+          </Box>
+        ) : null}
+        {clock ? <Box flexGrow={1} /> : null}
         {/* The buttons in the flow, their real width and no more, so the words get all the rest. An empty absolute child
           makes the box positioned, which paints it over the art (a plain flow box sits under it and loses clicks). */}
         <Box minWidth={1} />
