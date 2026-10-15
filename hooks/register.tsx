@@ -1,17 +1,6 @@
-import { atom, type EngineInterface, read, type Register, type RenderInput, update } from 'claude-code'
+import { atom, read, type Register, update } from 'claude-code'
 
-import type {
-  AgentCache,
-  Effort,
-  HandoffAfter,
-  HandoffChoice,
-  HotClosed,
-  ModelKey,
-  Pick,
-  SettingsDraft,
-} from '../types'
-import { ART_COLUMNS, ART_FRAME_MS, ART_MIN_WIDTH, ART_ROWS, artFrame, type ArtKind, MOVING } from './art'
-import { MARK_SVG } from './brand-mark'
+import type { Effort, HandoffAfter, HandoffChoice, HotClosed, ModelKey, Pick, SettingsDraft } from '../types'
 import {
   config,
   type Hideable,
@@ -60,7 +49,7 @@ import {
   setSessionStarted,
   writeRenderLog,
 } from './core/debug'
-import { homeDir, noClaudeHint, ownVersion, pluginId, proof, readOwnVersion, runClaude } from './core/env'
+import { ownVersion, pluginId, proof, readOwnVersion } from './core/env'
 import {
   ACCENT,
   applyTheme,
@@ -77,13 +66,9 @@ import {
   DASH_EDGE,
   DASH_HEAD,
   DASH_TEXT,
-  DONE_ACCENT,
-  DONE_BG,
-  DONE_EDGE,
   EMBER,
   EMBER_BG,
   EMBER_EDGE,
-  FLASH_COLOR,
   HOVER_BOX,
   ICE,
   ICE_BG,
@@ -92,7 +77,6 @@ import {
   SLATE,
   SLATE_BG,
   SLATE_EDGE,
-  UNINSTALL_RED,
 } from './core/palette'
 import {
   classicStart,
@@ -118,7 +102,6 @@ import {
 } from './logic/alerts'
 import { type BenchCase, benchReport, runBench } from './logic/bench'
 import {
-  cacheClock,
   cacheColor,
   cacheExpires,
   cacheLabel,
@@ -148,33 +131,16 @@ import {
   setLastHaikuCompact,
   SETTINGS_BODY_H,
 } from './logic/compact'
+import { choose, effortOf, snap, toggleAutoEffort } from './logic/effort'
 import {
-  choose,
-  effortOf,
-  hoverTips,
-  pickEffort,
-  type Snap,
-  snap,
-  toggleAutoEffort,
-  toggleAutoModel,
-} from './logic/effort'
-import {
-  adviceNow,
-  cardLanded,
   cardRunning,
   checkHandoff,
   closeHandoffBar,
-  COMPACT_BUTTON_MIN_COLUMNS,
   goHandoff,
-  type HandoffCard,
-  handoffLevel,
-  handoffLoud,
-  handoffSlot,
   handoffText,
   handoffWhat,
   lastHandoffChoice,
   openHandoffBar,
-  setAdviceNow,
   setHandoffText,
   startHandoff,
 } from './logic/handoff'
@@ -199,8 +165,8 @@ import {
   withAttachments,
   withMidTurn,
 } from './logic/judge'
-import { afterCompaction, lastContext, LENS_WARMTH_COLOR, lensStarted, recordRequest, refreshUsage } from './logic/lens'
-import { carryRenamedSettings, openPluginSettings, SAVED_CARD_MS, saveDraft, saveSetting } from './logic/settings'
+import { afterCompaction, lastContext, lensStarted, recordRequest, refreshUsage } from './logic/lens'
+import { carryRenamedSettings, openPluginSettings, SAVED_CARD_MS, saveDraft } from './logic/settings'
 import {
   closeSetup,
   drainSetupSave,
@@ -236,7 +202,6 @@ import {
   type SpawnCall,
   SUBAGENT_MODEL_SURE,
   subagentEffort,
-  subagentEffortOf,
   subagentFloor,
   subagentModelFor,
   type SubagentPick,
@@ -265,37 +230,23 @@ import {
   suggestedAs,
   switchModel,
   switchWorth,
-  typeCommand,
   warmTokens,
 } from './logic/switching'
 import { redrawSoon, setTimersFrom, setTimersScheduled, startTimers, timersFrom, timersScheduled } from './logic/timers'
-import {
-  bar,
-  type BarSegment,
-  clockTokens,
-  emptyClock,
-  fillBar,
-  fillColor,
-  formatRemaining,
-  formatTokens,
-  layoutLine,
-  remainingMs,
-  segmentGlyph,
-  stackedBar,
-  usageWindow,
-  type Warmth,
-  warmth,
-} from './model'
+import { emptyClock } from './model'
+import { savedCardTree } from './render/alert-bands'
+import { introKind, introLayer, introShows, markTitle, setIntroKind, terminalBand, terminalPanel } from './render/band'
+import { dashboardBand, drawLead, glowReadAt, setDrawLead, setGlowReadAt } from './render/dashboard'
+import { effortRows } from './render/effort-rows'
+import { handoffCardTree } from './render/handoff-card'
+import { lensRow } from './render/lens-row'
+import { settingSwitches, uninstallButton } from './render/settings-panel'
 import {
   autoSwitchSvg,
-  binSvg,
-  cacheClockSvg,
   enterSvg,
   GO_CELLS,
   GO_W,
   goPillSvg,
-  handoffLook,
-  handoffPillSvg,
   KIND_CELLS,
   KIND_H,
   KIND_W,
@@ -304,43 +255,18 @@ import {
   ringSvg,
   rowIconSvg,
   setKindFlipAt,
-  settingsSvg,
 } from './svg/controls'
 import {
   AUTO_GLOW_H,
-  AUTO_GLOW_MS,
   AUTO_GLOW_W,
-  autoGlowSvg,
   COLD_GLOW_MS,
   coldGlowSvg,
   compactFadeSvg,
-  GLOW_H,
-  GLOW_W,
-  HANDOFF_PILL_H,
-  HANDOFF_PILL_W,
-  handoffGlowStep,
-  handoffGlowSvg,
   inPhase,
   JUDGE_RISE_MS,
-  judgeGlowAt,
 } from './svg/glows'
-import {
-  BRAND_SVG,
-  DASH_MARK_OFF,
-  DASH_SVG,
-  DONE_MARK_SVG,
-  DONE_SVG,
-  DOWN_SVG,
-  EMBER_SVG,
-  FROST_SVG,
-  HANDOFF_SVG,
-  INTRO_SVG,
-  SETTINGS_MARK,
-  SETTINGS_TITLE,
-  SWAMP_SVG,
-} from './svg/scenes'
+import { BRAND_SVG, DOWN_SVG, EMBER_SVG, FROST_SVG, SETTINGS_MARK, SETTINGS_TITLE, SWAMP_SVG } from './svg/scenes'
 import { themedEls, type ThemeName, THEMES } from './theme'
-import { PILL_H, THINK_W, thinkingSvg } from './thinking'
 
 export { HIDEABLE, type Hideable, type JudgeConfig, readConfig, SWAMP_STEPS } from './core/config'
 export { cacheSafe, EFFORTS, MODELS, takesEffort } from './core/constants'
@@ -379,6 +305,8 @@ export { LEAN_STOPS, setupBack, setupCounter, setupNext, setupShown, type SetupS
 export { asSpent, savedText, turnLineFor, weighted } from './logic/spend'
 export { subagentFloor, subagentModelFor, subagentQuestion, subagentSteerable } from './logic/subagents'
 export { priceOf, subagentNote, subagentPays, switchWorth } from './logic/switching'
+export { appHintText, bandFit } from './render/band'
+export { dashboardLines, flashColor } from './render/dashboard'
 export {
   autoSwitchSvg,
   cacheClockSvg,
@@ -420,7 +348,6 @@ const compactAsk = atom({ plugin: 'context-lens', key: 'compactAsk' } as const, 
 const handoffStage = atom({ plugin: 'context-lens', key: 'handoffStage' } as const, null)
 const handoffPick = atom({ plugin: 'context-lens', key: 'handoffPick' } as const, null)
 const swamped = atom({ plugin: 'context-lens', key: 'swamped' } as const, null)
-const handoffAdvice = atom({ plugin: 'context-lens', key: 'handoffAdvice' } as const, null)
 const handoffCard = atom({ plugin: 'context-lens', key: 'handoffCard' } as const, null)
 
 // The newest reply's text, so the warning card goes under its last block and nowhere else.
@@ -445,12 +372,9 @@ const isColdHidden = atom({ plugin: 'context-lens', key: 'isColdHidden' } as con
 const setupStep = atom({ plugin: 'context-lens', key: 'setupStep' } as const, null)
 const setupDraft = atom({ plugin: 'context-lens', key: 'setupDraft' } as const, {})
 const lensMain = atom({ plugin: 'context-lens', key: 'lensMain' } as const, emptyClock('1h'))
-const lensAgents = atom({ plugin: 'context-lens', key: 'lensAgents' } as const, [])
-const lensContext = atom({ plugin: 'context-lens', key: 'lensContext' } as const, null)
 const lensLiveTokens = atom({ plugin: 'context-lens', key: 'lensLive' } as const, null)
 const lensRewritten = atom({ plugin: 'context-lens', key: 'lensRewritten' } as const, false)
 const lensLimits = atom({ plugin: 'context-lens', key: 'lensLimits' } as const, [])
-const lensNow = atom({ plugin: 'context-lens', key: 'lensNow' } as const, 0)
 
 /** The settings panel's parts: a card each on the overview, and what the part is for, said once it is open. */
 const CARDS: readonly { id: SettingsCard; title: string; about: string }[] = [
@@ -469,1364 +393,6 @@ const CARDS: readonly { id: SettingsCard; title: string; about: string }[] = [
 ]
 const BIAS_WORDS = ['Cheapest', 'Cheaper', 'Balanced', 'Smarter', 'Smartest'] as const
 const THEME_LABELS: Record<ThemeName, string> = { violet: 'Violet', orange: 'Claude orange', rose: 'Cherry blossom' }
-// The dashboard's mark: its size, and its look with Auto off.
-const DASH_MARK_SIZE = 18
-/** How long a band's entrance runs: it is drawn only this long after the band appears, since every redraw of the band
- * (a choice, the minute tick) would replay it. */
-const INTRO_MS = 1300
-// The band last drawn above the prompt, and when it appeared (see introShows).
-let introKind = ''
-let introAt = 0
-// How far the entrance on screen is, for introLayer.
-let introElapsed = 0
-// Set when a band replaces another, taken by the first draw of the new one.
-let introFresh = false
-/** Whether the band of `kind` is still in its entrance: true for INTRO_MS after it replaced another band. */
-async function introShows($: EngineInterface, kind: string): Promise<boolean> {
-  const now = await $.clock.now()
-  if (kind !== introKind) {
-    introKind = kind
-    introAt = now
-    introFresh = true
-    $.clock.after(INTRO_MS + 100, () => $.ui.invalidate('ui.render'))
-  }
-  introElapsed = now - introAt
-  return introElapsed < INTRO_MS
-}
-// The mark beside a card's title, sized to one line of text.
-const TITLE_MARK_SIZE = 16
-
-/** A card's title with the context-lens mark where the ✦ stood; the ✦ stays where the surface draws no images. */
-function markTitle(
-  els: { Box: unknown; Text: unknown; Svg?: unknown },
-  key: string,
-  color: string,
-  title: string,
-  mark = MARK_SVG,
-) {
-  const {
-    Box: B,
-    Text: T,
-    Svg: S,
-  } = els as unknown as {
-    Box: (p: Record<string, unknown>) => unknown
-    Text: (p: Record<string, unknown>) => unknown
-    Svg?: (p: Record<string, unknown>) => unknown
-  }
-  if (!S)
-    return (
-      <T key={key} color={color} bold wrap="truncate">
-        {title}
-      </T>
-    )
-  return (
-    <B key={key} flexDirection="row" alignItems="center" flexShrink={1} minWidth={0}>
-      <B flexShrink={0} marginRight={1} alignItems="center">
-        <S source={mark} alt="context-lens" width={TITLE_MARK_SIZE} height={TITLE_MARK_SIZE} />
-      </B>
-      <T color={color} bold wrap="truncate">
-        {title.replace(/^✦ /, '')}
-      </T>
-    </B>
-  )
-}
-
-/** The entrance layer (INTRO_SVG) in a band's own colours, or nothing once the entrance is over. */
-function introLayer(
-  els: { Box: unknown; Svg?: unknown },
-  key: string,
-  show: boolean,
-  wash = '#8b6cff',
-  light = '#b9a7ff',
-) {
-  if (!els.Svg || !show) return null
-  const { Box: B, Svg: S } = els as unknown as {
-    Box: (p: Record<string, unknown>) => unknown
-    Svg: (p: Record<string, unknown>) => unknown
-  }
-  return (
-    <B key={`${key}-intro`} position="absolute" top={-1} left={0} right={0} bottom={-1}>
-      <S
-        source={inPhase(INTRO_SVG.replace('#8b6cff', wash).replace('#b9a7ff', light), introElapsed)}
-        alt=""
-        width={1600}
-        height={240}
-      />
-    </B>
-  )
-}
-/** The card after Save: the bar's own colours, one line, nothing moving. */
-function savedCardTree($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
-  const { Box, Text } = themedEls($.ui.resolve(e))
-  return (
-    <Box
-      key="saved"
-      flexDirection="row"
-      alignItems="center"
-      gap={1}
-      paddingX={1}
-      backgroundColor={DASH_BG}
-      borderStyle="round"
-      borderColor={DASH_EDGE}
-    >
-      <Text color={ACCENT}>✓</Text>
-      <Text bold>Settings saved</Text>
-    </Box>
-  )
-}
-
-/** "App: Opus 5.5 · Medium", the app's own model and effort, while either differs from what the band sends; else empty.
- * The app's status line, /model and /effort show its own, so this says why they disagree with the band. */
-export function appHintText(
-  app: { model?: ModelKey; effort?: unknown },
-  sent: { model?: ModelKey; effort?: Effort },
-): string {
-  const appEffortKnown = EFFORTS.includes(app.effort as Effort) ? (app.effort as Effort) : undefined
-  const modelDiffers = app.model && sent.model && app.model !== sent.model
-  const effortDiffers = appEffortKnown && sent.effort && appEffortKnown !== sent.effort
-  if (!modelDiffers && !effortDiffers) return ''
-  const parts = [MODELS.find(m => m.key === app.model)?.long, appEffortKnown && EFFORT_LABELS[appEffortKnown]]
-  return `App: ${parts.filter(Boolean).join(' · ')}`
-}
-
-/** A line with the app hint at the left and `words` at the right end. */
-function hintLine(els: { Box: unknown; Text: unknown }, hint: string, words: string, key: string) {
-  const { Box, Text } = els as unknown as {
-    Box: (p: Record<string, unknown>) => unknown
-    Text: (p: Record<string, unknown>) => unknown
-  }
-  return (
-    <Box key={key} flexDirection="row" justifyContent="space-between" columnGap={2}>
-      {hint ? (
-        <Box flexShrink={0}>
-          <Text dimColor>{hint}</Text>
-        </Box>
-      ) : null}
-      <Box flexShrink={1} minWidth={0}>
-        <Text dimColor wrap="truncate-end">
-          {words}
-        </Text>
-      </Box>
-    </Box>
-  )
-}
-
-/** The chat's app hint: the model a taken offer or a click sends against the app's, and the pick's effort against the
- * app's when the pick goes out (the send path's rule: yours always, the judge's with Auto on where the cache allows). */
-async function appHint($: EngineInterface, v: Snap): Promise<string> {
-  const pickGoesOut = v.current && (v.current.by === 'manual' || (v.auto && !v.pausedNow))
-  return appHintText(
-    { model: keyOf(await $.session.model()), effort: v.shownByApp },
-    { model: await sessionModel($), effort: pickGoesOut ? v.current!.effort : undefined },
-  )
-}
-
-// The moving art's timer: one at a time, blitting the next frame to the band that drew it. A blit the surface refuses
-// (the band went away, another drew instead) ends it, so nothing has to stop it from outside.
-let artTimer: { cancel(): void } | null = null
-let artShown: { requestId: string; kind: ArtKind } | null = null
-let artFrameCount = 0
-
-/** A band's art on the terminal: a Raster on the right, moving for alert kinds; null where it has no room. */
-function bandArt($: EngineInterface, e: RenderInput<'AbovePrompt'>, kind: ArtKind) {
-  const els = themedEls($.ui.resolve(e))
-  const columns = typeof e.props.bodyColumns === 'number' ? e.props.bodyColumns : 0
-  if (e.surface !== 'terminal' || !('Raster' in els) || columns < ART_MIN_WIDTH) return null
-  // The still sparkles (the resting dashboard, the guide) are 16 by 4 pixels: in a terminal they read as noise, not
-  // art. Only the art that says something stays: the alerts, compacting and the done tick.
-  if (kind === 'calm' || kind === 'brand') return null
-  const { Box, Raster } = els
-  artShown = { requestId: e.requestId, kind }
-  if (MOVING.has(kind) && !artTimer) {
-    artTimer = $.clock.every(ART_FRAME_MS, () => {
-      const shown = artShown
-      if (!shown || !MOVING.has(shown.kind)) {
-        artTimer?.cancel()
-        artTimer = null
-        return
-      }
-      artFrameCount++
-      void $.ui
-        .blit({ requestId: shown.requestId, key: 'art', cells: artFrame(shown.kind, artFrameCount) })
-        .then(r => {
-          if ('deny' in r && r.deny) {
-            artTimer?.cancel()
-            artTimer = null
-          }
-        })
-        .catch(() => undefined)
-    })
-  }
-  return (
-    <Box key="art-box" flexShrink={0}>
-      <Raster key="art" columns={ART_COLUMNS} rows={ART_ROWS} cells={artFrame(kind, artFrameCount)} />
-    </Box>
-  )
-}
-
-/** A bar on the terminal (setup, handoff): the title and words on the left with the brand's still art beside them,
- * the controls on a row of their own that wraps, so nothing is cut at 80 columns. */
-function terminalPanel(
-  $: EngineInterface,
-  e: RenderInput<'AbovePrompt'>,
-  key: string,
-  title: string,
-  words: unknown,
-  controls: unknown[],
-) {
-  const { Box, Text } = themedEls($.ui.resolve(e))
-  return (
-    <Box
-      key={key}
-      flexDirection="column"
-      paddingX={1}
-      backgroundColor={BRAND_BG}
-      borderStyle="round"
-      borderColor={BRAND_EDGE}
-    >
-      <Box flexDirection="row" gap={1} alignItems="center">
-        <Box flexDirection="column" flexGrow={1} flexShrink={1} minWidth={0}>
-          <Text color={ACCENT} bold wrap="truncate">
-            {title}
-          </Text>
-          {typeof words === 'string' ? (
-            <Text key={`${key}-what`} dimColor wrap="truncate">
-              {words}
-            </Text>
-          ) : (
-            words
-          )}
-        </Box>
-        {bandArt($, e, 'brand')}
-      </Box>
-      <Box
-        key={`${key}-actions`}
-        flexDirection="row"
-        flexWrap="wrap"
-        justifyContent="flex-end"
-        columnGap={1}
-        alignItems="center"
-      >
-        {controls}
-      </Box>
-    </Box>
-  )
-}
-
-type TerminalBand = {
-  key: string
-  kind: ArtKind
-  color: string
-  bg: string
-  edge: string
-  title: string
-  detail: string
-  hint?: string
-  buttons: unknown[]
-  extra?: unknown
-  word?: { text: string; color: string; rest: string }
-}
-
-/** What of the band fits in `maxRows` rows. The app scrolls a taller tree in a window and says "n more", so the band gives up,
- * in this order: an empty detail row (one with words is kept), the border and art, the effort row, the lens row. The effort line itself stays. */
-export function bandFit(maxRows: number, parts: { detailText: boolean; lens: boolean; effort: number }) {
-  const fit = { detail: true, border: true, effort: parts.effort > 0, lens: parts.lens }
-  const rows = () =>
-    1 + (fit.border ? 2 : 0) + (fit.detail ? 1 : 0) + (fit.lens ? 1 : 0) + (fit.effort ? parts.effort : 0)
-  if (rows() > maxRows && !parts.detailText) fit.detail = false
-  if (rows() > maxRows) fit.border = false
-  if (rows() > maxRows) fit.effort = false
-  if (rows() > maxRows) fit.lens = false
-  return fit
-}
-
-/** An alert band on the terminal: title and buttons, the detail on a line of its own, art on the right, and the effort
- * row under it, so effort stays in sight while a band shows. */
-async function terminalBand($: EngineInterface, e: RenderInput<'AbovePrompt'>, b: TerminalBand) {
-  const { Box, Text } = themedEls($.ui.resolve(e))
-  const { rows: effort, height } = await effortRows($, e)
-  const maxRows = typeof e.props.maxRows === 'number' ? e.props.maxRows : 99
-  // An empty detail row is kept (so a band does not move when an alert appears) until the room runs out.
-  const fit = bandFit(maxRows, { detailText: Boolean(b.detail || b.hint), lens: b.extra !== null, effort: height })
-  const art = fit.border ? bandArt($, e, b.kind) : null
-  const rows = fit.effort ? effort : null
-  // The lens row stays under every band: the dashboard passes its own; an alert gets one sized to what the art leaves.
-  const columns = typeof e.props.bodyColumns === 'number' ? e.props.bodyColumns : 100
-  const extra = !fit.lens
-    ? null
-    : b.extra !== undefined
-      ? b.extra
-      : await lensRow($, e, Math.max(20, columns - 4 - (art ? ART_COLUMNS + 1 : 0))).catch(() => null)
-  return (
-    <Box key={`${b.key}-col`} flexDirection="column">
-      <Box
-        key={b.key}
-        flexDirection="row"
-        gap={1}
-        alignItems="center"
-        paddingX={1}
-        backgroundColor={b.bg}
-        borderStyle={fit.border ? 'round' : undefined}
-        borderColor={b.edge}
-      >
-        <Box flexDirection="column" flexGrow={1} flexShrink={1} minWidth={0}>
-          <Box flexDirection="row" gap={1} alignItems="center">
-            <Box flexShrink={0}>
-              {b.word ? (
-                <Box flexDirection="row">
-                  <Text color={b.color} bold>
-                    {'✦ '}
-                  </Text>
-                  <Text key={`${b.key}-word`} color={b.word.color} bold>
-                    {b.word.text}
-                  </Text>
-                  <Text color={b.color} bold>
-                    {b.word.rest}
-                  </Text>
-                </Box>
-              ) : (
-                <Text color={b.color} bold>{`✦ ${b.title}`}</Text>
-              )}
-            </Box>
-            <Box flexGrow={1} />
-            {b.buttons}
-          </Box>
-          {/* An empty detail still takes its row (a no-break space), so the dashboard is as tall as an alert and nothing moves
-              when one appears. */}
-          {fit.detail ? hintLine({ Box, Text }, b.hint ?? '', b.detail || '\u00a0', `${b.key}-detail`) : null}
-          {extra}
-        </Box>
-        {art}
-      </Box>
-      {rows}
-    </Box>
-  )
-}
-
-/** The dashboard's two lines: the effort with the cache and the context, then the judge's reason and the last reply. */
-export function dashboardLines(d: {
-  auto: boolean
-  paused: boolean
-  judging: boolean
-  /** A subagent is in view: the word is its effort alone, none of the chat's Auto state. */
-  agent?: boolean
-  effort: Effort | undefined
-  /** The model's long name ("Opus 5.5"), written before the effort; none when unknown. */
-  model?: string
-  cacheNow: number | null
-  contextPercent: number | null
-  reason: string
-}): { head: string; what: string; pair: string; rest: string; detail: string } {
-  const level = d.effort ? EFFORT_LABELS[d.effort] : 'Auto'
-  // Auto on or off is the button's to say (and the terminal's effort row's), not the text's.
-  const what = d.agent
-    ? d.effort
-      ? level
-      : 'Subagent'
-    : d.judging
-      ? 'Deciding…'
-      : !d.auto
-        ? 'Off'
-        : d.paused
-          ? `${level} · Auto paused`
-          : level
-  // The model and the effort read as one pair, coloured together.
-  const pair = d.model ? `${d.model} · ${what}` : what
-  const head = [
-    `✦ ${pair}`,
-    d.cacheNow === null ? null : `cache ${cacheLabel(d.cacheNow)}`,
-    d.contextPercent === null ? null : `${Math.round(d.contextPercent)}% context`,
-  ]
-  const shown = head.filter(Boolean) as string[]
-  return {
-    head: shown.join(' · '),
-    what,
-    pair,
-    rest: shown
-      .slice(1)
-      .map(part => ` · ${part}`)
-      .join(''),
-    detail: d.reason,
-  }
-}
-
-/** How long the effort word glows after it changes: held at full colour, then faded out; and the step of the fade. */
-const FLASH_HOLD_MS = 1000
-const FLASH_MS = 1800
-/** The fade's steps, [ms, share of the way to white]: five, so it reads as a fade without a tick. Each step is a redraw,
- * and every redraw rebuilds the band (images restart, buttons under a pointer are swapped), so keep them few. */
-const FLASH_STEPS: readonly (readonly [number, number])[] = [
-  [1000, 0.15],
-  [1160, 0.35],
-  [1320, 0.55],
-  [1480, 0.75],
-  [1640, 0.9],
-]
-/** The effort word's colour `ms` after it changed: the glow, held, then easing out to the band's white. */
-export function flashColor(ms: number | null): string {
-  if (ms === null || ms >= FLASH_MS) return DASH_TEXT
-  if (ms < FLASH_HOLD_MS) return FLASH_COLOR
-  const k = [...FLASH_STEPS].reverse().find(([at]) => ms >= at)?.[1] ?? 0
-  const ch = (hex: string, i: number) => parseInt(hex.slice(1 + i * 2, 3 + i * 2), 16)
-  return `#${[0, 1, 2]
-    .map(i =>
-      Math.round(ch(FLASH_COLOR, i) + (ch(DASH_TEXT, i) - ch(FLASH_COLOR, i)) * k)
-        .toString(16)
-        .padStart(2, '0'),
-    )
-    .join('')}`
-}
-// The word the dashboard last showed and when it last changed, so a new effort glows and fades. Not while the judge
-// decides: the word it lands on is compared with the one before.
-let flashWord: string | null = null
-let flashAt: number | null = null
-
-async function effortFlash($: EngineInterface, what: string, judging: boolean, entering = false): Promise<string> {
-  const now = await $.clock.now()
-  // The dashboard coming back (after Handoff, settings or an alert) takes the word as it is: a change made while it was
-  // away is not a switch to point at.
-  if (entering && !judging) {
-    flashWord = what
-    flashAt = null
-  }
-  if (!judging) {
-    // Auto switched off or on is not a new verdict: the switch says it, so the word changes without the flash.
-    if (flashWord !== null && flashWord !== what) flashAt = what === 'Off' || flashWord === 'Off' ? null : now
-    flashWord = what
-  }
-  const since = flashAt === null ? null : now - flashAt
-  if (since === 0) {
-    // One redraw at each step of the fade and one at its end, not a tick: see FLASH_STEPS.
-    for (const at of [...FLASH_STEPS.map(([t]) => t), FLASH_MS])
-      $.clock.after(at + 20, () => $.ui.invalidate('ui.render'))
-  }
-  return flashColor(since)
-}
-
-// Uninstall's first press arms it; a second within UNINSTALL_ARM_MS uninstalls. Then the plugins reload and the mod is
-// gone from this chat; its settings stay in settings.json, so a reinstall picks them up.
-const UNINSTALL_ARM_MS = 4000
-let uninstallArmedAt = 0
-let uninstalling = false
-/** A plain /reload-plugins holds back a change that would make the next message re-read the chat without the cache; --force reloads anyway. */
-const RELOAD_ARGS = '--force'
-function uninstallButton($: EngineInterface, els: ReturnType<EngineInterface['ui']['resolve']>) {
-  const { Box, Text, Button, Svg } = els
-  const armed = Date.now() - uninstallArmedAt < UNINSTALL_ARM_MS
-  const press = async () => {
-    if (uninstalling) return
-    if (!armed) {
-      uninstallArmedAt = Date.now()
-      $.ui.invalidate('ui.render')
-      $.clock.after(UNINSTALL_ARM_MS + 50, () => $.ui.invalidate('ui.render'))
-      return
-    }
-    uninstalling = true
-    $.ui.invalidate('ui.render')
-    const r = await runClaude($, ['plugin', 'uninstall', pluginId($)], { timeoutMs: 120_000 }).catch(error => ({
-      exitCode: 1,
-      stdout: '',
-      stderr: String(error),
-    }))
-    uninstalling = false
-    if (r.exitCode !== 0) {
-      const why = (r.stderr || r.stdout).trim().split('\n').pop() ?? ''
-      $.ui.toast(`context-lens: uninstall failed: ${noClaudeHint(why, await homeDir($)) ?? why}`)
-      $.ui.invalidate('ui.render')
-      return
-    }
-    $.ui.toast('context-lens is uninstalled. Thanks for trying it.')
-    const reloaded = await $.command.run({ command: 'reload-plugins', args: RELOAD_ARGS } as never).then(
-      () => true,
-      () => false,
-    )
-    if (!reloaded) await typeCommand($, `/reload-plugins ${RELOAD_ARGS}`)
-  }
-  const label = uninstalling ? 'Uninstalling…' : armed ? 'Press again to uninstall' : 'Uninstall'
-  if (!Svg) return <Button key="settings-uninstall" plain dimColor={!armed} label={label} onPress={press} />
-  // A bin and the word, grey; red under the pointer, and red while armed (the red bin is laid over the grey one, since
-  // a hover can only reveal). A blank button over both takes the press.
-  const red = armed || uninstalling
-  return (
-    <Box key="settings-uninstall-box" position="relative" flexDirection="row" alignItems="center" flexShrink={0}>
-      <Box position="relative" width={2} height={1} alignItems="center">
-        <Box position="absolute" top={0} left={0}>
-          <Svg source={binSvg(DASH_DIM)} alt="bin" width={14} height={14} />
-        </Box>
-        <Box
-          position="absolute"
-          top={0}
-          left={0}
-          display={red ? 'flex' : 'none'}
-          hover={red ? undefined : { scope: 'uninstall', display: 'flex' }}
-        >
-          <Svg source={binSvg(UNINSTALL_RED)} alt="bin" width={14} height={14} />
-        </Box>
-      </Box>
-      <Text color={red ? UNINSTALL_RED : DASH_DIM} hover={{ scope: 'uninstall', color: UNINSTALL_RED }}>
-        {label}
-      </Text>
-      <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
-        <Button
-          key="settings-uninstall"
-          plain
-          hover={{ scope: 'uninstall', backgroundColor: '#00000000' }}
-          label={' '.repeat(label.length + 3)}
-          onPress={press}
-        />
-      </Box>
-    </Box>
-  )
-}
-
-/** The handoff or compact card: words, the moving art while it runs, green with a check once it has landed. `above` is
- * what sits over it (the reply it hangs under), or nothing for the band above the prompt. */
-function handoffCardTree(
-  $: EngineInterface,
-  e: RenderInput<'AssistantMessage'> | RenderInput<'AbovePrompt'>,
-  fresh: HandoffCard,
-  above: unknown,
-  onDismiss?: () => unknown,
-) {
-  const { Box, Text, Svg, Button } = themedEls($.ui.resolve(e))
-  const by = fresh.full ? 'Full' : 'Quick'
-  const words = {
-    writing: [
-      '✦ Handing off…',
-      `${by} handoff being written. ${fresh.full ? 'Your skill takes a little while.' : 'A few seconds.'}`,
-    ],
-    done: ['✦ Handoff complete', 'Carried on from the last chat. The old one is cleared.'],
-    copied: ['✦ Handoff copied', 'Paste it into a new chat. This one stays.'],
-    compacting: ['✦ Compacting…', 'The chat is being summed up. Takes a minute or so.'],
-    compacted: ['✦ Compact complete', 'The chat is summed up; the next message reads far less.'],
-  }[fresh.kind]
-  // Compacting is a wait in the background, not a result: one quiet line over the band's calm art, not the loud glow.
-  const quiet = fresh.kind === 'compacting'
-  const card = (
-    <Box
-      key="reply-handoff"
-      position="relative"
-      flexDirection="row"
-      alignItems="center"
-      paddingX={1}
-      overflow="hidden"
-      backgroundColor={cardLanded(fresh.kind) ? DONE_BG : BRAND_BG}
-      borderStyle="round"
-      borderColor={cardLanded(fresh.kind) ? DONE_EDGE : BRAND_EDGE}
-    >
-      <Box key="reply-handoff-art" position="absolute" top={-1} right={0} bottom={-1}>
-        {quiet ? (
-          <Svg source={DASH_SVG} alt="compacting" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
-        ) : cardRunning(fresh.kind) ? (
-          <Svg source={HANDOFF_SVG} alt="handing off" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
-        ) : (
-          <Svg
-            source={cardLanded(fresh.kind) ? DONE_SVG : BRAND_SVG}
-            alt="context-lens"
-            width={FROST_WIDTH * 2}
-            height={FROST_HEIGHT * 2}
-          />
-        )}
-      </Box>
-      <Box
-        key="reply-handoff-words"
-        position="relative"
-        flexDirection={quiet ? 'row' : 'column'}
-        gap={quiet ? 1 : 0}
-        flexShrink={1}
-        minWidth={0}
-      >
-        {markTitle(
-          { Box, Text, Svg },
-          'reply-handoff-title',
-          cardLanded(fresh.kind) ? DONE_ACCENT : ACCENT,
-          words[0],
-          cardLanded(fresh.kind) ? DONE_MARK_SVG : MARK_SVG,
-        )}
-        <Text wrap="truncate">{words[1]}</Text>
-      </Box>
-      {onDismiss ? (
-        <Box key="reply-handoff-close" position="relative" flexGrow={1} flexDirection="row" justifyContent="flex-end">
-          <Box position="absolute" top={0} left={0} />
-          {/* A box just the ✕'s size, so its hover lights only the ✕, not the card's right half. */}
-          <Box key="card-close-box" position="relative" flexShrink={0}>
-            <Box position="absolute" top={0} left={0} />
-            <Button
-              key="card-close"
-              plain
-              role="dismiss"
-              label="✕"
-              hover={{ backgroundColor: CARD_CLOSE_HOVER }}
-              onPress={onDismiss}
-            />
-          </Box>
-        </Box>
-      ) : null}
-    </Box>
-  )
-  if (above === undefined) return card
-  return (
-    <Box key="reply" flexDirection="column" gap={1}>
-      {above as never}
-      {card}
-    </Box>
-  )
-}
-// The glow's clock is read as late as the draw allows, and set ahead by how long the rest of a draw takes (measured,
-// smoothed): a fade placed where it was when the draw began showed up that much behind, a little brighter at every
-// redraw, which read as lag and as a second glow.
-let glowReadAt: number | null = null
-let drawLead = 20
-// Auto as the bar last saw it, and when it last flipped, either way (for the edge glow and the switch's slide).
-let autoSeen: boolean | undefined
-let autoOnAt = -Infinity
-let autoFlipAt = 0
-let autoModelSeen: boolean | undefined
-let autoModelFlipAt = 0
-// The settings switches as last drawn, and when each flipped, by key (for the slide).
-const settingSwitches = new Map<string, { on: boolean; at: number }>()
-
-/** The dashboard: what context-lens is doing, and Auto, Handoff and settings. The slot above the prompt at rest. */
-async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
-  const els = themedEls($.ui.resolve(e))
-  const { Box, Text, Button } = els
-  const v = await snap($)
-  setAdviceNow((await read($, handoffAdvice)) ?? null)
-  await introShows($, 'dash')
-  // The first draw since another band stood here.
-  const entering = introFresh
-  introFresh = false
-  const nowMs = await $.clock.now()
-  if (autoSeen !== undefined && autoSeen !== v.auto) {
-    autoFlipAt = nowMs
-    // No redraw to end the slide or the glow: both finish inside their images (the glow fades to nothing), and every
-    // redraw rebuilds the buttons under a resting pointer, which flickers their hover.
-    autoOnAt = nowMs
-  }
-  autoSeen = v.auto
-  if (autoModelSeen !== undefined && autoModelSeen !== v.autoModel) autoModelFlipAt = nowMs
-  autoModelSeen = v.autoModel
-  // A subagent in view shows the model and effort it ran at; the chat's own come from the session.
-  // One just spawned has not made a request yet: its effort is the subagent pick if there is one, else unknown, never the chat's.
-  const inAgent = e.props.view.agentId !== undefined
-  const viewed = inAgent ? (await read($, lensAgents)).find(a => a.id === e.props.view.agentId) : undefined
-  const shownModel: ModelKey | undefined = inAgent ? viewed?.model : (v.modelNow ?? undefined)
-  const effortNow = inAgent
-    ? (viewed?.effort ?? (await subagentEffortOf($, e.props.view.agentId!).catch(() => undefined)))
-    : effortOf(v)
-  const by = v.current?.by
-  const reason = v.current
-    ? `${by === 'manual' || by === 'named' ? 'You' : 'Why'}: ${v.current.why}`
-    : v.auto
-      ? 'Auto picks the effort at the next prompt'
-      : 'You pick the effort'
-  // Desktop draws the cache after the context ring, grey, with a hover that explains both; the terminal says it inline.
-  const drawn = e.surface !== 'terminal' && 'Svg' in els
-  // A cold cache is the cold band's to say; the resting bar shows the countdown only while there is one.
-  const cacheShown = config.hide.includes('timer') || (v.cacheNow !== null && v.cacheNow <= 0) ? null : v.cacheNow
-  // The lens's row (cache timers, context bar, usage) sits under the detail line. Its width is the band's inside: the
-  // border and the padding take four columns. The resting terminal band draws no art beside it.
-  const columns = typeof e.props.bodyColumns === 'number' ? e.props.bodyColumns : 100
-  const lens = await lensRow($, e, Math.max(20, columns - 4)).catch(() => null)
-  const judgingHere = !inAgent && Boolean(v.judging)
-  const hint = inAgent ? '' : await appHint($, v)
-  const modelName = MODELS.find(m => m.key === shownModel)?.long
-  const { head, what, pair, rest, detail } = dashboardLines({
-    auto: v.auto,
-    paused: Boolean(v.pausedNow),
-    judging: judgingHere,
-    agent: inAgent,
-    effort: effortNow,
-    model: modelName,
-    cacheNow: drawn || lens ? null : cacheShown,
-    // Desktop draws the context as a ring and a figure (as the swamp band does); the terminal says it in words.
-    contextPercent: !lens && e.surface === 'terminal' && lastContext && lastContext.window ? lastContext.percent : null,
-    // The judge's reason and the handoff advice are about the chat's own prompt, not a subagent's work.
-    // The terminal gives the hint a place of its own on the detail line; desktop's one row has none, so it leads the reason.
-    reason: inAgent
-      ? ''
-      : [
-          e.surface === 'terminal' ? '' : hint,
-          adviceNow ? `Handoff would suit: ${adviceNow}` : config.hide.includes('reason') ? '' : reason,
-        ]
-          .filter(Boolean)
-          .join(' — '),
-  })
-  const toggleSettings = async () => {
-    if (await read($, settingsOpen)) {
-      await update($, settingsDraft, () => ({}))
-      await update($, settingsOpen, () => false)
-      $.ui.invalidate('ui.render')
-    } else await openPluginSettings($)
-  }
-  const buttons = [
-    // Once the slot is Handoff (advised, or the setting says always), Compact stays beside it as quiet text, so both are
-    // a press away. Desktop only, where there is room for it; the terminal compacts in one press from its own rows.
-    ...(e.surface !== 'terminal' &&
-    'Svg' in els &&
-    !config.hide.includes('handoff') &&
-    handoffSlot() &&
-    (typeof e.props.bodyColumns !== 'number' || e.props.bodyColumns >= COMPACT_BUTTON_MIN_COLUMNS)
-      ? [<Button key="dash-compact" plain dimColor label="Compact" onPress={() => openCompact($, e)} />]
-      : []),
-    ...(config.hide.includes('handoff')
-      ? []
-      : [
-          // One button in one place: Compact until Haiku says a fresh chat would suit, then Handoff, loud. Pressing it opens
-          // the matching card, which can switch to the other. Desktop draws it: no box on a fresh chat, then a
-          // step a percent of context to a white box at HANDOFF_LOUD_AT (handoffLook), the label as Text over the box and
-          // a blank button over both to take the click. The terminal keeps the plain buttons: grey, white from
-          // HANDOFF_LOUD_AT.
-          'Svg' in els && e.surface !== 'terminal' ? (
-            <Box key="dash-handoff-wrap" flexShrink={0} flexDirection="row">
-              {/* No glow while a reply runs: the band redraws then, and each redraw restarted the glow, so it flickered. */}
-              {handoffLoud() && !e.props.isWorking ? (
-                <Box
-                  key="dash-glow"
-                  position="absolute"
-                  top={0}
-                  bottom={0}
-                  left={-2}
-                  right={-2}
-                  alignItems="center"
-                  justifyContent="center"
-                >
-                  <els.Svg
-                    source={handoffGlowSvg(handoffGlowStep(handoffLevel()), nowMs)}
-                    alt="handoff glow"
-                    width={GLOW_W}
-                    height={GLOW_H}
-                  />
-                </Box>
-              ) : null}
-              {/* The H key, once Handoff is loud: on a button of its own, clipped away, since a blank button with a
-                  hotkey draws its letter over the label. */}
-              {handoffLoud() ? (
-                <Box key="dash-handoff-key" width={0} height={1} overflow="hidden">
-                  <Button key="dash-handoff-h" plain hotkey="h" label="Handoff" onPress={() => openHandoffBar($)} />
-                </Box>
-              ) : null}
-              {/* Its width is a spacer in the flow, not the image: the app can lay an image out at no width, and the
-                  label (centred over it) would run into Auto. */}
-              <Box key="dash-handoff-box" flexShrink={0} flexDirection="row" alignItems="center">
-                <Box width={9} height={1} flexShrink={0} />
-                <Box
-                  position="absolute"
-                  top={0}
-                  bottom={0}
-                  left={0}
-                  right={0}
-                  alignItems="center"
-                  justifyContent="center"
-                >
-                  <els.Svg
-                    source={handoffPillSvg(handoffLevel())}
-                    alt="Handoff box"
-                    width={HANDOFF_PILL_W}
-                    height={HANDOFF_PILL_H}
-                  />
-                </Box>
-                {/* Its hover: a lighter pill shown over the box, not the app's ghost fill, which is sized to the blank
-                    label and sat off the drawn box. */}
-                <Box
-                  position="absolute"
-                  top={0}
-                  bottom={0}
-                  left={0}
-                  right={0}
-                  alignItems="center"
-                  justifyContent="center"
-                  display="none"
-                  hover={{ scope: 'handoff', display: 'flex' }}
-                >
-                  <els.Svg
-                    source={handoffPillSvg(handoffLevel(), true)}
-                    alt="Handoff box"
-                    width={HANDOFF_PILL_W}
-                    height={HANDOFF_PILL_H}
-                  />
-                </Box>
-                <Box
-                  position="absolute"
-                  top={0}
-                  bottom={0}
-                  left={0}
-                  right={0}
-                  alignItems="center"
-                  justifyContent="center"
-                >
-                  <Text
-                    color={handoffLook(handoffLevel()).label}
-                    hover={{ scope: 'handoff', color: handoffLook(handoffLevel(), true).label }}
-                  >
-                    {handoffSlot() ? 'Handoff' : 'Compact'}
-                  </Text>
-                </Box>
-                <Box
-                  position="absolute"
-                  top={0}
-                  bottom={0}
-                  left={0}
-                  right={0}
-                  alignItems="center"
-                  justifyContent="center"
-                >
-                  <Button
-                    key="dash-handoff"
-                    plain
-                    label={' '.repeat(14)}
-                    hover={{ scope: 'handoff', backgroundColor: '#00000000' }}
-                    onPress={() => (handoffSlot() ? openHandoffBar($) : openCompact($, e))}
-                  />
-                </Box>
-              </Box>
-            </Box>
-          ) : handoffLoud() ? (
-            <Button key="dash-handoff" variant="primary" hotkey="h" label="Handoff" onPress={() => openHandoffBar($)} />
-          ) : (
-            <Button key="dash-handoff" variant="secondary" label="Handoff" onPress={() => openHandoffBar($)} />
-          ),
-        ]),
-    // The terminal says it in a word; the desktop draws an icon, with this button laid blank over it to take the click.
-    // No-break spaces, not braille blanks: some fonts draw U+2800 as a dot.
-    <Button
-      key="dash-settings"
-      plain
-      label={'Svg' in els && e.surface !== 'terminal' ? '   ' : 'Settings'}
-      onPress={toggleSettings}
-    />,
-  ].filter(Boolean)
-  // The terminal switches both Autos on the Model and Effort pickers under the band; desktop has no pickers.
-  const autoButtons = [
-    <Button
-      key="dash-auto-model"
-      variant="secondary"
-      dimColor={!v.autoModel}
-      label={v.autoModel ? 'Auto model on' : 'Auto model off'}
-      onPress={() => toggleAutoModel($)}
-    />,
-    <Button
-      key="dash-auto"
-      variant="secondary"
-      dimColor={!v.auto}
-      label={v.auto ? 'Auto effort on' : 'Auto effort off'}
-      onPress={() => toggleAutoEffort($)}
-    />,
-  ]
-  // The terminal flashes the effort word as the desktop does: in the accent on a change, fading back to white.
-  if (e.surface === 'terminal')
-    return terminalBand($, e, {
-      key: 'dash',
-      kind: 'calm',
-      color: DASH_TEXT,
-      bg: DASH_BG,
-      edge: DASH_EDGE,
-      title: head.replace(/^✦ /, ''),
-      detail,
-      hint,
-      buttons,
-      extra: lens,
-      word: { text: pair, color: await effortFlash($, what, judgingHere, entering), rest },
-    })
-  const Svg = 'Svg' in els ? els.Svg : undefined
-  const wordColor = await effortFlash($, what, judgingHere, entering)
-  glowReadAt = Date.now()
-  const glowNow = (await $.clock.now().catch(() => nowMs)) + drawLead
-  const glowSource = Svg ? judgeGlowAt(judgeStartedAt, judgeEndedAt, glowNow) : null
-
-  const autoGlowing = Svg && v.auto && nowMs - autoOnAt < AUTO_GLOW_MS
-  if (autoGlowing) renderLog.push(`glow on at ${nowMs - autoOnAt} ms`)
-  if (glowSource && judgeEndedAt !== null)
-    renderLog.push(
-      `${new Date().toISOString()} ${loadedSession} glow: fade drawn at +${Math.round(glowNow - Math.max(judgeEndedAt, judgeStartedAt + JUDGE_RISE_MS))} ms, lead ${Math.round(drawLead)} ms, ${Math.round(glowNow - drawLead - nowMs)} ms after the draw began`,
-    )
-  return (
-    <Box
-      key="dash"
-      position="relative"
-      flexDirection="row"
-      alignItems="center"
-      paddingX={1}
-      overflow="hidden"
-      backgroundColor={DASH_BG}
-      borderStyle="round"
-      borderColor={DASH_EDGE}
-    >
-      {Svg ? (
-        // Auto off: the art goes, so the bar reads as resting, not working.
-        v.auto ? (
-          <Box key="dash-art" position="absolute" top={-1} right={0} bottom={-1}>
-            <Svg source={DASH_SVG} alt="context-lens" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
-          </Box>
-        ) : null
-      ) : null}
-      {autoGlowing ? (
-        <Box key="dash-auto-glow" position="absolute" top={0} left={0} right={0} bottom={0}>
-          <Svg
-            source={inPhase(autoGlowSvg(v.auto), nowMs - autoOnAt)}
-            alt="auto glow"
-            width={AUTO_GLOW_W}
-            height={AUTO_GLOW_H}
-          />
-        </Box>
-      ) : null}
-      {/* The judge decides: the rim lights up in the accent, holds, and fades from full once the verdict is in. */}
-      {Svg && glowSource ? (
-        <Box key="dash-judge-glow" position="absolute" top={0} left={0} right={0} bottom={0}>
-          <Svg source={glowSource} alt="deciding glow" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
-        </Box>
-      ) : null}
-      {/* One row: the effort word, the context ring, the cache, then the reason and the last reply, dim. The word never shrinks;
-          when room runs out the reason goes first (it shrinks a hundred times faster), then the cache, and the row clips
-          rather than run under the buttons. Siblings, not nested: a shrunk parent let the word spill under the ring. */}
-      <Box
-        key="dash-words"
-        position="relative"
-        flexDirection="row"
-        flexGrow={1}
-        flexShrink={1}
-        minWidth={0}
-        overflow="hidden"
-      >
-        <Box flexShrink={0} flexDirection="row">
-          {Svg ? (
-            // The mark, as it is, where the ✦ stood; faded while Auto is off.
-            <Box key="dash-mark" flexShrink={0} marginRight={1} alignItems="center">
-              <Svg
-                source={v.auto ? MARK_SVG : DASH_MARK_OFF}
-                alt="context-lens"
-                width={DASH_MARK_SIZE}
-                height={DASH_MARK_SIZE}
-              />
-            </Box>
-          ) : (
-            <Text color={v.auto ? ACCENT : DASH_DIM} bold>
-              ✦{' '}
-            </Text>
-          )}
-          {/* A new effort shows in the accent, then white (effortFlash): plain text in the app's font. An animated image
-              of the word looked cheap: another font, a late start and a jump back to the text. */}
-          <Text key="dash-level" color={wordColor} bold>
-            {judgingHere && Svg ? (modelName ? `${modelName} · Deciding` : 'Deciding') : pair}
-          </Text>
-          {/* While the judge decides: thinking dots, as a plain image (its CSS still runs, and a
-              redraw does not restart it the way an interactive frame does). */}
-          {judgingHere && Svg ? (
-            <Box key="dash-thinking" flexShrink={0} marginLeft={1} alignItems="center">
-              <Svg source={thinkingSvg()} alt="deciding" width={THINK_W} height={PILL_H} />
-            </Box>
-          ) : null}
-        </Box>
-        {rest ? (
-          <Box flexShrink={detail ? 0 : 1} minWidth={0}>
-            <Text color={DASH_TEXT} bold wrap="truncate">
-              {rest}
-            </Text>
-          </Box>
-        ) : null}
-        {/* What shows when room runs out, most needed first: the effort and the context never shrink; the cache shrinks
-            next and goes; the reason (dim, after it) goes first of all. Hovering the ring or the cache swaps the reason
-            for what they mean. */}
-        {Svg && lastContext && lastContext.window ? (
-          <Box
-            key="dash-ring"
-            flexShrink={0}
-            marginLeft={2}
-            flexDirection="row"
-            gap={1}
-            alignItems="center"
-            hover={{ scope: 'dash-cache', backgroundColor: HOVER_BOX }}
-          >
-            <Svg
-              source={ringSvg(lastContext.percent, DASH_TEXT)}
-              alt={`${Math.round(lastContext.percent)}% of context`}
-              width={16}
-              height={16}
-            />
-            <Text color={DASH_TEXT}>{`${Math.round(lastContext.percent)}%`}</Text>
-          </Box>
-        ) : null}
-        {/* The tail: the cache, then the judge's reason, on one wrapping row one line high. The reason has no width of
-            its own (it only takes what is left, truncated), so it always fits the first row and goes first; the cache
-            keeps its fixed width (the ticking seconds never shift the row) and, once it no longer fits, wraps to the
-            hidden second row whole, taking the reason with it. */}
-        {Svg && (cacheShown !== null || detail) ? (
-          <Box
-            key="dash-tail"
-            flexGrow={1}
-            flexShrink={1}
-            minWidth={0}
-            height={1}
-            overflow="hidden"
-            flexDirection="row"
-            flexWrap="wrap"
-            marginLeft={2}
-          >
-            <Box width={0} height={1} />
-            {cacheShown !== null ? (
-              <Box
-                key="dash-cache-time"
-                width={11}
-                flexShrink={0}
-                hover={{ scope: 'dash-cache', backgroundColor: HOVER_BOX }}
-              >
-                <Svg
-                  source={cacheClockSvg(
-                    cacheExpires - (await $.clock.now()),
-                    cacheShown === 0 ? ICE : (cacheColor(cacheShown) ?? DASH_DIM),
-                  )}
-                  alt={`cache ${cacheClock(cacheExpires - (await $.clock.now()))}`}
-                  width={84}
-                  height={17}
-                />
-              </Box>
-            ) : null}
-            {detail ? (
-              // Over the reason, shown only while the ring or cache is hovered, what they mean: a hover can only
-              // reveal, so the tip is a layer on the band's colour that covers the reason.
-              <Box
-                key="dash-detail"
-                position="relative"
-                width={0}
-                flexGrow={1}
-                flexShrink={1}
-                minWidth={10}
-                marginLeft={cacheShown !== null ? 2 : 0}
-              >
-                <Text dimColor wrap="truncate">
-                  {detail}
-                </Text>
-                <Box
-                  key="dash-cache-tip"
-                  position="absolute"
-                  top={0}
-                  left={0}
-                  right={0}
-                  bottom={0}
-                  backgroundColor={DASH_BG}
-                  display="none"
-                  hover={{ scope: 'dash-cache', display: 'flex' }}
-                >
-                  <Text dimColor wrap="truncate">
-                    {hoverTips(v).cache.replace(/^Prompt cache/, 'Cache')}
-                  </Text>
-                </Box>
-              </Box>
-            ) : null}
-          </Box>
-        ) : detail ? (
-          <Box key="dash-detail" flexShrink={1000} minWidth={0} marginLeft={2}>
-            <Text dimColor wrap="truncate">
-              {detail}
-            </Text>
-          </Box>
-        ) : null}
-      </Box>
-      {/* The buttons in the flow, their real width and no more, so the words get all the rest. An empty absolute child
-          makes the box positioned, which paints it over the art (a plain flow box sits under it and loses clicks). */}
-      <Box minWidth={1} />
-      <Box key="dash-actions" flexShrink={0} flexDirection="row" gap={1} alignItems="center" marginLeft={1}>
-        <Box position="absolute" top={0} left={0} />
-        {Svg
-          ? // Each Auto as a switch, drawn, with a blank button laid over it to take the click (the cog's pattern).
-            [
-              {
-                key: 'dash-auto-model',
-                word: 'model',
-                on: v.autoModel,
-                flipAt: autoModelFlipAt,
-                toggle: () => toggleAutoModel($),
-              },
-              { key: 'dash-auto', word: 'effort', on: v.auto, flipAt: autoFlipAt, toggle: () => toggleAutoEffort($) },
-            ].map(autoSwitch => (
-              <Box
-                key={`${autoSwitch.key}-switch`}
-                position="relative"
-                flexDirection="row"
-                alignItems="center"
-                gap={1}
-                paddingX={1}
-              >
-                <Svg
-                  source={autoSwitchSvg(autoSwitch.on, nowMs - autoSwitch.flipAt)}
-                  alt={`Auto ${autoSwitch.word} ${autoSwitch.on ? 'on' : 'off'}`}
-                  width={26}
-                  height={15}
-                />
-                <Text color={autoSwitch.on ? DASH_TEXT : DASH_DIM}>{`Auto ${autoSwitch.word}`}</Text>
-                <Box
-                  position="absolute"
-                  top={0}
-                  bottom={0}
-                  left={0}
-                  right={0}
-                  alignItems="center"
-                  justifyContent="center"
-                >
-                  <Button key={autoSwitch.key} plain label={' '.repeat(32)} onPress={autoSwitch.toggle} />
-                </Box>
-              </Box>
-            ))
-          : autoButtons}
-        {Svg ? buttons.slice(0, -1) : buttons}
-        {Svg ? (
-          // The cog sits in the flow and the button in an absolute layer after it: an absolute layer paints over plain
-          // ones, and the desktop ignores position="relative" on a Box without absolute children. A Button is at most as
-          // wide as its box, so the box keeps a cell of padding each side of the cog for the hover box.
-          <Box key="dash-settings-icon" position="relative" alignItems="center" justifyContent="center" paddingX={1}>
-            <Svg source={settingsSvg(DASH_TEXT)} alt="Settings" width={14} height={14} />
-            <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
-              {buttons[buttons.length - 1]}
-            </Box>
-          </Box>
-        ) : null}
-      </Box>
-    </Box>
-  )
-}
-
-/** The terminal's pickers above the prompt (Model and Effort, each with its Auto) and, on any surface, the
- * judge's question when it suggests another model. The rows also sit under an alert band, so effort never goes away. */
-async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
-  const { Box, Text, Button } = themedEls($.ui.resolve(e))
-  const v = await snap($)
-  const { auto, autoModel, wanted } = v
-  // A subagent in view: its own effort and model are lit, and the chat's verdict and note are not about it.
-  const agentId = e.props.view.agentId
-  const viewed = agentId === undefined ? undefined : (await read($, lensAgents)).find(a => a.id === agentId)
-  const inAgent = agentId !== undefined
-  const current = inAgent ? null : v.current
-  const judging = !inAgent && v.judging
-  const inUse = inAgent ? viewed?.model : (v.modelNow ?? (await sessionModel($)))
-  const effortNow = inAgent
-    ? (viewed?.effort ?? (await subagentEffortOf($, agentId).catch(() => undefined)))
-    : effortOf(v)
-
-  const setEffort = (level: Effort) => () => pickEffort($, level)
-  // Picking a model yourself turns off Auto for model alone; accepting a suggestion leaves it on. Either holds for this
-  // session only, so the app's default model for later sessions stays as it is.
-  const setModel = (model: ModelKey) => async () => {
-    await update($, isAutoModel, () => false)
-    await $.store.set('isAutoModel', false)
-    await switchModel($, model)
-  }
-  // A prompt waiting for the answer takes the switch itself.
-  const acceptSuggestion = (model: ModelKey) => async () => {
-    if (offer) settleOffer(true)
-    else await switchModel($, model)
-  }
-  const dismiss = async () => {
-    setDeclined(wanted)
-    await update($, suggestion, () => null)
-    settleOffer(false)
-  }
-  const neverHold = async () => {
-    await dismiss()
-    await saveSetting($, 'holdOffer', 'off')
-    $.ui.toast(
-      'context-lens: prompts are not held for model offers now. /context-lens settings, Model, turns it back on.',
-    )
-  }
-
-  // A bare digit in an empty composer presses a band Button, so a held prompt is answered with 1, 2 or 3 without focusing
-  // the band. Only while it waits: otherwise a 1 typed to start a message would switch the model. Plain Buttons draw
-  // the digit beside the label (`1: Switch`).
-  const offerKeys = offer && e.surface === 'terminal'
-
-  const question = wanted ? (
-    <Box flexDirection="column">
-      <Box flexDirection="row" gap={1} alignItems="center">
-        <Text>
-          {suggestedAs === 'subagent'
-            ? `Hand this to a ${MODELS.find(m => m.key === wanted)?.label} subagent?`
-            : `Switch to ${MODELS.find(m => m.key === wanted)?.label}?`}{' '}
-          {offer
-            ? `Your prompt waits ${Math.max(1, Math.ceil((offer.until - (await $.clock.now())) / 1000))}s.`
-            : 'The context reloads.'}
-        </Text>
-        <Button
-          key="accept"
-          variant="primary"
-          hotkey={offerKeys ? '1' : undefined}
-          plain={offerKeys ? true : undefined}
-          label={suggestedAs === 'subagent' ? 'Hand off' : 'Switch'}
-          onPress={acceptSuggestion(wanted)}
-        />
-        <Button
-          key="decline"
-          hotkey={offerKeys ? '2' : undefined}
-          plain={offerKeys ? true : undefined}
-          label="Keep"
-          onPress={dismiss}
-        />
-        {offer ? (
-          <Button
-            key="never"
-            hotkey={offerKeys ? '3' : undefined}
-            plain={offerKeys ? true : undefined}
-            label="Don't ask again"
-            onPress={neverHold}
-          />
-        ) : null}
-      </Box>
-    </Box>
-  ) : null
-  if (e.surface !== 'terminal') return { question, rows: null }
-
-  const reasonNote = judging
-    ? 'Deciding…'
-    : current
-      ? `${current.by === 'manual' || current.by === 'named' ? 'You' : 'Why'}: ${current.why}`
-      : auto
-        ? 'Picks the effort at the next prompt'
-        : 'Pick an effort'
-  const hint = inAgent ? '' : await appHint($, v)
-  // The note is drawn by the caller: a band's detail line says why, and the minimal look puts it on a line of its own
-  // (noteLine). Each toggle says the mode in force; a press switches to the other.
-  const modelPicker = (
-    <Box key="model-picker" flexDirection="row" alignItems="center" gap={1} flexShrink={0}>
-      <Text dimColor>Model</Text>
-      {MODELS.map(m =>
-        m.key === inUse ? (
-          <Button key={`m-${m.key}`} variant="primary" label={m.label} onPress={setModel(m.key)} />
-        ) : (
-          <Button key={`m-${m.key}`} plain dimColor label={m.label} onPress={setModel(m.key)} />
-        ),
-      )}
-      <Button
-        key="auto-model"
-        hotkey="m"
-        variant={autoModel ? 'primary' : undefined}
-        label={autoModel ? 'Auto' : 'Manual'}
-        onPress={() => toggleAutoModel($)}
-      />
-    </Box>
-  )
-  const effortPicker = (
-    <Box key="effort-picker" flexDirection="row" alignItems="center" gap={1} flexShrink={0}>
-      <Text dimColor>Effort</Text>
-      {EFFORTS.map(level =>
-        level === effortNow ? (
-          <Button key={`e-${level}`} variant="primary" label={level} onPress={setEffort(level)} />
-        ) : (
-          <Button key={`e-${level}`} plain dimColor label={level} onPress={setEffort(level)} />
-        ),
-      )}
-      <Button
-        key="auto"
-        hotkey="a"
-        variant={auto ? 'primary' : undefined}
-        label={auto ? 'Auto' : 'Manual'}
-        onPress={() => toggleAutoEffort($)}
-      />
-    </Box>
-  )
-  // Model at the left and Effort at the right; a terminal too narrow for both wraps Effort onto a line of its own.
-  const rows = (
-    <Box flexDirection="column">
-      {question}
-      <Box flexDirection="row" flexWrap="wrap" justifyContent="space-between" alignItems="center" columnGap={2}>
-        {modelPicker}
-        {effortPicker}
-      </Box>
-    </Box>
-  )
-
-  // Rows it takes, for fitting the band into the room the app gives it. A button is its label and about three cells of
-  // frame and hotkey; a toggle is counted at its wider word.
-  const pickerWidth = (word: string, labels: string[]) =>
-    word.length + [...labels, 'Manual'].reduce((sum, label) => sum + label.length + 4, 0)
-  const bothWidth =
-    pickerWidth(
-      'Model',
-      MODELS.map(m => m.label),
-    ) +
-    2 +
-    pickerWidth('Effort', EFFORTS)
-  const columns = typeof e.props.bodyColumns === 'number' ? e.props.bodyColumns : 100
-  const height = (bothWidth > columns ? 2 : 1) + (question ? 1 : 0)
-  const noteLine = inAgent ? null : hintLine({ Box, Text }, hint, reasonNote, 'effort-note')
-  return { question, rows, height, noteLine }
-}
-
-function lensCacheTime(state: Warmth, left: number | null): string {
-  if (state === 'uncached') return '—'
-  if (state === 'cold') return 'cold'
-  return formatRemaining(left ?? 0)
-}
-
-/** The lens's row, `columns` wide: the cache timer, the context bar and the usage windows; null when there is
- * nothing to show yet. A subagent in view shows its own clock. */
-async function lensRow($: EngineInterface, e: RenderInput<'AbovePrompt'>, columns: number) {
-  const [mainClock, ctx, live, rewritten, limits, at, agentList] = await Promise.all([
-    read($, lensMain),
-    read($, lensContext),
-    read($, lensLiveTokens),
-    read($, lensRewritten),
-    read($, lensLimits),
-    read($, lensNow),
-    read($, lensAgents),
-  ])
-  const agentId = e.props.view.agentId
-  const agent: AgentCache | undefined =
-    agentId === undefined
-      ? undefined
-      : (agentList.find(a => a.id === agentId) ?? { ...emptyClock('5m'), id: agentId, type: 'agent' })
-  if (agent === undefined && mainClock.lastAt === null && ctx === null && limits.length === 0) return null
-
-  const { Box, Text } = themedEls($.ui.resolve(e))
-  const clock = agent ?? mainClock
-  const state = warmth(clock, at)
-  const time = lensCacheTime(state, remainingMs(clock, at))
-  const showRewritten = agent === undefined && rewritten && state !== 'cold'
-  const headWidth = 2 + time.length + (showRewritten ? ' re-cached'.length : 0)
-
-  const max = ctx?.maxTokens ?? 0
-  const used = agent === undefined ? (live ?? ctx?.totalTokens ?? 0) : clockTokens(agent)
-  const ctxTexts = max > 0 ? [`${formatTokens(used)}/${formatTokens(max)}`, formatTokens(used)] : [formatTokens(used)]
-  const windows = limits.map(l => usageWindow(l, at))
-  const layout = layoutLine(columns, headWidth, ctxTexts, windows)
-
-  const segments: BarSegment[] =
-    max === 0 || layout.ctxBar === 0
-      ? []
-      : agent === undefined && ctx !== null
-        ? stackedBar(ctx, live, layout.ctxBar)
-        : fillBar(used / max, layout.ctxBar)
-
-  return (
-    <Box key="lens-row" flexDirection="row" gap={1}>
-      <Text color={LENS_WARMTH_COLOR[state]}>●</Text>
-      <Text color={state === 'uncached' ? 'inactive' : LENS_WARMTH_COLOR[state]}>{time}</Text>
-      {showRewritten && <Text color="warning">re-cached</Text>}
-      <Text dimColor>│</Text>
-      <Text>ctx</Text>
-      {segments.length > 0 && (
-        <Box flexDirection="row">
-          {segments
-            .filter(s => s.cells > 0)
-            .map((s, i) => (
-              <Text key={`s${i}`} color={s.color}>
-                {segmentGlyph(s.kind).repeat(s.cells)}
-              </Text>
-            ))}
-        </Box>
-      )}
-      <Text>{layout.ctxText}</Text>
-      {windows.slice(0, layout.windows).map(w => (
-        <Box key={`u-${w.label}`} flexDirection="row" gap={1}>
-          <Text dimColor>│</Text>
-          <Text>{w.label}</Text>
-          {layout.style !== 'percent' && (
-            <Text color={fillColor(w.percent / 100)}>{bar(w.percent / 100, layout.usageBar)}</Text>
-          )}
-          <Text color={layout.style === 'percent' ? fillColor(w.percent / 100) : undefined}>{w.percent}%</Text>
-          {layout.style === 'full' && w.reset !== null && <Text dimColor>{w.reset}</Text>}
-        </Box>
-      ))}
-    </Box>
-  )
-}
 
 export const register: Register = (on, options) => {
   // The lens's own hooks, on events the rest of the module does not hook.
@@ -4290,7 +2856,7 @@ Saved to ${out}.md and .json`,
         )
       }
       // The minimal look draws no dashboard: mark the rest here, so the next band plays its entrance.
-      introKind = 'rest'
+      setIntroKind('rest')
       const { question, rows, noteLine } = await effortRows($, e)
       if (e.surface !== 'terminal') return question ?? next(e)
       return (
@@ -4304,8 +2870,8 @@ Saved to ${out}.md and .json`,
       return next(e)
     } finally {
       if (glowReadAt !== null) {
-        drawLead = drawLead * 0.7 + Math.min(150, Date.now() - glowReadAt + 16) * 0.3
-        glowReadAt = null
+        setDrawLead(drawLead * 0.7 + Math.min(150, Date.now() - glowReadAt + 16) * 0.3)
+        setGlowReadAt(null)
       }
       // How long the draws take, for the first few after a load: the render log says where a slow start goes.
       if (drawsTimed < 5) {
