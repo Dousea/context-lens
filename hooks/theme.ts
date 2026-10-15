@@ -1,16 +1,16 @@
-// The look of the mod's accent: violet (the brand), Claude orange or cherry-blossom rose. Every violet in the mod is
+// The look of the mod's accent: glass cyan (the brand), violet, Claude orange or cherry-blossom rose. Every violet in the mod is
 // one hex of the same family, so the theme turns them in one place instead of keeping a set of colours per theme: any
 // #rrggbb in a violet hue is moved to the theme's hue, neutrals and the other signal colours (green, yellow, red, blue)
 // are left alone.
 
-export type ThemeName = 'violet' | 'orange' | 'rose'
-export const THEMES: readonly ThemeName[] = ['violet', 'orange', 'rose']
+export type ThemeName = 'cyan' | 'violet' | 'orange' | 'rose'
+export const THEMES: readonly ThemeName[] = ['cyan', 'violet', 'orange', 'rose']
 // The hue each theme turns the violets to. Claude's orange (#d97757) sits at hue 15, saturation 63%, lightness 60%; the
 // brand violet is lighter and stronger, so the saturation and the lightness of what turns come down to meet it. Rose is
-// a cherry-blossom pink; its sparkles are drawn as falling petals (see petals).
-const HUES: Record<Exclude<ThemeName, 'violet'>, number> = { orange: 15, rose: 340 }
+// a cherry-blossom pink; its sparkles are drawn as falling petals (see petals). Cyan is the brand's glass, at hue 182.
+const HUES: Record<Exclude<ThemeName, 'violet'>, number> = { cyan: 182, orange: 15, rose: 340 }
 
-let current: ThemeName = 'violet'
+let current: ThemeName = 'cyan'
 // The light look: the panels are drawn for a dark app; on a light one every colour is turned (lightHex) so the surfaces
 // come out pale and the text and accents deep. It sits on top of the theme's hue, so every theme has a light form.
 let light = false
@@ -26,7 +26,7 @@ export const setTheme = (name: ThemeName) => {
 }
 export const getTheme = () => current
 
-/** The brand violet, the colour the rest of the family is turned from. */
+/** The violet the rest of the family is drawn in and turned from: every theme but violet moves it to its own hue. */
 export const VIOLET = '#a79cf7'
 
 const hexRe = /#[0-9a-fA-F]{6}\b/g

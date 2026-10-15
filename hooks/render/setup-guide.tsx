@@ -50,7 +50,7 @@ export async function setupGuide($: EngineInterface, e: RenderInput<'AbovePrompt
         $,
         e,
         'setup',
-        counter ? `✦ Context Lens setup  ${counter}` : '✦ Context Lens setup',
+        counter ? `◉ Context Lens setup  ${counter}` : '◉ Context Lens setup',
         words,
         controls,
       )
@@ -73,7 +73,7 @@ export async function setupGuide($: EngineInterface, e: RenderInput<'AbovePrompt
         ) : null}
         <Box key="setup-words" position="relative" flexDirection="column" flexShrink={1} minWidth={0}>
           <Text color={ACCENT} bold wrap="truncate">
-            {counter ? `✦ Context Lens setup  ${counter}` : '✦ Context Lens setup'}
+            {counter ? `◉ Context Lens setup  ${counter}` : '◉ Context Lens setup'}
           </Text>
           {typeof words === 'string' ? (
             <Text key="setup-what" wrap="truncate">

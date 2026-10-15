@@ -125,7 +125,12 @@ const CARDS: readonly { id: SettingsCard; title: string; about: string }[] = [
   { id: 'look', title: 'Look', about: 'How Context Lens looks and which parts of it show. Uninstall removes it.' },
 ]
 const BIAS_WORDS = ['Cheapest', 'Cheaper', 'Balanced', 'Smarter', 'Smartest'] as const
-const THEME_LABELS: Record<ThemeName, string> = { violet: 'Violet', orange: 'Claude orange', rose: 'Cherry blossom' }
+const THEME_LABELS: Record<ThemeName, string> = {
+  cyan: 'Glass cyan',
+  violet: 'Violet',
+  orange: 'Claude orange',
+  rose: 'Cherry blossom',
+}
 
 export async function settingsPanel($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
   const elements = themedEls($.ui.resolve(e))
@@ -356,7 +361,7 @@ export async function settingsPanel($: EngineInterface, e: RenderInput<'AbovePro
       kids
     )
   return (
-    // The dashboard's look: the neutral band and its quiet edge, purple only on the star, no art behind the rows (it
+    // The dashboard's look: the neutral band and its quiet edge, the accent only on the mark, no art behind the rows (it
     // made them busy). The entrance
     // sweep plays once, behind everything, as the panel opens.
     <Box
@@ -411,7 +416,7 @@ export async function settingsPanel($: EngineInterface, e: RenderInput<'AbovePro
         >
           {term ? (
             <Text color={ACCENT} bold>
-              ✦
+              ◉
             </Text>
           ) : null}
           {Svg && !term ? (

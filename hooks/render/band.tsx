@@ -57,7 +57,7 @@ export type BandElements = {
 // The mark beside a card's title, sized to one line of text.
 const TITLE_MARK_SIZE = 16
 
-/** A card's title with the Context Lens mark where the ✦ stood; the ✦ stays where the surface draws no images. */
+/** A card's title with the Context Lens mark where the ◉ stood; the ◉ stays where the surface draws no images. */
 export function markTitle(
   { Box, Text, Svg }: Pick<BandElements, 'Box' | 'Text' | 'Svg'>,
   key: string,
@@ -77,7 +77,7 @@ export function markTitle(
         <Svg source={mark} alt="Context Lens" width={TITLE_MARK_SIZE} height={TITLE_MARK_SIZE} />
       </Box>
       <Text color={color} bold wrap="truncate">
-        {title.replace(/^✦ /, '')}
+        {title.replace(/^◉ /, '')}
       </Text>
     </Box>
   )
@@ -304,7 +304,7 @@ export async function terminalBand($: EngineInterface, e: RenderInput<'AboveProm
               {b.word ? (
                 <Box flexDirection="row">
                   <Text color={b.color} bold>
-                    {'✦ '}
+                    {'◉ '}
                   </Text>
                   <Text key={`${b.key}-word`} color={b.word.color} bold>
                     {b.word.text}
@@ -314,7 +314,7 @@ export async function terminalBand($: EngineInterface, e: RenderInput<'AboveProm
                   </Text>
                 </Box>
               ) : (
-                <Text color={b.color} bold>{`✦ ${b.title}`}</Text>
+                <Text color={b.color} bold>{`◉ ${b.title}`}</Text>
               )}
             </Box>
             <Box flexGrow={1} />

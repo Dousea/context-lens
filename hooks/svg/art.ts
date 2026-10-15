@@ -40,7 +40,7 @@ const rand = (seed: number) => {
 
 // Each kind's ground (the band's background) and its light colour.
 const PALETTE: Record<ArtKind, { ground: Rgb; deep: Rgb; light: Rgb; glow: Rgb }> = {
-  cold: { ground: hex('#0e1820'), deep: hex('#2f5c80'), light: hex('#dff1ff'), glow: hex('#7cc4ff') },
+  cold: { ground: hex('#0e1320'), deep: hex('#2f4480'), light: hex('#dfe7ff'), glow: hex('#7c9dff') },
   swamp: { ground: hex('#111710'), deep: hex('#22351c'), light: hex('#cfe8b8'), glow: hex('#a7c98f') },
   hot: { ground: hex('#1a110c'), deep: hex('#b8461b'), light: hex('#ffb06a'), glow: hex('#f08a3c') },
   down: { ground: hex('#12141b'), deep: hex('#39415a'), light: hex('#b4b8c4'), glow: hex('#6b7288') },

@@ -160,7 +160,7 @@ export function registerFooterHooks(on: On) {
         {ran ? (
           <Text
             color={ACCENT}
-          >{`✦ ${model ? `${model} · ` : ''}${ran.effort ? EFFORT_LABELS[ran.effort] : 'Auto'}`}</Text>
+          >{`◉ ${model ? `${model} · ` : ''}${ran.effort ? EFFORT_LABELS[ran.effort] : 'Auto'}`}</Text>
         ) : null}
         {ran?.cost ? <Text dimColor>{`· ≈${tokens(ran.cost)} tokens`}</Text> : null}
       </Box>

@@ -24,13 +24,13 @@ export function handoffCardTree(
   const words = (
     {
       writing: [
-        '✦ Handing off…',
+        '◉ Handing off…',
         `${by} handoff being written. ${fresh.full ? 'Your skill takes a little while.' : 'A few seconds.'}`,
       ],
-      done: ['✦ Handoff complete', 'Carried on from the last chat. The old one is cleared.'],
-      copied: ['✦ Handoff copied', 'Paste it into a new chat. This one stays.'],
-      compacting: ['✦ Compacting…', 'The chat is being summed up. Takes a minute or so.'],
-      compacted: ['✦ Compact complete', 'The chat is summed up; the next message reads far less.'],
+      done: ['◉ Handoff complete', 'Carried on from the last chat. The old one is cleared.'],
+      copied: ['◉ Handoff copied', 'Paste it into a new chat. This one stays.'],
+      compacting: ['◉ Compacting…', 'The chat is being summed up. Takes a minute or so.'],
+      compacted: ['◉ Compact complete', 'The chat is summed up; the next message reads far less.'],
     } satisfies Record<HandoffCard['kind'], [string, string]>
   )[fresh.kind]
   // Compacting is a wait in the background, not a result: one quiet line over the band's calm art, not the loud glow.

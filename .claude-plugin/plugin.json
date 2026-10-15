@@ -149,9 +149,10 @@
     "theme": {
       "type": "string",
       "title": "Theme",
-      "description": "The accent colour of everything Context Lens draws. violet: the brand colour. orange: Claude Code orange. rose: cherry-blossom pink, with falling petals.",
-      "default": "violet",
+      "description": "The accent colour of everything Context Lens draws. cyan: glass cyan, the brand colour. violet: a soft violet. orange: Claude Code orange. rose: cherry-blossom pink, with falling petals.",
+      "default": "cyan",
       "options": [
+        "cyan",
         "violet",
         "orange",
         "rose"

@@ -83,7 +83,7 @@ export function dashboardLines(d: {
   // The model and the effort read as one pair, coloured together.
   const pair = d.model ? `${d.model} · ${what}` : what
   const head = [
-    `✦ ${pair}`,
+    `◉ ${pair}`,
     d.cacheNow === null ? null : `cache ${cacheLabel(d.cacheNow)}`,
     d.contextPercent === null ? null : `${Math.round(d.contextPercent)}% context`,
   ]
@@ -411,7 +411,7 @@ export async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePro
       color: DASH_TEXT,
       bg: DASH_BG,
       edge: DASH_EDGE,
-      title: head.replace(/^✦ /, ''),
+      title: head.replace(/^◉ /, ''),
       detail: detailRow,
       buttons,
       extra: lens,
@@ -480,7 +480,7 @@ export async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePro
         >
           <Box flexShrink={0} flexDirection="row">
             {Svg ? (
-              // The mark, as it is, where the ✦ stood; faded while Auto is off.
+              // The mark, as it is, where the ◉ stood; faded while Auto is off.
               <Box key="dash-mark" flexShrink={0} marginRight={1} alignItems="center">
                 <Svg
                   source={v.auto ? MARK_SVG : DASH_MARK_OFF}
@@ -491,7 +491,7 @@ export async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePro
               </Box>
             ) : (
               <Text color={v.auto ? ACCENT : DASH_DIM} bold>
-                ✦{' '}
+                ◉{' '}
               </Text>
             )}
             {/* A new effort shows in the accent, then white (effortFlash): plain text in the app's font. An animated image

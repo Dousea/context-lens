@@ -51,7 +51,7 @@ export async function compactBar(
       {introLayer({ Box, Svg }, 'compact', await introShows($, 'compact'))}
       {/* One line, as tall as the bands: the name, then the field and the buttons on the right. */}
       <Box key="compact-words" position="relative" flexShrink={0}>
-        {markTitle({ Box, Text, Svg }, 'compact-title', ACCENT, '✦ Compact')}
+        {markTitle({ Box, Text, Svg }, 'compact-title', ACCENT, '◉ Compact')}
         <Box key="compact-switch-box" position="relative" flexShrink={0} marginLeft={1}>
           <Box position="absolute" top={0} left={0} />
           <Button

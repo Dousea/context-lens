@@ -105,7 +105,7 @@ export async function judgeDownBand($: EngineInterface, e: RenderInput<'AbovePro
       {introLayer({ Box, Svg }, 'down', await introShows($, 'down'), SLATE_WASH, SLATE_LIGHT)}
       <Box flexShrink={0}>
         <Text color={SLATE} bold wrap="truncate">
-          ✦ Judge down
+          ◉ Judge down
         </Text>
       </Box>
       <Text wrap="truncate">{`${downReason}. The effort stays as it is.`}</Text>
@@ -184,7 +184,7 @@ export async function hotBand(
       {introLayer({ Box, Svg }, 'hot', await introShows($, 'hot'), EMBER, EMBER_LIGHT)}
       <Box flexShrink={0}>
         <Text color={EMBER} bold wrap="truncate">
-          ✦ Running hot
+          ◉ Running hot
         </Text>
       </Box>
       <Text wrap="truncate">{`${Math.round(heat.percent)}% of your ${window} limit used${resets ? ` · resets ${resets}` : ''}`}</Text>
@@ -269,7 +269,7 @@ export async function coldBand($: EngineInterface, e: RenderInput<'AbovePrompt'>
       {introLayer({ Box, Svg }, 'cold', await introShows($, 'cold'), ICE, ICE_LIGHT)}
       <Box flexShrink={0}>
         <Text color={ICE} bold wrap="truncate">
-          ✦ Cache went cold
+          ◉ Cache went cold
         </Text>
       </Box>
       <Text wrap="truncate">{line}</Text>
@@ -349,7 +349,7 @@ export async function swampBand($: EngineInterface, e: RenderInput<'AbovePrompt'
       {introLayer({ Box, Svg }, 'swamp', await introShows($, 'swamp'), BOG_WASH, BOG_LIGHT)}
       <Box flexShrink={0}>
         <Text color={BOG} bold wrap="truncate">
-          ✦ Context swamped
+          ◉ Context swamped
         </Text>
       </Box>
       {/* How full the context is, as a ring and a figure: the tokens alone do not say how close the limit is. */}

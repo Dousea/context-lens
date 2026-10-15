@@ -996,7 +996,8 @@ describe('typed commands', () => {
 })
 
 describe('footer text', () => {
-  const PURPLE = '#a79cf7'
+  // The brand accent: the glass cyan the default theme turns the violet family to.
+  const ACCENT = '#58d6da'
   const auto = async ($: Engine) =>
     String((await $.command.run({ command: 'context-lens', args: 'auto' } as never)).text)
   const saving = (on: On, outputTokens: number) =>
@@ -1013,11 +1014,11 @@ describe('footer text', () => {
   const asked = async ($: Engine) =>
     String((await $.command.run({ command: 'context-lens', args: 'stats' } as never)).text)
 
-  test('the footer is purple text and one small button; no box, nothing lit', async ($, on) => {
+  test('the footer is accent text and one small button; no box, nothing lit', async ($, on) => {
     engine(on)
     const footer = await $.ui.mount(FOOTER)
     const text = await drawn(footer)
-    expect(text).toContain(`"color":"${PURPLE}"`)
+    expect(text).toContain(`"color":"${ACCENT}"`)
     expect(text).toContain('"children":[" Auto "]')
     // The only button is the small switch for Auto: no label other than the power glyph, not the lit look.
     // The Auto switch, the setup (or settings gear) and the handoff symbol.
@@ -1025,30 +1026,30 @@ describe('footer text', () => {
     expect(text).toContain('"label":" ⏻ "')
     // No frame of its own (it drew wide and cut off): plain, with the same grey box as the level on hover.
     expect(text).toContain('"plain":true')
-    expect(text).toContain('"hover":{"scope":"power","backgroundColor":"#2b2b2f"}')
+    expect(text).toContain('"hover":{"scope":"power","backgroundColor":"#2b2b2b"}')
     expect(text).not.toContain('"variant":"primary"')
     expect(text).not.toContain('borderStyle')
     // Hovering the level puts a grey box behind it.
-    expect(text).toContain('"hover":{"scope":"effort","backgroundColor":"#2b2b2f"}')
+    expect(text).toContain('"hover":{"scope":"effort","backgroundColor":"#2b2b2b"}')
     // No background at rest: the only ones are in the hover styles and the hidden hover cards (display none).
     expect(
-      text.replaceAll('"backgroundColor":"#2b2b2f"}', '').replaceAll('"backgroundColor":"#221c3a"', ''),
+      text.replaceAll('"backgroundColor":"#2b2b2b"}', '').replaceAll('"backgroundColor":"#221c3a"', ''),
     ).not.toContain('backgroundColor')
     await footer.unmount()
   })
 
-  test('with Auto on it is the effort in use, in purple', async ($, on) => {
+  test('with Auto on it is the effort in use, in the accent', async ($, on) => {
     engine(on)
     judgeSays(on, '{"model":"opus","effort":"high","why":"hard"}')
     const footer = await $.ui.mount(FOOTER)
     await $.prompt.submit({ text: 'hard task', wait: false, origin: { kind: 'composer' } })
     const text = await drawn(footer)
     expect(text).toContain('"children":[" High "]')
-    expect(text).toContain(`"color":"${PURPLE}"`)
+    expect(text).toContain(`"color":"${ACCENT}"`)
     await footer.unmount()
   })
 
-  test('the small button switches Auto off ("Off", dim, not purple) and on again', async ($, on) => {
+  test('the small button switches Auto off ("Off", dim, not in the accent) and on again', async ($, on) => {
     engine(on)
     const asked = judgeSays(on, '{"model":"opus","effort":"high","why":"hard"}')
     const footer = await $.ui.mount(FOOTER)
@@ -1058,12 +1059,12 @@ describe('footer text', () => {
     await footer.press({ key: 'auto' })
     const off = await drawn(footer)
     expect(off).toContain('"children":[" Off "]')
-    expect(off).not.toContain(`"color":"${PURPLE}"`)
+    expect(off).not.toContain(`"color":"${ACCENT}"`)
     await $.prompt.submit({ text: 'en till', wait: false, origin: { kind: 'composer' } })
     expect(asked.length).toBe(1)
 
     await footer.press({ key: 'auto' })
-    expect(await drawn(footer)).toContain(`"color":"${PURPLE}"`)
+    expect(await drawn(footer)).toContain(`"color":"${ACCENT}"`)
 
     // The command does the same.
     expect(await auto($)).toContain('Auto off')
@@ -1078,7 +1079,7 @@ describe('footer text', () => {
     const footer = await $.ui.mount(FOOTER)
     await $.prompt.submit({ text: 'hard task', wait: false, origin: { kind: 'composer' } })
     await step($, 'medium')
-    expect(await drawn(footer)).toContain(`"color":"${PURPLE}"`)
+    expect(await drawn(footer)).toContain(`"color":"${ACCENT}"`)
 
     // The person picks another effort in the app between two requests.
     await step($, 'low')
@@ -1416,7 +1417,7 @@ describe('cache countdown', () => {
     expect(cacheColor(7)).toBe('#e0a33a')
     expect(cacheColor(6)).toBe('#e5534b')
     expect(cacheColor(1)).toBe('#e5534b')
-    expect(cacheColor(0)).toBe('#7cc4ff')
+    expect(cacheColor(0)).toBe('#7c9dff')
     expect(mostlyCached({ input_tokens: 90000, cache_read_input_tokens: 10 })).toBe(false)
   })
 
@@ -1924,9 +1925,9 @@ describe('setup guide', () => {
     expect(await band.find({ key: 'setup-bias2' })).toBeDefined()
     expect(await band.find({ key: 'setup-back' })).toBeUndefined()
     await clickable(band, 'setup-actions')
-    // Branded: the name in the footer's purple, the step counter beside it.
-    expect(await drawn(band)).toContain('"color":"#a79cf7"')
-    expect(await drawn(band)).toContain('✦ Context Lens setup  1/2')
+    // Branded: the name in the footer's accent, the step counter beside it.
+    expect(await drawn(band)).toContain('"color":"#58d6da"')
+    expect(await drawn(band)).toContain('◉ Context Lens setup  1/2')
     // The right side: a still SVG (every click redraws the band, and a redrawn animation flickers) with the gradient.
     const first = await drawn(band)
     expect(first).toContain('"type":"Svg"')
@@ -1940,7 +1941,7 @@ describe('setup guide', () => {
     expect(await drawn(band)).toContain('Balanced: ')
     await band.press({ key: 'setup-bias4' })
     expect(await drawn(band)).toContain('Smartest: ')
-    expect(await drawn(band)).toContain('{"color":"#a79cf7"},"children":["──"]')
+    expect(await drawn(band)).toContain('{"color":"#58d6da"},"children":["──"]')
     await band.press({ key: 'setup-next' })
 
     // 2/2 the handoff: the installed skills to pick from.
@@ -2953,7 +2954,7 @@ describe('swamp band and setup entry', () => {
     )
   })
 
-  test('save mode paints the footer level ember; off again, it is purple', async ($, on) => {
+  test('save mode paints the footer level ember; off again, it is the accent', async ($, on) => {
     engine(on)
     mock.clock(on)
     await start($, on)
@@ -2965,7 +2966,7 @@ describe('swamp band and setup entry', () => {
     const again = await $.ui.mount(FOOTER)
     const text = await drawn(again)
     expect(text).not.toContain('"color":"#f08a3c"')
-    expect(text).toContain('"color":"#a79cf7"')
+    expect(text).toContain('"color":"#58d6da"')
     await again.unmount()
   })
 
@@ -3397,11 +3398,11 @@ describe('dashboard', () => {
     const contrast = (a: string, b: string) => (Math.max(lum(a), lum(b)) + 0.05) / (Math.min(lum(a), lum(b)) + 0.05)
     // Edges stay a visible step darker than the panels they frame.
     for (const edge of ['#2a2a2f', '#4a3f80']) expect(lum(lightHex(edge, 'surface'))).toBeGreaterThan(0.45)
-    for (const dark of ['#141416', '#15121f', '#0e1820', '#111710', '#1a110c', '#0f1c15']) {
+    for (const dark of ['#141416', '#15121f', '#0e1320', '#111710', '#1a110c', '#0f1c15']) {
       const pale = lightHex(dark, 'surface')
       expect(lum(pale)).toBeGreaterThan(0.6)
     }
-    const surfaces = ['#141416', '#15121f', '#0e1820', '#111710', '#1a110c', '#0f1c15', '#12141b'].map(h =>
+    const surfaces = ['#141416', '#15121f', '#0e1320', '#111710', '#1a110c', '#0f1c15', '#12141b'].map(h =>
       lightHex(h, 'surface'),
     )
     for (const text of [
@@ -3409,7 +3410,7 @@ describe('dashboard', () => {
       '#8b8b93',
       '#a79cf7',
       '#7c6cf0',
-      '#7cc4ff',
+      '#7c9dff',
       '#a7c98f',
       '#f08a3c',
       '#7fe0a4',
@@ -3509,7 +3510,7 @@ describe('dashboard', () => {
       await band.unmount()
       await mocked.advance(100)
       band = await $.ui.mount(DESK_BAND)
-      expect(await drawn(band)).toContain(lightHex('#141416', 'surface'))
+      expect(await drawn(band)).toContain(lightHex('#151515', 'surface'))
       await band.unmount()
       // Claude Code goes dark: within a few seconds the panels follow.
       claudeTheme = 'dark'
@@ -3518,7 +3519,7 @@ describe('dashboard', () => {
       await band.unmount()
       await mocked.advance(100)
       band = await $.ui.mount(DESK_BAND)
-      expect(await drawn(band)).toContain('"backgroundColor":"#141416"')
+      expect(await drawn(band)).toContain('"backgroundColor":"#151515"')
       await band.unmount()
     },
   )
@@ -3615,15 +3616,15 @@ describe('dashboard', () => {
       contextPercent: 18,
       reason: 'Why: a small fix',
     }
-    expect(dashboardLines(base).head).toBe(`✦ Medium · cache ${cacheLabel(42)} · 18% context`)
+    expect(dashboardLines(base).head).toBe(`◉ Medium · cache ${cacheLabel(42)} · 18% context`)
     expect(dashboardLines(base).detail).toBe('Why: a small fix')
     expect(dashboardLines({ ...base, model: 'Opus 5.5' }).head).toBe(
-      `✦ Opus 5.5 · Medium · cache ${cacheLabel(42)} · 18% context`,
+      `◉ Opus 5.5 · Medium · cache ${cacheLabel(42)} · 18% context`,
     )
     expect(dashboardLines({ ...base, model: 'Opus 5.5' }).pair).toBe('Opus 5.5 · Medium')
     expect(dashboardLines({ ...base, model: 'Opus 5.5' }).rest).toBe(` · cache ${cacheLabel(42)} · 18% context`)
-    expect(dashboardLines({ ...base, auto: false }).head).toBe(`✦ Off · cache ${cacheLabel(42)} · 18% context`)
-    expect(dashboardLines({ ...base, cacheNow: null, contextPercent: null }).head).toBe('✦ Medium')
+    expect(dashboardLines({ ...base, auto: false }).head).toBe(`◉ Off · cache ${cacheLabel(42)} · 18% context`)
+    expect(dashboardLines({ ...base, cacheNow: null, contextPercent: null }).head).toBe('◉ Medium')
     expect(
       weighted({ input_tokens: 10, output_tokens: 2, cache_read_input_tokens: 1000, cache_creation_input_tokens: 4 }),
     ).toBe(10 + 10 + 100 + 5)
@@ -3671,7 +3672,7 @@ describe('dashboard', () => {
         props: { word: 'Baked', durationMs: ms },
       } as never)
     const early = await footer(17_000)
-    expect((await early.find({ key: 'turn-line' }))?.text).toContain('✦ Opus 5.5 · Low')
+    expect((await early.find({ key: 'turn-line' }))?.text).toContain('◉ Opus 5.5 · Low')
     await early.unmount()
     await $.turn.complete({
       turnId: 't1',
@@ -3701,13 +3702,13 @@ describe('dashboard', () => {
       } as never)
 
     const saved = await footer(17_000)
-    expect((await saved.find({ key: 'turn-line' }))?.text).toContain('✦ Opus 5.5 · Low')
+    expect((await saved.find({ key: 'turn-line' }))?.text).toContain('◉ Opus 5.5 · Low')
     await saved.unmount()
 
     const unknown = await footer(40_000)
     const text = (await unknown.find({ key: 'turn-line' }))?.text ?? ''
     expect(text).toContain('Baked 40s')
-    expect(text).not.toContain('✦')
+    expect(text).not.toContain('◉')
     expect(text).not.toContain('Opus')
     await unknown.unmount()
   })
@@ -3801,7 +3802,7 @@ describe('dashboard', () => {
       // A drawn icon on desktop, not the word.
       expect(await band.find({ key: 'dash-settings-icon' })).toBeDefined()
       expect(await drawn(band)).not.toContain('"label":"Settings"')
-      // The mark stands in for the ✦ on desktop.
+      // The mark stands in for the ◉ on desktop.
       expect(await band.find({ key: 'dash-mark' })).toBeDefined()
       await band.press({ key: 'dash-auto' })
       expect(await drawn(band)).toContain('Auto effort off')
@@ -4823,11 +4824,32 @@ describe('subagent effort', () => {
 })
 
 describe('theme', () => {
-  test('readConfig reads orange and falls back to violet', () => {
+  test('readConfig reads orange and falls back to cyan', () => {
     expect(readConfig({ theme: 'orange' }).theme).toBe('orange')
     expect(readConfig({ theme: ' orange ' }).theme).toBe('orange')
-    expect(readConfig({ theme: 'pink' }).theme).toBe('violet')
-    expect(readConfig({}).theme).toBe('violet')
+    expect(readConfig({ theme: 'pink' }).theme).toBe('cyan')
+    expect(readConfig({}).theme).toBe('cyan')
+  })
+
+  test('cyan, the default, turns the violets to glass cyan and keeps the cold band blue', () => {
+    try {
+      setTheme('cyan')
+      const hue = (hex: string) => {
+        const n = parseInt(hex.slice(1), 16)
+        const [r, g, b] = [(n >> 16) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255]
+        const max = Math.max(r, g, b),
+          d = max - Math.min(r, g, b)
+        const h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4
+        return (h * 60 + 360) % 360
+      }
+      expect(tintHex('#a79cf7')).toBe('#58d6da')
+      for (const violet of ['#b9a7ff', '#7c6cf0', '#4a3f80', '#9b7bff', '#cfc7ff', '#7566d8'])
+        expect(Math.abs(hue(tintHex(violet)) - 182) < 4).toBe(true)
+      // The cold band's ice and its art stay blue, well clear of the brand.
+      for (const ice of ['#7c9dff', '#2f4480', '#cfe0ff', '#5a7fe6']) expect(tintHex(ice)).toBe(ice)
+    } finally {
+      setTheme('violet')
+    }
   })
 
   test('orange turns the violets and leaves greys, greens, blues and yellows alone', () => {
@@ -4852,7 +4874,7 @@ describe('theme', () => {
         '#2c2c31',
         '#7fe0a4',
         '#e0a33a',
-        '#7cc4ff',
+        '#7c9dff',
         '#e5534b',
         '#5d6a86',
       ])
@@ -4879,7 +4901,7 @@ describe('theme', () => {
       }
       for (const violet of ['#a79cf7', '#b9a7ff', '#7c6cf0', '#4a3f80', '#9b7bff'])
         expect(Math.abs(hue(tintHex(violet)) - 340) < 4).toBe(true)
-      for (const same of ['#ffffff', '#141416', '#7fe0a4', '#e0a33a', '#7cc4ff', '#e5534b'])
+      for (const same of ['#ffffff', '#141416', '#7fe0a4', '#e0a33a', '#7c9dff', '#e5534b'])
         expect(tintHex(same)).toBe(same)
       const art =
         '<svg><style>.sp{fill:#fff}</style><rect fill="#7c6cf0" width="9" height="9"/><path class="sp" style="transform-origin:168px 8px;animation-duration:4.2s;animation-delay:0.3s" d="M168 6.4 L168.34 7.66 Z"/></svg>'
