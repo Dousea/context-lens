@@ -43,7 +43,7 @@ export let loadedSession = '-'
 export const setLoadedSession = (value: typeof loadedSession) => {
   loadedSession = value
 }
-// When this module loaded, for the render log's "first draw" line.
+// When the mod loaded, for the render log's "first draw" line.
 export let loadedAt = Date.now()
 export const setLoadedAt = (value: typeof loadedAt) => {
   loadedAt = value

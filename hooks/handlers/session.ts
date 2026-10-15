@@ -43,7 +43,7 @@ const lensRewritten = atom({ plugin: 'context-lens', key: 'lensRewritten' } as c
 const lensLimits = atom({ plugin: 'context-lens', key: 'lensLimits' } as const, [])
 
 export function registerSessionHooks(on: On) {
-  // The lens's own hooks, on events the rest of the module does not hook.
+  // The lens's own hooks, on events no other hook of context-lens takes.
   on('session.measure', async ($, e, next) => {
     const result = await next(e)
     if (e.changed.includes('rateLimits')) await update($, lensLimits, () => e.rateLimits)
@@ -108,7 +108,7 @@ export function registerSessionHooks(on: On) {
     // Which chat this load serves, and when it started: each chat has its own render log.
     setLoadedSession(String(sid).slice(0, 8))
     // Settings saved under an old name, then the ones the app had no /config row for (see saveSetting), over the ones it
-    // passed in. The carried ones are saved under their new names by the save queue below.
+    // passed in. The carried ones are saved under their new names by the save queue (see drainSetupSave).
     const keptSettings = kept && typeof kept === 'object' ? (kept as Record<string, unknown>) : {}
     const carried = await carryRenamedSettings($, keptSettings).catch(() => ({}))
     if (Object.keys(keptSettings).length || Object.keys(carried).length) {
