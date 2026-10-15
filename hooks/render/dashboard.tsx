@@ -170,7 +170,7 @@ let autoFlipAt = 0
 let autoModelSeen: boolean | undefined
 let autoModelFlipAt = 0
 
-/** The dashboard: what context-lens is doing, and Auto, Handoff and settings. The slot above the prompt at rest. */
+/** The dashboard: what Context Lens is doing, and Auto, Handoff and settings. The slot above the prompt at rest. */
 export async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
   const els = themedEls($.ui.resolve(e))
   const { Box, Text, Button } = els
@@ -446,7 +446,7 @@ export async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePro
         // Auto off: the art goes, so the bar reads as resting, not working.
         v.auto ? (
           <Box key="dash-art" position="absolute" top={-1} right={0} bottom={-1}>
-            <Svg source={DASH_SVG} alt="context-lens" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
+            <Svg source={DASH_SVG} alt="Context Lens" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
           </Box>
         ) : null
       ) : null}
@@ -484,7 +484,7 @@ export async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePro
               <Box key="dash-mark" flexShrink={0} marginRight={1} alignItems="center">
                 <Svg
                   source={v.auto ? MARK_SVG : DASH_MARK_OFF}
-                  alt="context-lens"
+                  alt="Context Lens"
                   width={DASH_MARK_SIZE}
                   height={DASH_MARK_SIZE}
                 />

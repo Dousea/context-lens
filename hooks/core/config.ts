@@ -34,14 +34,14 @@ export type JudgeConfig = {
   /** With Auto for model off, when the judge names another model. on (Hold): a typed prompt waits for Switch or Keep.
    *  off (Show): the prompt goes on and the offer stays above it. never (Off): no offer. */
   holdOffer: 'on' | 'off' | 'never'
-  /** The accent colour of everything context-lens draws: the brand violet, Claude orange or cherry-blossom rose. */
+  /** The accent colour of everything Context Lens draws: the brand violet, Claude orange or cherry-blossom rose. */
   theme: ThemeName
 }
 
 /** The swamp thresholds the settings offer, in percent of the context window. */
 export const SWAMP_STEPS = [10, 20, 30, 40, 50, 60, 70, 80] as const
 
-/** The parts of context-lens a person can switch off: the Hand off button, the cache timer, the judge's reason line and
+/** The parts of Context Lens a person can switch off: the Hand off button, the cache timer, the judge's reason line and
  * the context (swamp), running-hot (hot) and cold-cache alerts. The Context card switches off the button and the context
  * alert, the Look card the rest; the judge-down alert always shows. Each alert also has its own ✕. */
 export const HIDEABLE = ['handoff', 'timer', 'reason', 'swamp', 'hot', 'cold'] as const

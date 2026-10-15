@@ -312,12 +312,12 @@ async function writeHandoff($: EngineInterface) {
     }
     // Nothing to fork (no reply yet) or the fork failed: write it as a turn instead, and say why.
     if (!outcome.startsWith('nothing-to-fork'))
-      $.ui.toast(`context-lens: the fork wrote no handoff (${outcome}); writing it as a turn`)
+      $.ui.toast(`Context Lens: the fork wrote no handoff (${outcome}); writing it as a turn`)
     await $.prompt.submit({ text: HANDOFF_PROMPT })
   } catch (error) {
     await update($, handoffStage, () => null)
     $.ui.toast(
-      `context-lens: handoff failed: ${(error instanceof Error ? error.message : String(error)).slice(0, 140)}`,
+      `Context Lens: handoff failed: ${(error instanceof Error ? error.message : String(error)).slice(0, 140)}`,
     )
   }
 }
@@ -337,10 +337,10 @@ export async function finishHandoff($: EngineInterface) {
       const copied = await $.ui.copy({ text: message }).catch(() => ({ isCopied: false as const }))
       // Under the reply already there, so the next reply takes it away.
       await setHandoffCard($, 'copied', handoffFull, true)
-      if (copied.isCopied) $.ui.toast('context-lens: handoff copied. Paste it into a new chat.')
+      if (copied.isCopied) $.ui.toast('Context Lens: handoff copied. Paste it into a new chat.')
       else {
         await $.prompt.fill({ text: message, mode: 'replace' })
-        $.ui.toast('context-lens: the clipboard refused, so the handoff is in the prompt box')
+        $.ui.toast('Context Lens: the clipboard refused, so the handoff is in the prompt box')
       }
       return
     }
@@ -352,7 +352,7 @@ export async function finishHandoff($: EngineInterface) {
   } catch (error) {
     await update($, handoffCard, () => null)
     $.ui.toast(
-      `context-lens: handoff failed: ${(error instanceof Error ? error.message : String(error)).slice(0, 140)}`,
+      `Context Lens: handoff failed: ${(error instanceof Error ? error.message : String(error)).slice(0, 140)}`,
     )
   } finally {
     handoffDriving = false

@@ -5,7 +5,7 @@ import { pluginId, proof } from '../core/env'
 import { applyTheme } from '../core/palette'
 import { drainSetupSave } from './setup'
 
-// The context-lens settings panel is open above the prompt.
+// The Context Lens settings panel is open above the prompt.
 const settingsOpen = atom({ plugin: 'context-lens', key: 'settingsOpen' } as const, false)
 // The user and plugin skills, read when the settings panel opens.
 const installedSkills = atom({ plugin: 'context-lens', key: 'installedSkills' } as const, [])
@@ -24,7 +24,7 @@ export async function loadInstalledSkills($: EngineInterface) {
   await update($, installedSkills, () => names)
 }
 
-/** Opens the context-lens settings panel above the prompt: the app does not let a plugin open its /plugin dialog. */
+/** Opens the Context Lens settings panel above the prompt: the app does not let a plugin open its /plugin dialog. */
 export async function openPluginSettings($: EngineInterface) {
   await loadInstalledSkills($)
   await update($, settingsOpen, () => true)
@@ -66,7 +66,7 @@ export async function saveSetting($: EngineInterface, field: keyof typeof SETTIN
     .set('savedSettings', deny ? { ...kept, [SETTING_FIELDS[field]]: value } : others)
     .then(() => true)
     .catch(() => false)
-  if (deny && !stored) $.ui.toast(`context-lens: could not save ${field}: ${String(deny).slice(0, 120)}`)
+  if (deny && !stored) $.ui.toast(`Context Lens: could not save ${field}: ${String(deny).slice(0, 120)}`)
   const raw: Record<string, unknown> = {
     effortBias: String(config.bias),
     effortFloor: config.floor,

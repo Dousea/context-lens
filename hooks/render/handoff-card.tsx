@@ -56,7 +56,7 @@ export function handoffCardTree(
           ) : (
             <Svg
               source={cardLanded(fresh.kind) ? DONE_SVG : BRAND_SVG}
-              alt="context-lens"
+              alt="Context Lens"
               width={FROST_WIDTH * 2}
               height={FROST_HEIGHT * 2}
             />

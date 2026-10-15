@@ -1926,7 +1926,7 @@ describe('setup guide', () => {
     await clickable(band, 'setup-actions')
     // Branded: the name in the footer's purple, the step counter beside it.
     expect(await drawn(band)).toContain('"color":"#a79cf7"')
-    expect(await drawn(band)).toContain('✦ context-lens setup  1/2')
+    expect(await drawn(band)).toContain('✦ Context Lens setup  1/2')
     // The right side: a still SVG (every click redraws the band, and a redrawn animation flickers) with the gradient.
     const first = await drawn(band)
     expect(first).toContain('"type":"Svg"')

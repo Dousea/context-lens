@@ -1090,7 +1090,7 @@ function warnJudge($, reason) {
   void update3($, judgeDown, () => reason).then(() => $.ui.invalidate("ui.render"));
   if (warned.has(reason)) return;
   warned.add(reason);
-  $.ui.toast(`context-lens: ${reason}. The effort stays as it is.`);
+  $.ui.toast(`Context Lens: ${reason}. The effort stays as it is.`);
 }
 function judgeQuestion(prompt, current2, context) {
   return [
@@ -1382,12 +1382,12 @@ async function writeHandoff($) {
       return;
     }
     if (!outcome.startsWith("nothing-to-fork"))
-      $.ui.toast(`context-lens: the fork wrote no handoff (${outcome}); writing it as a turn`);
+      $.ui.toast(`Context Lens: the fork wrote no handoff (${outcome}); writing it as a turn`);
     await $.prompt.submit({ text: HANDOFF_PROMPT });
   } catch (error) {
     await update4($, handoffStage, () => null);
     $.ui.toast(
-      `context-lens: handoff failed: ${(error instanceof Error ? error.message : String(error)).slice(0, 140)}`
+      `Context Lens: handoff failed: ${(error instanceof Error ? error.message : String(error)).slice(0, 140)}`
     );
   }
 }
@@ -1402,10 +1402,10 @@ async function finishHandoff($) {
       const message = handoffMessage(text, "continue", handoffFull ? config.handoffSkill : void 0);
       const copied = await $.ui.copy({ text: message }).catch(() => ({ isCopied: false }));
       await setHandoffCard($, "copied", handoffFull, true);
-      if (copied.isCopied) $.ui.toast("context-lens: handoff copied. Paste it into a new chat.");
+      if (copied.isCopied) $.ui.toast("Context Lens: handoff copied. Paste it into a new chat.");
       else {
         await $.prompt.fill({ text: message, mode: "replace" });
-        $.ui.toast("context-lens: the clipboard refused, so the handoff is in the prompt box");
+        $.ui.toast("Context Lens: the clipboard refused, so the handoff is in the prompt box");
       }
       return;
     }
@@ -1416,7 +1416,7 @@ async function finishHandoff($) {
   } catch (error) {
     await update4($, handoffCard, () => null);
     $.ui.toast(
-      `context-lens: handoff failed: ${(error instanceof Error ? error.message : String(error)).slice(0, 140)}`
+      `Context Lens: handoff failed: ${(error instanceof Error ? error.message : String(error)).slice(0, 140)}`
     );
   } finally {
     handoffDriving = false;
@@ -1684,7 +1684,7 @@ function warmTokens(key, now) {
 function subagentNote(model3) {
   return `
 
-[context-lens, on my behalf: I want a subagent on ${model3} to do this task (Agent tool, model: "${model3}") to save my usage on the chat's model. Delegate it with a complete brief, even if it looks small, then use its result.]`;
+[Context Lens, on my behalf: I want a subagent on ${model3} to do this task (Agent tool, model: "${model3}") to save my usage on the chat's model. Delegate it with a complete brief, even if it looks small, then use its result.]`;
 }
 async function typeCommand($, text) {
   try {
@@ -1897,7 +1897,7 @@ async function compactCold($, note = "") {
   } catch (error) {
     const why = error instanceof Error ? error.message : String(error);
     void proof($, `compact failed: ${why}`);
-    $.ui.toast(`context-lens: compact failed: ${why.slice(0, 140)}`);
+    $.ui.toast(`Context Lens: compact failed: ${why.slice(0, 140)}`);
   } finally {
     await update8($, isCompacting2, () => false);
     if (compacted) {
@@ -2031,7 +2031,7 @@ async function saveSetting($, field, value) {
   const kept = await $.store.get("savedSettings").catch(() => null) ?? {};
   const { [SETTING_FIELDS[field]]: _old, ...others } = kept;
   const stored = await $.store.set("savedSettings", deny ? { ...kept, [SETTING_FIELDS[field]]: value } : others).then(() => true).catch(() => false);
-  if (deny && !stored) $.ui.toast(`context-lens: could not save ${field}: ${String(deny).slice(0, 120)}`);
+  if (deny && !stored) $.ui.toast(`Context Lens: could not save ${field}: ${String(deny).slice(0, 120)}`);
   const raw = {
     effortBias: String(config.bias),
     effortFloor: config.floor,
@@ -2431,7 +2431,7 @@ var DASH_SVG = BRAND_SVG.replace(
   /stop-opacity="([0-9.]+)"/g,
   (_m, v) => `stop-opacity="${(Number(v) * 0.4).toFixed(3)}"`
 ).replace(/#(7c6cf0|8f7ff0|b3a6ff|c9bdff|9a86ff)/g, "#9a9aa2");
-var SETTINGS_TITLE = `<svg xmlns="http://www.w3.org/2000/svg" width="112" height="28" viewBox="0 0 112 28"><defs><radialGradient id="c" cx="1" cy="1" r=".75" gradientTransform="matrix(.7 0 0 2.3 .3 -1.3)"><stop offset=".35" stop-color="#000"/><stop offset="1" stop-color="#fff"/></radialGradient><radialGradient id="s" cx=".9" cy=".85" r=".55" gradientTransform="matrix(.7 0 0 2.3 .27 -1.1)"><stop offset=".4" stop-color="#fff"/><stop offset="1" stop-color="#000"/></radialGradient><mask id="mc"><rect width="112" height="28" fill="url(#c)"/></mask><mask id="ms"><rect width="112" height="28" fill="url(#s)"/></mask><filter id="g" x="-20%" y="-40%" width="140%" height="180%"><feTurbulence type="fractalNoise" baseFrequency="1.4" numOctaves="1" seed="7" result="noise"/><feDisplacementMap in="SourceGraphic" in2="noise" scale="2.5" xChannelSelector="R" yChannelSelector="G" result="moved"/><feGaussianBlur in="moved" stdDeviation="0.35" result="soft"/><feComponentTransfer in="noise" result="dots"><feFuncA type="discrete" tableValues="0 1 1 1 1"/></feComponentTransfer><feComposite in="soft" in2="dots" operator="in"/></filter></defs><g font-size="21" font-weight="600" letter-spacing="-.5"><text x="1" y="20" fill="#ffffff" mask="url(#mc)">context-lens</text><g mask="url(#ms)"><text x="1" y="20" fill="#ffffff" filter="url(#g)">context-lens</text></g></g></svg>`;
+var SETTINGS_TITLE = `<svg xmlns="http://www.w3.org/2000/svg" width="136" height="28" viewBox="0 0 136 28"><defs><radialGradient id="c" cx="1" cy="1" r=".75" gradientTransform="matrix(.7 0 0 2.3 .3 -1.3)"><stop offset=".35" stop-color="#000"/><stop offset="1" stop-color="#fff"/></radialGradient><radialGradient id="s" cx=".9" cy=".85" r=".55" gradientTransform="matrix(.7 0 0 2.3 .27 -1.1)"><stop offset=".4" stop-color="#fff"/><stop offset="1" stop-color="#000"/></radialGradient><mask id="mc"><rect width="136" height="28" fill="url(#c)"/></mask><mask id="ms"><rect width="136" height="28" fill="url(#s)"/></mask><filter id="g" x="-20%" y="-40%" width="140%" height="180%"><feTurbulence type="fractalNoise" baseFrequency="1.4" numOctaves="1" seed="7" result="noise"/><feDisplacementMap in="SourceGraphic" in2="noise" scale="2.5" xChannelSelector="R" yChannelSelector="G" result="moved"/><feGaussianBlur in="moved" stdDeviation="0.35" result="soft"/><feComponentTransfer in="noise" result="dots"><feFuncA type="discrete" tableValues="0 1 1 1 1"/></feComponentTransfer><feComposite in="soft" in2="dots" operator="in"/></filter></defs><g font-size="21" font-weight="600" letter-spacing="-.5"><text x="1" y="20" fill="#ffffff" mask="url(#mc)">Context Lens</text><g mask="url(#ms)"><text x="1" y="20" fill="#ffffff" filter="url(#g)">Context Lens</text></g></g></svg>`;
 var SETTINGS_MARK = MARK_SVG.replace("<g mask=", '<g opacity=".2" transform="rotate(9 50 50)" mask=');
 var DASH_MARK_OFF = MARK_SVG.replace("<g mask=", '<g opacity=".35" mask=');
 var DONE_SVG = BRAND_SVG.replace(/#7c6cf0/g, "#2fae62").replace(/#8f7ff0/g, "#3cc472").replace(/#b3a6ff/g, "#7fe0a4").replace(/#c9bdff/g, "#b4f0c8").replace(/#9a86ff/g, "#4fd486").replace(
@@ -2651,13 +2651,13 @@ async function effortRows($, e) {
     await dismiss();
     await saveSetting($, "holdOffer", "off");
     $.ui.toast(
-      "context-lens: prompts are not held for model offers now. /context-lens settings, Model, turns it back on."
+      "Context Lens: prompts are not held for model offers now. /context-lens settings, Model, turns it back on."
     );
   };
   const neverOffer = async () => {
     await dismiss();
     await saveSetting($, "holdOffer", "never");
-    $.ui.toast("context-lens: no more model offers. /context-lens settings, Model, turns them back on.");
+    $.ui.toast("Context Lens: no more model offers. /context-lens settings, Model, turns them back on.");
   };
   const offerKeys = offer && e.surface === "terminal";
   const offerKey = (digit, letter) => offerKeys ? digit : e.surface === "terminal" ? letter : void 0;
@@ -2937,7 +2937,7 @@ var TITLE_MARK_SIZE = 16;
 function markTitle({ Box, Text, Svg }, key, color, title, mark = MARK_SVG) {
   if (!Svg)
     return /* @__PURE__ */ h(Text, { key, color, bold: true, wrap: "truncate" }, title);
-  return /* @__PURE__ */ h(Box, { key, flexDirection: "row", alignItems: "center", flexShrink: 1, minWidth: 0 }, /* @__PURE__ */ h(Box, { flexShrink: 0, marginRight: 1, alignItems: "center" }, /* @__PURE__ */ h(Svg, { source: mark, alt: "context-lens", width: TITLE_MARK_SIZE, height: TITLE_MARK_SIZE })), /* @__PURE__ */ h(Text, { color, bold: true, wrap: "truncate" }, title.replace(/^✦ /, "")));
+  return /* @__PURE__ */ h(Box, { key, flexDirection: "row", alignItems: "center", flexShrink: 1, minWidth: 0 }, /* @__PURE__ */ h(Box, { flexShrink: 0, marginRight: 1, alignItems: "center" }, /* @__PURE__ */ h(Svg, { source: mark, alt: "Context Lens", width: TITLE_MARK_SIZE, height: TITLE_MARK_SIZE })), /* @__PURE__ */ h(Text, { color, bold: true, wrap: "truncate" }, title.replace(/^✦ /, "")));
 }
 function optionButtons(Button, key, value, options, onSelect) {
   return options.map(
@@ -3187,7 +3187,7 @@ async function hotBand($, e, heat) {
             hotkey: "s",
             label: saving ? "End save mode" : "Save mode",
             onPress: async () => {
-              $.ui.toast(`context-lens: ${await toggleSave($)}`);
+              $.ui.toast(`Context Lens: ${await toggleSave($)}`);
             }
           }
         ),
@@ -3233,7 +3233,7 @@ async function hotBand($, e, heat) {
           variant: "primary",
           label: saving ? "End save mode" : "Save mode",
           onPress: async () => {
-            $.ui.toast(`context-lens: ${await toggleSave($)}`);
+            $.ui.toast(`Context Lens: ${await toggleSave($)}`);
           }
         }
       ),
@@ -3449,7 +3449,7 @@ async function compactBar($, e) {
       borderStyle: "round",
       borderColor: BRAND_EDGE
     },
-    /* @__PURE__ */ h(Box, { key: "compact-art", position: "absolute", top: -1, right: 0, bottom: -1 }, /* @__PURE__ */ h(Svg, { source: BRAND_SVG, alt: "context-lens", width: FROST_WIDTH * 2, height: FROST_HEIGHT * 2 })),
+    /* @__PURE__ */ h(Box, { key: "compact-art", position: "absolute", top: -1, right: 0, bottom: -1 }, /* @__PURE__ */ h(Svg, { source: BRAND_SVG, alt: "Context Lens", width: FROST_WIDTH * 2, height: FROST_HEIGHT * 2 })),
     nowCompact - compactOpenedAt < COMPACT_FADE_MS + 100 ? /* @__PURE__ */ h(Box, { key: "compact-fade", position: "absolute", top: -1, left: 0, right: 0, bottom: -1 }, /* @__PURE__ */ h(Svg, { source: compactFadeSvg(nowCompact - compactOpenedAt), alt: "", width: 1600, height: 240 })) : null,
     introLayer({ Box, Svg }, "compact", await introShows($, "compact")),
     /* @__PURE__ */ h(Box, { key: "compact-words", position: "relative", flexShrink: 0 }, markTitle({ Box, Text, Svg }, "compact-title", ACCENT, "✦ Compact"), /* @__PURE__ */ h(Box, { key: "compact-switch-box", position: "relative", flexShrink: 0, marginLeft: 1 }, /* @__PURE__ */ h(Box, { position: "absolute", top: 0, left: 0 }), /* @__PURE__ */ h(
@@ -3882,7 +3882,7 @@ async function dashboardBand($, e) {
     },
     Svg ? (
       // Auto off: the art goes, so the bar reads as resting, not working.
-      v.auto ? /* @__PURE__ */ h(Box, { key: "dash-art", position: "absolute", top: -1, right: 0, bottom: -1 }, /* @__PURE__ */ h(Svg, { source: DASH_SVG, alt: "context-lens", width: FROST_WIDTH * 2, height: FROST_HEIGHT * 2 })) : null
+      v.auto ? /* @__PURE__ */ h(Box, { key: "dash-art", position: "absolute", top: -1, right: 0, bottom: -1 }, /* @__PURE__ */ h(Svg, { source: DASH_SVG, alt: "Context Lens", width: FROST_WIDTH * 2, height: FROST_HEIGHT * 2 })) : null
     ) : null,
     autoGlowing ? /* @__PURE__ */ h(Box, { key: "dash-auto-glow", position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }, /* @__PURE__ */ h(
       Svg,
@@ -3911,7 +3911,7 @@ async function dashboardBand($, e) {
           Svg,
           {
             source: v.auto ? MARK_SVG : DASH_MARK_OFF,
-            alt: "context-lens",
+            alt: "Context Lens",
             width: DASH_MARK_SIZE,
             height: DASH_MARK_SIZE
           }
@@ -4134,7 +4134,7 @@ async function handoffBar($, e, choice) {
         borderStyle: "round",
         borderColor: BRAND_EDGE
       },
-      Svg ? /* @__PURE__ */ h(Box, { key: "handoff-art", position: "absolute", top: -1, right: 0, bottom: -1 }, /* @__PURE__ */ h(Svg, { source: BRAND_SVG, alt: "context-lens", width: FROST_WIDTH * 2, height: FROST_HEIGHT * 2 })) : null,
+      Svg ? /* @__PURE__ */ h(Box, { key: "handoff-art", position: "absolute", top: -1, right: 0, bottom: -1 }, /* @__PURE__ */ h(Svg, { source: BRAND_SVG, alt: "Context Lens", width: FROST_WIDTH * 2, height: FROST_HEIGHT * 2 })) : null,
       introLayer({ Box, Svg }, "handoff", await introShows($, "handoff")),
       /* @__PURE__ */ h(Box, { key: "handoff-words", position: "relative", flexDirection: "row", gap: 1, flexShrink: 1, minWidth: 0 }, /* @__PURE__ */ h(Text, { color: ACCENT, bold: true, wrap: "truncate" }, "⇥ Handoff"), /* @__PURE__ */ h(Text, { key: "handoff-what", dimColor: true, wrap: "truncate" }, line)),
       /* @__PURE__ */ h(Box, { flexGrow: 1, minWidth: 48 }),
@@ -4203,7 +4203,7 @@ function handoffCardTree($, e, fresh, above, onDismiss) {
       Svg,
       {
         source: cardLanded(fresh.kind) ? DONE_SVG : BRAND_SVG,
-        alt: "context-lens",
+        alt: "Context Lens",
         width: FROST_WIDTH * 2,
         height: FROST_HEIGHT * 2
       }
@@ -4275,11 +4275,11 @@ function uninstallButton($, els) {
     uninstalling = false;
     if (r.exitCode !== 0) {
       const why = (r.stderr || r.stdout).trim().split("\n").pop() ?? "";
-      $.ui.toast(`context-lens: uninstall failed: ${noClaudeHint(why, await homeDir($)) ?? why}`);
+      $.ui.toast(`Context Lens: uninstall failed: ${noClaudeHint(why, await homeDir($)) ?? why}`);
       $.ui.invalidate("ui.render");
       return;
     }
-    $.ui.toast("context-lens is uninstalled. Thanks for trying it.");
+    $.ui.toast("Context Lens is uninstalled. Thanks for trying it.");
     const reloaded = await $.command.run({ command: "reload-plugins", args: RELOAD_ARGS }).then(
       () => true,
       () => false
@@ -4323,7 +4323,7 @@ var CARDS = [
     title: "Context",
     about: "What happens as the chat fills up: the alert, compacting and the handoff."
   },
-  { id: "look", title: "Look", about: "How context-lens looks and which parts of it show. Uninstall removes it." }
+  { id: "look", title: "Look", about: "How Context Lens looks and which parts of it show. Uninstall removes it." }
 ];
 var BIAS_WORDS = ["Cheapest", "Cheaper", "Balanced", "Smarter", "Smartest"];
 var THEME_LABELS = { violet: "Violet", orange: "Claude orange", rose: "Cherry blossom" };
@@ -4476,7 +4476,7 @@ async function settingsPanel($, e) {
   const term = e.surface === "terminal";
   const settingRow = (p) => term && p.options.length <= 5 || !Select ? /* @__PURE__ */ h(Box, { key: p.key, width: "100%", flexDirection: "row", flexWrap: "wrap", columnGap: 1, alignItems: "center" }, p.label ? /* @__PURE__ */ h(Text, { key: `${p.key}-label`, dimColor: true }, p.label) : null, optionButtons(Button, p.key, p.value, p.options, p.onSelect)) : /* @__PURE__ */ h(Select, { key: p.key, label: p.label, value: p.value, options: p.options, onSelect: p.onSelect });
   if (probeLevel === 1) {
-    return /* @__PURE__ */ h(Box, { key: "probe", borderStyle: "round", borderColor: BRAND_EDGE, paddingX: 1 }, /* @__PURE__ */ h(Text, null, "context-lens probe 1: a bare box"));
+    return /* @__PURE__ */ h(Box, { key: "probe", borderStyle: "round", borderColor: BRAND_EDGE, paddingX: 1 }, /* @__PURE__ */ h(Text, null, "Context Lens probe 1: a bare box"));
   }
   const frameOnly = probeLevel === 2;
   const bare = probeLevel === 3;
@@ -4511,7 +4511,7 @@ async function settingsPanel($, e) {
           overflow: "hidden",
           backgroundColor: DASH_HEAD
         },
-        /* @__PURE__ */ h(Box, { key: "settings-bar-mark", position: "absolute", top: -2, right: 20, marginTop: 1 }, /* @__PURE__ */ h(Svg, { source: SETTINGS_MARK, alt: "context-lens mark", width: 140, height: 140 })),
+        /* @__PURE__ */ h(Box, { key: "settings-bar-mark", position: "absolute", top: -2, right: 20, marginTop: 1 }, /* @__PURE__ */ h(Svg, { source: SETTINGS_MARK, alt: "Context Lens mark", width: 140, height: 140 })),
         /* @__PURE__ */ h(Box, { key: "settings-rule", position: "absolute", bottom: 0, left: 0, right: 0, height: 1, alignItems: "flex-end" }, /* @__PURE__ */ h(
           Svg,
           {
@@ -4533,7 +4533,7 @@ async function settingsPanel($, e) {
             gap: 1
           },
           term ? /* @__PURE__ */ h(Text, { color: ACCENT, bold: true }, "✦") : null,
-          Svg && !term ? /* @__PURE__ */ h(Svg, { source: SETTINGS_TITLE, alt: "context-lens", width: 112, height: 28 }) : /* @__PURE__ */ h(Text, { color: DASH_TEXT, bold: true }, "context-lens"),
+          Svg && !term ? /* @__PURE__ */ h(Svg, { source: SETTINGS_TITLE, alt: "Context Lens", width: 136, height: 28 }) : /* @__PURE__ */ h(Text, { color: DASH_TEXT, bold: true }, "Context Lens"),
           ownVersion ? /* @__PURE__ */ h(Text, { color: "#6b6b73" }, "v", ownVersion) : null,
           card === null ? /* @__PURE__ */ h(Text, { dimColor: true }, "Settings") : /* @__PURE__ */ h(Box, { key: "settings-trail", flexDirection: "row", alignItems: "center", gap: 1 }, /* @__PURE__ */ h(Button, { key: "settings-back", variant: "secondary", label: "← Back", onPress: openCard(null) }), /* @__PURE__ */ h(Text, { color: DASH_TEXT, bold: true }, CARDS.find((c) => c.id === card)?.title)),
           dirty ? /* @__PURE__ */ h(Text, { dimColor: true }, " · unsaved changes") : null
@@ -4788,7 +4788,7 @@ async function setupGuide($, e, step) {
     $,
     e,
     "setup",
-    counter ? `✦ context-lens setup  ${counter}` : "✦ context-lens setup",
+    counter ? `✦ Context Lens setup  ${counter}` : "✦ Context Lens setup",
     words,
     controls
   ) : /* @__PURE__ */ h(
@@ -4804,8 +4804,8 @@ async function setupGuide($, e, step) {
       borderStyle: "round",
       borderColor: BRAND_EDGE
     },
-    Svg ? /* @__PURE__ */ h(Box, { key: "setup-art", position: "absolute", top: -1, right: 0, bottom: -1 }, /* @__PURE__ */ h(Svg, { source: BRAND_SVG, alt: "context-lens", width: FROST_WIDTH * 2, height: FROST_HEIGHT * 2 })) : null,
-    /* @__PURE__ */ h(Box, { key: "setup-words", position: "relative", flexDirection: "column", flexShrink: 1, minWidth: 0 }, /* @__PURE__ */ h(Text, { color: ACCENT, bold: true, wrap: "truncate" }, counter ? `✦ context-lens setup  ${counter}` : "✦ context-lens setup"), typeof words === "string" ? /* @__PURE__ */ h(Text, { key: "setup-what", wrap: "truncate" }, words) : words),
+    Svg ? /* @__PURE__ */ h(Box, { key: "setup-art", position: "absolute", top: -1, right: 0, bottom: -1 }, /* @__PURE__ */ h(Svg, { source: BRAND_SVG, alt: "Context Lens", width: FROST_WIDTH * 2, height: FROST_HEIGHT * 2 })) : null,
+    /* @__PURE__ */ h(Box, { key: "setup-words", position: "relative", flexDirection: "column", flexShrink: 1, minWidth: 0 }, /* @__PURE__ */ h(Text, { color: ACCENT, bold: true, wrap: "truncate" }, counter ? `✦ Context Lens setup  ${counter}` : "✦ Context Lens setup"), typeof words === "string" ? /* @__PURE__ */ h(Text, { key: "setup-what", wrap: "truncate" }, words) : words),
     /* @__PURE__ */ h(Box, { flexGrow: 1, minWidth: room }),
     /* @__PURE__ */ h(
       Box,
@@ -5283,7 +5283,7 @@ function registerCommandHooks(on) {
           `handoff: ${await read19($, handoffStage3)}`,
           `last fork: ${lastFork ? `${lastFork.outcome}, ${ago(lastFork.at)}` : "none"}`,
           `hidden: ${config.hide.join(",") || "nothing"}`,
-          lastRequest ? `last request: app asked ${lastRequest.appModel} at ${lastRequest.appEffort ?? "none"}, sent ${lastRequest.model} at ${lastRequest.effort ?? "none"}${lastRequest.model === lastRequest.appModel && lastRequest.effort === lastRequest.appEffort ? " (unchanged)" : " (changed by context-lens)"}, ${ago(lastRequest.at)}` : "last request: none yet",
+          lastRequest ? `last request: app asked ${lastRequest.appModel} at ${lastRequest.appEffort ?? "none"}, sent ${lastRequest.model} at ${lastRequest.effort ?? "none"}${lastRequest.model === lastRequest.appModel && lastRequest.effort === lastRequest.appEffort ? " (unchanged)" : " (changed by Context Lens)"}, ${ago(lastRequest.at)}` : "last request: none yet",
           `compact with: ${config.compactWith}${lastHaikuCompact ? `, last by Haiku ${ago(lastHaikuCompact)}` : ""}`
         ].join(" | ") + // On its own line, easy to find: the model and effort the last request actually ran on.
         `
@@ -5292,12 +5292,12 @@ model used: ${lastRequest ? `${lastRequest.model} at ${lastRequest.effort ?? "no
     }
     if (arg === "settings") {
       await openPluginSettings($);
-      return { text: "The context-lens settings are open above the prompt." };
+      return { text: "The Context Lens settings are open above the prompt." };
     }
     if (arg === "setup") {
       await update22($, setupStep3, () => "lean");
       $.ui.invalidate("ui.render");
-      return { text: "The context-lens setup is open above the prompt." };
+      return { text: "The Context Lens setup is open above the prompt." };
     }
     if (arg === "bench") {
       const cases = JSON.parse(await $.fs.read(`${$.plugin.root}/bench/judge-cases.json`)).cases;
@@ -5658,13 +5658,13 @@ function registerSessionHooks(on) {
   on("session.compact", async ($, e, next) => {
     const result = await (async () => {
       if (e.agentId !== void 0 || config.compactWith !== "haiku") return next(e);
-      if (e.trigger === "precompute") return { skip: "context-lens compacts with Haiku when it is time" };
+      if (e.trigger === "precompute") return { skip: "Context Lens compacts with Haiku when it is time" };
       const messages = Array.isArray(e.messages) && e.messages.length ? e.messages : await $.session.messages().catch(() => []);
       const got = await haikuCompaction($, messages, e.instructions).catch((error) => ({
         fail: String(error).slice(0, 80)
       }));
       if ("fail" in got) {
-        $.ui.toast(`context-lens: Haiku could not compact (${got.fail}). The chat's own model does it.`);
+        $.ui.toast(`Context Lens: Haiku could not compact (${got.fail}). The chat's own model does it.`);
         return next(e);
       }
       setLastHaikuCompact(Date.now());
@@ -5672,7 +5672,7 @@ function registerSessionHooks(on) {
         messages: [
           {
             role: "user",
-            text: `This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation, written by Haiku 5.5 for context-lens.
+            text: `This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation, written by Haiku 5.5 for Context Lens.
 
 ${got.text}
 
@@ -5716,7 +5716,7 @@ Continue the conversation from where it left off without asking the user any fur
     ]);
     void $.command.register({
       name: "context-lens",
-      description: "context-lens: settings, debug, handoff, setup, bench, auto, stats."
+      description: "Context Lens: settings, debug, handoff, setup, bench, auto, stats."
     }).catch(() => void 0);
     readOwnVersion($);
     void drainSetupSave($).catch(() => void 0);
@@ -5792,7 +5792,7 @@ function registerTurnHooks(on) {
       if (e.reason === "answer" && e.answer.trim()) setHandoffText(e.answer);
       else {
         await update26($, handoffStage5, () => null);
-        $.ui.toast("context-lens: the handoff was not written, nothing was cleared");
+        $.ui.toast("Context Lens: the handoff was not written, nothing was cleared");
       }
     }
     return result;
@@ -5854,7 +5854,7 @@ function registerTurnHooks(on) {
         await choose($, { model: await sessionModel($), effort: seen, why: "your pick in the app", by: "manual" });
         void proof($, `request ${e.index}: you set effort ${seen} yourself, Auto off`);
         $.ui.toast(
-          `context-lens: Auto is off. You picked ${EFFORT_LABELS[seen] ?? seen}; turn Auto on to hand it back.`
+          `Context Lens: Auto is off. You picked ${EFFORT_LABELS[seen] ?? seen}; turn Auto on to hand it back.`
         );
         return yield* send(e);
       }

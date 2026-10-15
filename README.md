@@ -1,4 +1,4 @@
-# context-lens
+# Context Lens
 
 A band above the prompt for Claude Code that does two things:
 

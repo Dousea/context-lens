@@ -40,7 +40,7 @@ export async function compactBar(
       borderColor={BRAND_EDGE}
     >
       <Box key="compact-art" position="absolute" top={-1} right={0} bottom={-1}>
-        <Svg source={BRAND_SVG} alt="context-lens" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
+        <Svg source={BRAND_SVG} alt="Context Lens" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
       </Box>
       {/* Opening from the swamped band: its green fades out over the violet, then the entrance sweep. */}
       {nowCompact - compactOpenedAt < COMPACT_FADE_MS + 100 ? (

@@ -158,7 +158,7 @@ export async function hotBand(
           hotkey="s"
           label={saving ? 'End save mode' : 'Save mode'}
           onPress={async () => {
-            $.ui.toast(`context-lens: ${await toggleSave($)}`)
+            $.ui.toast(`Context Lens: ${await toggleSave($)}`)
           }}
         />,
         <Button key="hot-close" plain role="dismiss" label="✕" onPress={() => closeHot($, heat)} />,
@@ -204,7 +204,7 @@ export async function hotBand(
           variant="primary"
           label={saving ? 'End save mode' : 'Save mode'}
           onPress={async () => {
-            $.ui.toast(`context-lens: ${await toggleSave($)}`)
+            $.ui.toast(`Context Lens: ${await toggleSave($)}`)
           }}
         />
         <Button key="hot-close" plain role="dismiss" label="✕" onPress={() => closeHot($, heat)} />

@@ -93,7 +93,7 @@ export function lastAssistantText(messages: readonly { role: string; text: strin
   return [...messages].reverse().find(m => m.role === 'assistant' && m.text.trim())?.text ?? ''
 }
 
-/** The skill or custom command a typed "/name args" runs, or nothing for the app's own commands and context-lens's. */
+/** The skill or custom command a typed "/name args" runs, or nothing for the app's own commands and Context Lens's. */
 export async function typedSkill(
   $: EngineInterface,
   text: string,
@@ -197,7 +197,7 @@ function warnJudge($: EngineInterface, reason: string) {
   void update($, judgeDown, () => reason).then(() => $.ui.invalidate('ui.render'))
   if (warned.has(reason)) return
   warned.add(reason)
-  $.ui.toast(`context-lens: ${reason}. The effort stays as it is.`)
+  $.ui.toast(`Context Lens: ${reason}. The effort stays as it is.`)
 }
 
 /** The text the judge reads: the current pair, the last turns and the next message. */

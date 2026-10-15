@@ -10,7 +10,7 @@
     "handoffSkill": {
       "type": "string",
       "title": "Handoff skill (optional)",
-      "description": "A skill or slash command that writes the Full handoff, e.g. session-handoff. Empty: context-lens writes it itself (checks git, saves HANDOFF.md). Quick is always a fast fork with the built-in prompt.",
+      "description": "A skill or slash command that writes the Full handoff, e.g. session-handoff. Empty: Context Lens writes it itself (checks git, saves HANDOFF.md). Quick is always a fast fork with the built-in prompt.",
       "default": ""
     },
     "handoffAfter": {
@@ -92,7 +92,7 @@
     "overrideDefinitions": {
       "type": "string",
       "title": "Override definitions",
-      "description": "off (default): a subagent keeps the model and effort its definition's frontmatter sets, and context-lens steers only what it inherits. on: the judge's picks replace a definition's model and effort too. A model or effort the Agent call names itself is never replaced.",
+      "description": "off (default): a subagent keeps the model and effort its definition's frontmatter sets, and Context Lens steers only what it inherits. on: the judge's picks replace a definition's model and effort too. A model or effort the Agent call names itself is never replaced.",
       "default": "off",
       "options": [
         "on",
@@ -149,7 +149,7 @@
     "theme": {
       "type": "string",
       "title": "Theme",
-      "description": "The accent colour of everything context-lens draws. violet: the brand colour. orange: Claude Code orange. rose: cherry-blossom pink, with falling petals.",
+      "description": "The accent colour of everything Context Lens draws. violet: the brand colour. orange: Claude Code orange. rose: cherry-blossom pink, with falling petals.",
       "default": "violet",
       "options": [
         "violet",

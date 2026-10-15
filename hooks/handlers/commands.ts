@@ -150,7 +150,7 @@ export function registerCommandHooks(on: On) {
             `last fork: ${lastFork ? `${lastFork.outcome}, ${ago(lastFork.at)}` : 'none'}`,
             `hidden: ${config.hide.join(',') || 'nothing'}`,
             lastRequest
-              ? `last request: app asked ${lastRequest.appModel} at ${lastRequest.appEffort ?? 'none'}, sent ${lastRequest.model} at ${lastRequest.effort ?? 'none'}${lastRequest.model === lastRequest.appModel && lastRequest.effort === lastRequest.appEffort ? ' (unchanged)' : ' (changed by context-lens)'}, ${ago(lastRequest.at)}`
+              ? `last request: app asked ${lastRequest.appModel} at ${lastRequest.appEffort ?? 'none'}, sent ${lastRequest.model} at ${lastRequest.effort ?? 'none'}${lastRequest.model === lastRequest.appModel && lastRequest.effort === lastRequest.appEffort ? ' (unchanged)' : ' (changed by Context Lens)'}, ${ago(lastRequest.at)}`
               : 'last request: none yet',
             `compact with: ${config.compactWith}${lastHaikuCompact ? `, last by Haiku ${ago(lastHaikuCompact)}` : ''}`,
           ].join(' | ') +
@@ -161,12 +161,12 @@ model used: ${lastRequest ? `${lastRequest.model} at ${lastRequest.effort ?? 'no
     }
     if (arg === 'settings') {
       await openPluginSettings($)
-      return { text: 'The context-lens settings are open above the prompt.' }
+      return { text: 'The Context Lens settings are open above the prompt.' }
     }
     if (arg === 'setup') {
       await update($, setupStep, () => 'lean')
       $.ui.invalidate('ui.render')
-      return { text: 'The context-lens setup is open above the prompt.' }
+      return { text: 'The Context Lens setup is open above the prompt.' }
     }
     if (arg === 'bench') {
       const cases = (JSON.parse(await $.fs.read(`${$.plugin.root}/bench/judge-cases.json`)) as { cases: BenchCase[] })

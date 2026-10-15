@@ -59,11 +59,11 @@ export function uninstallButton($: EngineInterface, els: ReturnType<EngineInterf
     uninstalling = false
     if (r.exitCode !== 0) {
       const why = (r.stderr || r.stdout).trim().split('\n').pop() ?? ''
-      $.ui.toast(`context-lens: uninstall failed: ${noClaudeHint(why, await homeDir($)) ?? why}`)
+      $.ui.toast(`Context Lens: uninstall failed: ${noClaudeHint(why, await homeDir($)) ?? why}`)
       $.ui.invalidate('ui.render')
       return
     }
-    $.ui.toast('context-lens is uninstalled. Thanks for trying it.')
+    $.ui.toast('Context Lens is uninstalled. Thanks for trying it.')
     const reloaded = await $.command.run({ command: 'reload-plugins', args: RELOAD_ARGS } as never).then(
       () => true,
       () => false,
@@ -122,7 +122,7 @@ const CARDS: readonly { id: SettingsCard; title: string; about: string }[] = [
     title: 'Context',
     about: 'What happens as the chat fills up: the alert, compacting and the handoff.',
   },
-  { id: 'look', title: 'Look', about: 'How context-lens looks and which parts of it show. Uninstall removes it.' },
+  { id: 'look', title: 'Look', about: 'How Context Lens looks and which parts of it show. Uninstall removes it.' },
 ]
 const BIAS_WORDS = ['Cheapest', 'Cheaper', 'Balanced', 'Smarter', 'Smartest'] as const
 const THEME_LABELS: Record<ThemeName, string> = { violet: 'Violet', orange: 'Claude orange', rose: 'Cherry blossom' }
@@ -339,7 +339,7 @@ export async function settingsPanel($: EngineInterface, e: RenderInput<'AbovePro
   if (probeLevel === 1) {
     return (
       <Box key="probe" borderStyle="round" borderColor={BRAND_EDGE} paddingX={1}>
-        <Text>context-lens probe 1: a bare box</Text>
+        <Text>Context Lens probe 1: a bare box</Text>
       </Box>
     )
   }
@@ -385,7 +385,7 @@ export async function settingsPanel($: EngineInterface, e: RenderInput<'AbovePro
         >
           {/* The mark, big, tilted and cut off by the bar's edges, behind the title and the buttons. */}
           <Box key="settings-bar-mark" position="absolute" top={-2} right={20} marginTop={1}>
-            <Svg source={SETTINGS_MARK} alt="context-lens mark" width={140} height={140} />
+            <Svg source={SETTINGS_MARK} alt="Context Lens mark" width={140} height={140} />
           </Box>
           {/* A hairline along the bar's bottom: a one-pixel image stretched across (a Box cannot draw one pixel). */}
           <Box key="settings-rule" position="absolute" bottom={0} left={0} right={0} height={1} alignItems="flex-end">
@@ -415,10 +415,10 @@ export async function settingsPanel($: EngineInterface, e: RenderInput<'AbovePro
             </Text>
           ) : null}
           {Svg && !term ? (
-            <Svg source={SETTINGS_TITLE} alt="context-lens" width={112} height={28} />
+            <Svg source={SETTINGS_TITLE} alt="Context Lens" width={136} height={28} />
           ) : (
             <Text color={DASH_TEXT} bold>
-              context-lens
+              Context Lens
             </Text>
           )}
           {ownVersion ? <Text color="#6b6b73">v{ownVersion}</Text> : null}

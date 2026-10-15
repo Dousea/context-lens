@@ -44,7 +44,7 @@ const lensRewritten = atom({ plugin: 'context-lens', key: 'lensRewritten' } as c
 const lensLimits = atom({ plugin: 'context-lens', key: 'lensLimits' } as const, [])
 
 export function registerSessionHooks(on: On) {
-  // The lens's own hooks, on events no other hook of context-lens takes.
+  // The lens's own hooks, on events no other hook of Context Lens takes.
   on('session.measure', async ($, e, next) => {
     const result = await next(e)
     if (e.changed.includes('rateLimits')) await update($, lensLimits, () => e.rateLimits)
@@ -67,7 +67,7 @@ export function registerSessionHooks(on: On) {
       // A subagent's own compaction, the session's model by choice: Claude Code's own.
       if (e.agentId !== undefined || config.compactWith !== 'haiku') return next(e)
       // Ahead-of-time summaries would be written by the chat's model and then not used: none.
-      if (e.trigger === 'precompute') return { skip: 'context-lens compacts with Haiku when it is time' }
+      if (e.trigger === 'precompute') return { skip: 'Context Lens compacts with Haiku when it is time' }
       // The transcript comes with the event; read it if not (a test's engine hands none).
       const messages =
         Array.isArray(e.messages) && e.messages.length ? e.messages : await $.session.messages().catch(() => [])
@@ -75,7 +75,7 @@ export function registerSessionHooks(on: On) {
         fail: String(error).slice(0, 80),
       }))
       if ('fail' in got) {
-        $.ui.toast(`context-lens: Haiku could not compact (${got.fail}). The chat's own model does it.`)
+        $.ui.toast(`Context Lens: Haiku could not compact (${got.fail}). The chat's own model does it.`)
         return next(e)
       }
       setLastHaikuCompact(Date.now())
@@ -83,7 +83,7 @@ export function registerSessionHooks(on: On) {
         messages: [
           {
             role: 'user' as const,
-            text: `This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation, written by Haiku 5.5 for context-lens.\n\n${got.text}\n\nContinue the conversation from where it left off without asking the user any further questions.`,
+            text: `This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation, written by Haiku 5.5 for Context Lens.\n\n${got.text}\n\nContinue the conversation from where it left off without asking the user any further questions.`,
             toolUses: [],
           },
         ],
@@ -133,7 +133,7 @@ export function registerSessionHooks(on: On) {
     void $.command
       .register({
         name: 'context-lens',
-        description: 'context-lens: settings, debug, handoff, setup, bench, auto, stats.',
+        description: 'Context Lens: settings, debug, handoff, setup, bench, auto, stats.',
       })
       .catch(() => undefined)
     readOwnVersion($)

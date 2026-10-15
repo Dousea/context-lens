@@ -50,7 +50,7 @@ export async function setupGuide($: EngineInterface, e: RenderInput<'AbovePrompt
         $,
         e,
         'setup',
-        counter ? `✦ context-lens setup  ${counter}` : '✦ context-lens setup',
+        counter ? `✦ Context Lens setup  ${counter}` : '✦ Context Lens setup',
         words,
         controls,
       )
@@ -68,12 +68,12 @@ export async function setupGuide($: EngineInterface, e: RenderInput<'AbovePrompt
       >
         {Svg ? (
           <Box key="setup-art" position="absolute" top={-1} right={0} bottom={-1}>
-            <Svg source={BRAND_SVG} alt="context-lens" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
+            <Svg source={BRAND_SVG} alt="Context Lens" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
           </Box>
         ) : null}
         <Box key="setup-words" position="relative" flexDirection="column" flexShrink={1} minWidth={0}>
           <Text color={ACCENT} bold wrap="truncate">
-            {counter ? `✦ context-lens setup  ${counter}` : '✦ context-lens setup'}
+            {counter ? `✦ Context Lens setup  ${counter}` : '✦ Context Lens setup'}
           </Text>
           {typeof words === 'string' ? (
             <Text key="setup-what" wrap="truncate">

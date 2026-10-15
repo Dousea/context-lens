@@ -1,4 +1,4 @@
-# context-lens Agent Guide
+# Context Lens Agent Guide
 
 ## What this is
 

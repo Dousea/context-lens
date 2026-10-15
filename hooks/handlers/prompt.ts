@@ -87,7 +87,7 @@ export function registerPromptHooks(on: On) {
     const wantsModel = await read($, isAutoModel)
     settleOffer(false)
     // A typed slash command is judged only when it is a skill or a custom command (what the person added); the app's own
-    // (/compact, /clear, /model) and context-lens's never are. The judge is told what the command is, since its name alone says little.
+    // (/compact, /clear, /model) and Context Lens's never are. The judge is told what the command is, since its name alone says little.
     const slash = e.text.trim().startsWith('/')
     const skill = slash && byPerson ? await typedSkill($, e.text) : undefined
     if (byAgent && !wantsEffort) return next(e)

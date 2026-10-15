@@ -181,7 +181,7 @@ export async function compactCold($: EngineInterface, note = '') {
   } catch (error) {
     const why = error instanceof Error ? error.message : String(error)
     void proof($, `compact failed: ${why}`)
-    $.ui.toast(`context-lens: compact failed: ${why.slice(0, 140)}`)
+    $.ui.toast(`Context Lens: compact failed: ${why.slice(0, 140)}`)
   } finally {
     await update($, isCompacting, () => false)
     // Complete, or gone when it failed (the toast says why).

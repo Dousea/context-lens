@@ -75,7 +75,7 @@ export function warmTokens(key: ModelKey, now: number): number | undefined {
 
 /** The note a handed-off prompt carries: the chat's model stays, and a subagent on `model` does the task. */
 export function subagentNote(model: ModelKey): string {
-  return `\n\n[context-lens, on my behalf: I want a subagent on ${model} to do this task (Agent tool, model: "${model}") to save my usage on the chat's model. Delegate it with a complete brief, even if it looks small, then use its result.]`
+  return `\n\n[Context Lens, on my behalf: I want a subagent on ${model} to do this task (Agent tool, model: "${model}") to save my usage on the chat's model. Delegate it with a complete brief, even if it looks small, then use its result.]`
 }
 
 /**

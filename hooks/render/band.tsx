@@ -57,7 +57,7 @@ export type BandElements = {
 // The mark beside a card's title, sized to one line of text.
 const TITLE_MARK_SIZE = 16
 
-/** A card's title with the context-lens mark where the ✦ stood; the ✦ stays where the surface draws no images. */
+/** A card's title with the Context Lens mark where the ✦ stood; the ✦ stays where the surface draws no images. */
 export function markTitle(
   { Box, Text, Svg }: Pick<BandElements, 'Box' | 'Text' | 'Svg'>,
   key: string,
@@ -74,7 +74,7 @@ export function markTitle(
   return (
     <Box key={key} flexDirection="row" alignItems="center" flexShrink={1} minWidth={0}>
       <Box flexShrink={0} marginRight={1} alignItems="center">
-        <Svg source={mark} alt="context-lens" width={TITLE_MARK_SIZE} height={TITLE_MARK_SIZE} />
+        <Svg source={mark} alt="Context Lens" width={TITLE_MARK_SIZE} height={TITLE_MARK_SIZE} />
       </Box>
       <Text color={color} bold wrap="truncate">
         {title.replace(/^✦ /, '')}

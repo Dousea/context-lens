@@ -62,13 +62,13 @@ export async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt
     await dismiss()
     await saveSetting($, 'holdOffer', 'off')
     $.ui.toast(
-      'context-lens: prompts are not held for model offers now. /context-lens settings, Model, turns it back on.',
+      'Context Lens: prompts are not held for model offers now. /context-lens settings, Model, turns it back on.',
     )
   }
   const neverOffer = async () => {
     await dismiss()
     await saveSetting($, 'holdOffer', 'never')
-    $.ui.toast('context-lens: no more model offers. /context-lens settings, Model, turns them back on.')
+    $.ui.toast('Context Lens: no more model offers. /context-lens settings, Model, turns them back on.')
   }
 
   // A bare digit in an empty composer presses a band Button, so a held prompt is answered with 1, 2 or 3 without focusing

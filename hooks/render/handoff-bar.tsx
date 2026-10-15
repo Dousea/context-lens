@@ -169,7 +169,7 @@ export async function handoffBar($: EngineInterface, e: RenderInput<'AbovePrompt
     >
       {Svg ? (
         <Box key="handoff-art" position="absolute" top={-1} right={0} bottom={-1}>
-          <Svg source={BRAND_SVG} alt="context-lens" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
+          <Svg source={BRAND_SVG} alt="Context Lens" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
         </Box>
       ) : null}
       {/* The entrance as the bar opens, only then: a choice redraws the bar. */}

@@ -69,7 +69,7 @@ export function registerTurnHooks(on: On) {
       if (e.reason === 'answer' && e.answer.trim()) setHandoffText(e.answer)
       else {
         await update($, handoffStage, () => null)
-        $.ui.toast('context-lens: the handoff was not written, nothing was cleared')
+        $.ui.toast('Context Lens: the handoff was not written, nothing was cleared')
       }
     }
     return result
@@ -141,7 +141,7 @@ export function registerTurnHooks(on: On) {
         void proof($, `request ${e.index}: you set effort ${seen} yourself, Auto off`)
         // The app has no event for its effort picker: this is the first request after the pick, so say it plainly.
         $.ui.toast(
-          `context-lens: Auto is off. You picked ${EFFORT_LABELS[seen as Effort] ?? seen}; turn Auto on to hand it back.`,
+          `Context Lens: Auto is off. You picked ${EFFORT_LABELS[seen as Effort] ?? seen}; turn Auto on to hand it back.`,
         )
         return yield* send(e)
       }
