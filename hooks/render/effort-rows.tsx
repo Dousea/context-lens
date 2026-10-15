@@ -74,7 +74,7 @@ export async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt
   // A bare digit in an empty composer presses a band Button, so a held prompt is answered with 1, 2 or 3 without focusing
   // the band. Only while it waits: otherwise a 1 typed to start a message would switch the model. Plain Buttons draw
   // the digit beside the label (`1: Switch`). An offer the sent prompt left behind takes letters, which need the band
-  // focused, so a message starting with a digit goes on as typed; s and n belong to the hot and cold bands above it.
+  // focused, so a message starting with a digit goes on as typed; c, h, n and s belong to the bands above it.
   const offerKeys = offer && e.surface === 'terminal'
   const offerKey = (digit: string, letter: string) =>
     offerKeys ? digit : e.surface === 'terminal' ? letter : undefined

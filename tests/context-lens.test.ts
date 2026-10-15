@@ -2217,7 +2217,7 @@ describe('cold band', () => {
     await guide.unmount()
     await $.command.run({ command: 'context-lens', args: 'cold' } as never)
     const band = await $.ui.mount(DESK)
-    expect(await drawn(band)).toContain('Chat went cold')
+    expect(await drawn(band)).toContain('Cache went cold')
     expect(await drawn(band)).toContain('class=\\"f\\"')
     await band.press({ key: 'cold-hide' })
     await band.unmount()
@@ -2664,7 +2664,7 @@ describe('swamp band and setup entry', () => {
     await mocked.advance(16_000)
     // Nothing to draw above the prompt: the engine has no band to mount.
     const band = await $.ui.mount(DESK_BAND).catch(() => null)
-    expect(band ? await drawn(band) : '').not.toContain('Chat is getting swamped')
+    expect(band ? await drawn(band) : '').not.toContain('Context swamped')
     await band?.unmount()
   })
 
@@ -2678,7 +2678,7 @@ describe('swamp band and setup entry', () => {
     await guide.unmount()
     await mocked.advance(16_000)
     const band = await $.ui.mount(DESK_BAND)
-    expect(await drawn(band)).toContain('Chat is getting swamped')
+    expect(await drawn(band)).toContain('Context swamped')
     await band.unmount()
   })
 
@@ -2696,7 +2696,7 @@ describe('swamp band and setup entry', () => {
       const first = await $.ui.mount({ plugin: 'context-lens', surface: 'terminal', ...BAND })
       await mocked.advance(100)
       const swamped = await $.ui.mount(DESK_BAND)
-      expect(await drawn(swamped)).toContain('Chat is getting swamped')
+      expect(await drawn(swamped)).toContain('Context swamped')
       await swamped.unmount()
       // Only the ticker reads the usage again: the band drops away once the next tick sees a smaller context.
       tokens = 50_000
@@ -2759,7 +2759,7 @@ describe('swamp band and setup entry', () => {
     await guide.unmount()
     await mocked.advance(16_000)
     const band = await $.ui.mount(DESK_BAND)
-    expect(await drawn(band)).toContain('Chat is getting swamped')
+    expect(await drawn(band)).toContain('Context swamped')
     expect(await drawn(band)).toContain('180k tokens')
     expect(await band.find({ key: 'swamp-compact' })).toBeDefined()
     expect(await band.find({ key: 'swamp-handoff' })).toBeDefined()
@@ -2785,11 +2785,11 @@ describe('swamp band and setup entry', () => {
     await mocked.advance(16_000)
     await $.prompt.submit({ text: '/status', wait: false, origin: { kind: 'composer' } })
     const busy = await $.ui.mount(DESK_BAND).catch(() => null)
-    expect(busy ? await drawn(busy) : '').not.toContain('Chat is getting swamped')
+    expect(busy ? await drawn(busy) : '').not.toContain('Context swamped')
     await busy?.unmount()
     await $.turn.complete({ turnId: 't1', answer: 'Done.', durationMs: 1, isAborted: false, reason: 'answer' } as never)
     const after = await $.ui.mount(DESK_BAND)
-    expect(await drawn(after)).toContain('Chat is getting swamped')
+    expect(await drawn(after)).toContain('Context swamped')
     await after.unmount()
   })
 
@@ -2814,7 +2814,7 @@ describe('swamp band and setup entry', () => {
     const pressed = band.press({ key: 'compact-go' })
     await mocked.advance(100)
     const during = await $.ui.mount(DESK_BAND).catch(() => null)
-    expect(during ? await drawn(during) : '').not.toContain('Chat is getting swamped')
+    expect(during ? await drawn(during) : '').not.toContain('Context swamped')
     expect(await during?.find({ key: 'swamp-compact' })).toBeUndefined()
     release()
     await pressed
@@ -2915,7 +2915,7 @@ describe('swamp band and setup entry', () => {
     expect(await drawn(reply)).not.toContain('swamped')
     await reply.unmount()
     const band = await $.ui.mount(DESK_BAND)
-    expect(await drawn(band)).toContain('Chat is getting swamped')
+    expect(await drawn(band)).toContain('Context swamped')
     await band.unmount()
   })
 
@@ -3808,7 +3808,7 @@ describe('dashboard', () => {
       expect(await band.find({ key: 'dash-glow' })).toBeUndefined()
       expect(await band.find({ key: 'dash-handoff-h' })).toBeUndefined()
       const text = await drawn(band)
-      expect(text).toContain('Handoff')
+      expect(text).toContain('Hand off')
       // Compact stays beside it as quiet text, so both are a press away.
       expect(await band.find({ key: 'dash-compact' })).toBeDefined()
       await band.unmount()
@@ -3968,7 +3968,7 @@ describe('dashboard', () => {
 
         const band = await $.ui.mount(at)
         const always = handoffButton === 'always'
-        expect((await band.find({ key: 'dash-handoff' }))?.text).toContain(always ? 'Handoff' : 'Compact')
+        expect((await band.find({ key: 'dash-handoff' }))?.text).toContain(always ? 'Hand off' : 'Compact')
         expect(Boolean(await band.find({ key: 'dash-compact' }))).toBe(always)
         await band.unmount()
       },
@@ -4104,7 +4104,7 @@ describe('a chat opened again', () => {
       prompt_cache_likely_expired: true,
     } as never)
     const band = await $.ui.mount(DESK_BAND)
-    expect(await drawn(band)).toContain('Chat went cold')
+    expect(await drawn(band)).toContain('Cache went cold')
     await band.unmount()
   })
 

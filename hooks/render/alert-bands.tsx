@@ -6,17 +6,23 @@ import {
   BOG,
   BOG_BG,
   BOG_EDGE,
+  BOG_LIGHT,
+  BOG_WASH,
   DASH_BG,
   DASH_EDGE,
   EMBER,
   EMBER_BG,
   EMBER_EDGE,
+  EMBER_LIGHT,
   ICE,
   ICE_BG,
   ICE_EDGE,
+  ICE_LIGHT,
   SLATE,
   SLATE_BG,
   SLATE_EDGE,
+  SLATE_LIGHT,
+  SLATE_WASH,
 } from '../core/palette'
 import { closeHot, resetLabel, toggleSave } from '../logic/alerts'
 import { openCompact } from '../logic/compact'
@@ -96,7 +102,7 @@ export async function judgeDownBand($: EngineInterface, e: RenderInput<'AbovePro
       <Box key="down-art" position="absolute" top={-1} right={0} bottom={-1}>
         <Svg source={DOWN_SVG} alt="judge down" width={FROST_WIDTH} height={FROST_HEIGHT} />
       </Box>
-      {introLayer({ Box, Svg }, 'down', await introShows($, 'down'), '#7d8aa8', '#e6ecf8')}
+      {introLayer({ Box, Svg }, 'down', await introShows($, 'down'), SLATE_WASH, SLATE_LIGHT)}
       <Box flexShrink={0}>
         <Text color={SLATE} bold wrap="truncate">
           ✦ Judge down
@@ -150,7 +156,7 @@ export async function hotBand(
           key="hot-save"
           variant="primary"
           hotkey="s"
-          label={saving ? 'Save mode on' : 'Save mode'}
+          label={saving ? 'End save mode' : 'Save mode'}
           onPress={async () => {
             $.ui.toast(`context-lens: ${await toggleSave($)}`)
           }}
@@ -175,7 +181,7 @@ export async function hotBand(
       <Box key="ember" position="absolute" top={-1} right={0} bottom={-1}>
         <Svg source={EMBER_SVG} alt="embers" width={FROST_WIDTH} height={FROST_HEIGHT} />
       </Box>
-      {introLayer({ Box, Svg }, 'hot', await introShows($, 'hot'), EMBER, '#ffd2a8')}
+      {introLayer({ Box, Svg }, 'hot', await introShows($, 'hot'), EMBER, EMBER_LIGHT)}
       <Box flexShrink={0}>
         <Text color={EMBER} bold wrap="truncate">
           ✦ Running hot
@@ -196,7 +202,7 @@ export async function hotBand(
         <Button
           key="hot-save"
           variant="primary"
-          label={saving ? 'Save mode on' : 'Save mode'}
+          label={saving ? 'End save mode' : 'Save mode'}
           onPress={async () => {
             $.ui.toast(`context-lens: ${await toggleSave($)}`)
           }}
@@ -210,7 +216,8 @@ export async function hotBand(
 export async function coldBand($: EngineInterface, e: RenderInput<'AbovePrompt'>, coldTokens: number) {
   const { Box, Text, Button } = themedEls($.ui.resolve(e))
 
-  const line = `Next message rereads ${kTokens(coldTokens)} tokens at full price.`
+  const handing = (await read($, handoffStage)) !== null
+  const line = `Next message rereads ${kTokens(coldTokens)} tokens at full price. Hand off or compact first.`
   if (e.surface === 'terminal')
     return terminalBand($, e, {
       key: 'cold',
@@ -218,12 +225,18 @@ export async function coldBand($: EngineInterface, e: RenderInput<'AbovePrompt'>
       color: ICE,
       bg: ICE_BG,
       edge: ICE_EDGE,
-      title: 'Chat went cold',
-      detail: `${line} Hand off or compact first.`,
+      title: 'Cache went cold',
+      detail: line,
       buttons: [
+        <Button key="cold-compact" variant="secondary" hotkey="c" label="Compact" onPress={() => openCompact($, e)} />,
+        <Button
+          key="cold-handoff"
+          variant="primary"
+          hotkey="h"
+          label={handing ? 'Handing off…' : 'Hand off'}
+          onPress={() => openHandoffBar($)}
+        />,
         <Button key="cold-hide" plain hotkey="n" label="Not now" onPress={() => update($, isColdHidden, () => true)} />,
-        <Button key="cold-compact" hotkey="c" label="Compact" onPress={() => openCompact($, e)} />,
-        <Button key="cold-handoff" variant="primary" hotkey="h" label="Handoff" onPress={() => openHandoffBar($)} />,
       ],
     })
   const { Svg } = themedEls($.ui.resolve(e))
@@ -253,10 +266,10 @@ export async function coldBand($: EngineInterface, e: RenderInput<'AbovePrompt'>
           height={AUTO_GLOW_H}
         />
       </Box>
-      {introLayer({ Box, Svg }, 'cold', await introShows($, 'cold'), ICE, '#cfeeff')}
+      {introLayer({ Box, Svg }, 'cold', await introShows($, 'cold'), ICE, ICE_LIGHT)}
       <Box flexShrink={0}>
         <Text color={ICE} bold wrap="truncate">
-          ✦ Chat went cold
+          ✦ Cache went cold
         </Text>
       </Box>
       <Text wrap="truncate">{line}</Text>
@@ -272,9 +285,14 @@ export async function coldBand($: EngineInterface, e: RenderInput<'AbovePrompt'>
         gap={1}
         alignItems="center"
       >
-        <Button key="cold-hide" plain label="Not now" onPress={() => update($, isColdHidden, () => true)} />
         <Button key="cold-compact" variant="secondary" label="Compact" onPress={() => openCompact($, e)} />
-        <Button key="cold-handoff" variant="primary" label="Handoff" onPress={() => openHandoffBar($)} />
+        <Button
+          key="cold-handoff"
+          variant="primary"
+          label={handing ? 'Handing off…' : 'Hand off'}
+          onPress={() => openHandoffBar($)}
+        />
+        <Button key="cold-hide" plain label="Not now" onPress={() => update($, isColdHidden, () => true)} />
       </Box>
     </Box>
   )
@@ -291,11 +309,17 @@ export async function swampBand($: EngineInterface, e: RenderInput<'AbovePrompt'
       color: BOG,
       bg: BOG_BG,
       edge: BOG_EDGE,
-      title: 'Chat is getting swamped',
-      detail: `${Math.round(swampTokens / 1000)}k tokens${lastContext && lastContext.window ? ` (${Math.round(lastContext.percent)}% of context)` : ''} re-read every message.`,
+      title: 'Context swamped',
+      detail: `${kTokens(swampTokens)} tokens${lastContext && lastContext.window ? ` (${Math.round(lastContext.percent)}% of context)` : ''} re-read every message.`,
       buttons: [
-        <Button key="swamp-compact" variant="primary" label="Compact" onPress={() => openCompact($, e)} />,
-        <Button key="swamp-handoff" label={handing ? 'Handing off…' : 'Handoff'} onPress={() => openHandoffBar($)} />,
+        <Button key="swamp-compact" variant="secondary" hotkey="c" label="Compact" onPress={() => openCompact($, e)} />,
+        <Button
+          key="swamp-handoff"
+          variant="primary"
+          hotkey="h"
+          label={handing ? 'Handing off…' : 'Hand off'}
+          onPress={() => openHandoffBar($)}
+        />,
         <Button
           key="swamp-close"
           plain
@@ -322,10 +346,10 @@ export async function swampBand($: EngineInterface, e: RenderInput<'AbovePrompt'
       <Box key="bog" position="absolute" top={-1} right={0} bottom={-1}>
         <Svg source={SWAMP_SVG} alt="swamp" width={FROST_WIDTH} height={FROST_HEIGHT} />
       </Box>
-      {introLayer({ Box, Svg }, 'swamp', await introShows($, 'swamp'), '#6f9a4f', '#d6ecc2')}
+      {introLayer({ Box, Svg }, 'swamp', await introShows($, 'swamp'), BOG_WASH, BOG_LIGHT)}
       <Box flexShrink={0}>
         <Text color={BOG} bold wrap="truncate">
-          ✦ Chat is getting swamped
+          ✦ Context swamped
         </Text>
       </Box>
       {/* How full the context is, as a ring and a figure: the tokens alone do not say how close the limit is. */}
@@ -340,7 +364,7 @@ export async function swampBand($: EngineInterface, e: RenderInput<'AbovePrompt'
           <Text color={BOG}>{`${Math.round(lastContext.percent)}%`}</Text>
         </Box>
       ) : null}
-      <Text wrap="truncate">{`${Math.round(swampTokens / 1000)}k tokens re-read every message.`}</Text>
+      <Text wrap="truncate">{`${kTokens(swampTokens)} tokens re-read every message.`}</Text>
       <Box flexGrow={1} minWidth={34} />
       <Box
         key="swamp-actions"
@@ -352,8 +376,13 @@ export async function swampBand($: EngineInterface, e: RenderInput<'AbovePrompt'
         gap={1}
         alignItems="center"
       >
-        <Button key="swamp-compact" variant="primary" label="Compact" onPress={() => openCompact($, e)} />
-        <Button key="swamp-handoff" label={handing ? 'Handing off…' : 'Handoff'} onPress={() => openHandoffBar($)} />
+        <Button key="swamp-compact" variant="secondary" label="Compact" onPress={() => openCompact($, e)} />
+        <Button
+          key="swamp-handoff"
+          variant="primary"
+          label={handing ? 'Handing off…' : 'Hand off'}
+          onPress={() => openHandoffBar($)}
+        />
         <Button
           key="swamp-close"
           plain

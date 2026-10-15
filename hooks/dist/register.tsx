@@ -427,15 +427,21 @@ var HOVER_BOX = "#2b2b2f";
 var ICE = "#7cc4ff";
 var ICE_BG = "#0e1820";
 var ICE_EDGE = "#2f5c80";
+var ICE_LIGHT = "#cfeeff";
 var BOG = "#a7c98f";
 var BOG_BG = "#111710";
 var BOG_EDGE = "#3e5a33";
+var BOG_WASH = "#6f9a4f";
+var BOG_LIGHT = "#d6ecc2";
 var EMBER = "#f08a3c";
 var EMBER_BG = "#1a110c";
 var EMBER_EDGE = "#6a3418";
+var EMBER_LIGHT = "#ffd2a8";
 var SLATE = "#b4b8c4";
 var SLATE_BG = "#12141b";
 var SLATE_EDGE = "#39415a";
+var SLATE_WASH = "#7d8aa8";
+var SLATE_LIGHT = "#e6ecf8";
 var YELLOW = "#e0a33a";
 var RED = "#e5534b";
 var DASH_BG = "#141416";
@@ -3121,7 +3127,7 @@ async function judgeDownBand($, e, downReason) {
       borderColor: SLATE_EDGE
     },
     /* @__PURE__ */ h(Box, { key: "down-art", position: "absolute", top: -1, right: 0, bottom: -1 }, /* @__PURE__ */ h(Svg, { source: DOWN_SVG, alt: "judge down", width: FROST_WIDTH, height: FROST_HEIGHT })),
-    introLayer({ Box, Svg }, "down", await introShows($, "down"), "#7d8aa8", "#e6ecf8"),
+    introLayer({ Box, Svg }, "down", await introShows($, "down"), SLATE_WASH, SLATE_LIGHT),
     /* @__PURE__ */ h(Box, { flexShrink: 0 }, /* @__PURE__ */ h(Text, { color: SLATE, bold: true, wrap: "truncate" }, "✦ Judge down")),
     /* @__PURE__ */ h(Text, { wrap: "truncate" }, `${downReason}. The effort stays as it is.`),
     /* @__PURE__ */ h(Box, { flexGrow: 1, minWidth: 30 }),
@@ -3171,7 +3177,7 @@ async function hotBand($, e, heat) {
             key: "hot-save",
             variant: "primary",
             hotkey: "s",
-            label: saving ? "Save mode on" : "Save mode",
+            label: saving ? "End save mode" : "Save mode",
             onPress: async () => {
               $.ui.toast(`context-lens: ${await toggleSave($)}`);
             }
@@ -3196,7 +3202,7 @@ async function hotBand($, e, heat) {
       borderColor: EMBER_EDGE
     },
     /* @__PURE__ */ h(Box, { key: "ember", position: "absolute", top: -1, right: 0, bottom: -1 }, /* @__PURE__ */ h(Svg, { source: EMBER_SVG, alt: "embers", width: FROST_WIDTH, height: FROST_HEIGHT })),
-    introLayer({ Box, Svg }, "hot", await introShows($, "hot"), EMBER, "#ffd2a8"),
+    introLayer({ Box, Svg }, "hot", await introShows($, "hot"), EMBER, EMBER_LIGHT),
     /* @__PURE__ */ h(Box, { flexShrink: 0 }, /* @__PURE__ */ h(Text, { color: EMBER, bold: true, wrap: "truncate" }, "✦ Running hot")),
     /* @__PURE__ */ h(Text, { wrap: "truncate" }, `${Math.round(heat.percent)}% of your ${window} limit used${resets ? ` · resets ${resets}` : ""}`),
     /* @__PURE__ */ h(Box, { flexGrow: 1, minWidth: 30 }),
@@ -3217,7 +3223,7 @@ async function hotBand($, e, heat) {
         {
           key: "hot-save",
           variant: "primary",
-          label: saving ? "Save mode on" : "Save mode",
+          label: saving ? "End save mode" : "Save mode",
           onPress: async () => {
             $.ui.toast(`context-lens: ${await toggleSave($)}`);
           }
@@ -3229,7 +3235,8 @@ async function hotBand($, e, heat) {
 }
 async function coldBand($, e, coldTokens) {
   const { Box, Text, Button } = themedEls($.ui.resolve(e));
-  const line = `Next message rereads ${kTokens(coldTokens)} tokens at full price.`;
+  const handing = await read14($, handoffStage2) !== null;
+  const line = `Next message rereads ${kTokens(coldTokens)} tokens at full price. Hand off or compact first.`;
   if (e.surface === "terminal")
     return terminalBand($, e, {
       key: "cold",
@@ -3237,12 +3244,21 @@ async function coldBand($, e, coldTokens) {
       color: ICE,
       bg: ICE_BG,
       edge: ICE_EDGE,
-      title: "Chat went cold",
-      detail: `${line} Hand off or compact first.`,
+      title: "Cache went cold",
+      detail: line,
       buttons: [
-        /* @__PURE__ */ h(Button, { key: "cold-hide", plain: true, hotkey: "n", label: "Not now", onPress: () => update14($, isColdHidden2, () => true) }),
-        /* @__PURE__ */ h(Button, { key: "cold-compact", hotkey: "c", label: "Compact", onPress: () => openCompact($, e) }),
-        /* @__PURE__ */ h(Button, { key: "cold-handoff", variant: "primary", hotkey: "h", label: "Handoff", onPress: () => openHandoffBar($) })
+        /* @__PURE__ */ h(Button, { key: "cold-compact", variant: "secondary", hotkey: "c", label: "Compact", onPress: () => openCompact($, e) }),
+        /* @__PURE__ */ h(
+          Button,
+          {
+            key: "cold-handoff",
+            variant: "primary",
+            hotkey: "h",
+            label: handing ? "Handing off…" : "Hand off",
+            onPress: () => openHandoffBar($)
+          }
+        ),
+        /* @__PURE__ */ h(Button, { key: "cold-hide", plain: true, hotkey: "n", label: "Not now", onPress: () => update14($, isColdHidden2, () => true) })
       ]
     });
   const { Svg } = themedEls($.ui.resolve(e));
@@ -3270,8 +3286,8 @@ async function coldBand($, e, coldTokens) {
         height: AUTO_GLOW_H
       }
     )),
-    introLayer({ Box, Svg }, "cold", await introShows($, "cold"), ICE, "#cfeeff"),
-    /* @__PURE__ */ h(Box, { flexShrink: 0 }, /* @__PURE__ */ h(Text, { color: ICE, bold: true, wrap: "truncate" }, "✦ Chat went cold")),
+    introLayer({ Box, Svg }, "cold", await introShows($, "cold"), ICE, ICE_LIGHT),
+    /* @__PURE__ */ h(Box, { flexShrink: 0 }, /* @__PURE__ */ h(Text, { color: ICE, bold: true, wrap: "truncate" }, "✦ Cache went cold")),
     /* @__PURE__ */ h(Text, { wrap: "truncate" }, line),
     /* @__PURE__ */ h(Box, { flexGrow: 1, minWidth: 34 }),
     /* @__PURE__ */ h(
@@ -3286,9 +3302,17 @@ async function coldBand($, e, coldTokens) {
         gap: 1,
         alignItems: "center"
       },
-      /* @__PURE__ */ h(Button, { key: "cold-hide", plain: true, label: "Not now", onPress: () => update14($, isColdHidden2, () => true) }),
       /* @__PURE__ */ h(Button, { key: "cold-compact", variant: "secondary", label: "Compact", onPress: () => openCompact($, e) }),
-      /* @__PURE__ */ h(Button, { key: "cold-handoff", variant: "primary", label: "Handoff", onPress: () => openHandoffBar($) })
+      /* @__PURE__ */ h(
+        Button,
+        {
+          key: "cold-handoff",
+          variant: "primary",
+          label: handing ? "Handing off…" : "Hand off",
+          onPress: () => openHandoffBar($)
+        }
+      ),
+      /* @__PURE__ */ h(Button, { key: "cold-hide", plain: true, label: "Not now", onPress: () => update14($, isColdHidden2, () => true) })
     )
   );
 }
@@ -3302,11 +3326,20 @@ async function swampBand($, e, swampTokens) {
       color: BOG,
       bg: BOG_BG,
       edge: BOG_EDGE,
-      title: "Chat is getting swamped",
-      detail: `${Math.round(swampTokens / 1e3)}k tokens${lastContext && lastContext.window ? ` (${Math.round(lastContext.percent)}% of context)` : ""} re-read every message.`,
+      title: "Context swamped",
+      detail: `${kTokens(swampTokens)} tokens${lastContext && lastContext.window ? ` (${Math.round(lastContext.percent)}% of context)` : ""} re-read every message.`,
       buttons: [
-        /* @__PURE__ */ h(Button, { key: "swamp-compact", variant: "primary", label: "Compact", onPress: () => openCompact($, e) }),
-        /* @__PURE__ */ h(Button, { key: "swamp-handoff", label: handing ? "Handing off…" : "Handoff", onPress: () => openHandoffBar($) }),
+        /* @__PURE__ */ h(Button, { key: "swamp-compact", variant: "secondary", hotkey: "c", label: "Compact", onPress: () => openCompact($, e) }),
+        /* @__PURE__ */ h(
+          Button,
+          {
+            key: "swamp-handoff",
+            variant: "primary",
+            hotkey: "h",
+            label: handing ? "Handing off…" : "Hand off",
+            onPress: () => openHandoffBar($)
+          }
+        ),
         /* @__PURE__ */ h(
           Button,
           {
@@ -3335,8 +3368,8 @@ async function swampBand($, e, swampTokens) {
       borderColor: BOG_EDGE
     },
     /* @__PURE__ */ h(Box, { key: "bog", position: "absolute", top: -1, right: 0, bottom: -1 }, /* @__PURE__ */ h(Svg, { source: SWAMP_SVG, alt: "swamp", width: FROST_WIDTH, height: FROST_HEIGHT })),
-    introLayer({ Box, Svg }, "swamp", await introShows($, "swamp"), "#6f9a4f", "#d6ecc2"),
-    /* @__PURE__ */ h(Box, { flexShrink: 0 }, /* @__PURE__ */ h(Text, { color: BOG, bold: true, wrap: "truncate" }, "✦ Chat is getting swamped")),
+    introLayer({ Box, Svg }, "swamp", await introShows($, "swamp"), BOG_WASH, BOG_LIGHT),
+    /* @__PURE__ */ h(Box, { flexShrink: 0 }, /* @__PURE__ */ h(Text, { color: BOG, bold: true, wrap: "truncate" }, "✦ Context swamped")),
     lastContext && lastContext.window ? /* @__PURE__ */ h(Box, { key: "swamp-ring", flexShrink: 0, flexDirection: "row", gap: 1, alignItems: "center" }, /* @__PURE__ */ h(
       Svg,
       {
@@ -3346,7 +3379,7 @@ async function swampBand($, e, swampTokens) {
         height: 16
       }
     ), /* @__PURE__ */ h(Text, { color: BOG }, `${Math.round(lastContext.percent)}%`)) : null,
-    /* @__PURE__ */ h(Text, { wrap: "truncate" }, `${Math.round(swampTokens / 1e3)}k tokens re-read every message.`),
+    /* @__PURE__ */ h(Text, { wrap: "truncate" }, `${kTokens(swampTokens)} tokens re-read every message.`),
     /* @__PURE__ */ h(Box, { flexGrow: 1, minWidth: 34 }),
     /* @__PURE__ */ h(
       Box,
@@ -3360,8 +3393,16 @@ async function swampBand($, e, swampTokens) {
         gap: 1,
         alignItems: "center"
       },
-      /* @__PURE__ */ h(Button, { key: "swamp-compact", variant: "primary", label: "Compact", onPress: () => openCompact($, e) }),
-      /* @__PURE__ */ h(Button, { key: "swamp-handoff", label: handing ? "Handing off…" : "Handoff", onPress: () => openHandoffBar($) }),
+      /* @__PURE__ */ h(Button, { key: "swamp-compact", variant: "secondary", label: "Compact", onPress: () => openCompact($, e) }),
+      /* @__PURE__ */ h(
+        Button,
+        {
+          key: "swamp-handoff",
+          variant: "primary",
+          label: handing ? "Handing off…" : "Hand off",
+          onPress: () => openHandoffBar($)
+        }
+      ),
       /* @__PURE__ */ h(
         Button,
         {
@@ -3409,7 +3450,7 @@ async function compactBar($, e) {
         key: "compact-to-handoff",
         plain: true,
         dimColor: true,
-        label: "Handoff instead",
+        label: "Hand off instead",
         onPress: async () => {
           await update15($, compactAsk3, () => false);
           await openHandoffBar($);
@@ -3667,7 +3708,7 @@ async function dashboardBand($, e) {
             height: GLOW_H
           }
         )
-      ) : null, handoffLoud() ? /* @__PURE__ */ h(Box, { key: "dash-handoff-key", width: 0, height: 1, overflow: "hidden" }, /* @__PURE__ */ h(Button, { key: "dash-handoff-h", plain: true, hotkey: "h", label: "Handoff", onPress: () => openHandoffBar($) })) : null, /* @__PURE__ */ h(Box, { key: "dash-handoff-box", flexShrink: 0, flexDirection: "row", alignItems: "center" }, /* @__PURE__ */ h(Box, { width: 9, height: 1, flexShrink: 0 }), /* @__PURE__ */ h(
+      ) : null, handoffLoud() ? /* @__PURE__ */ h(Box, { key: "dash-handoff-key", width: 0, height: 1, overflow: "hidden" }, /* @__PURE__ */ h(Button, { key: "dash-handoff-h", plain: true, hotkey: "h", label: "Hand off", onPress: () => openHandoffBar($) })) : null, /* @__PURE__ */ h(Box, { key: "dash-handoff-box", flexShrink: 0, flexDirection: "row", alignItems: "center" }, /* @__PURE__ */ h(Box, { width: 9, height: 1, flexShrink: 0 }), /* @__PURE__ */ h(
         Box,
         {
           position: "absolute",
@@ -3726,7 +3767,7 @@ async function dashboardBand($, e) {
             color: handoffLook(handoffLevel()).label,
             hover: { scope: "handoff", color: handoffLook(handoffLevel(), true).label }
           },
-          handoffSlot() ? "Handoff" : "Compact"
+          handoffSlot() ? "Hand off" : "Compact"
         )
       ), /* @__PURE__ */ h(
         Box,
@@ -3749,7 +3790,16 @@ async function dashboardBand($, e) {
             onPress: () => handoffSlot() ? openHandoffBar($) : openCompact($, e)
           }
         )
-      ))) : handoffLoud() ? /* @__PURE__ */ h(Button, { key: "dash-handoff", variant: "primary", hotkey: "h", label: "Handoff", onPress: () => openHandoffBar($) }) : handoffSlot() ? /* @__PURE__ */ h(Button, { key: "dash-handoff", variant: "secondary", label: "Handoff", onPress: () => openHandoffBar($) }) : /* @__PURE__ */ h(Button, { key: "dash-handoff", variant: "secondary", label: "Compact", onPress: () => openCompact($, e) })
+      ))) : handoffLoud() ? /* @__PURE__ */ h(
+        Button,
+        {
+          key: "dash-handoff",
+          variant: "primary",
+          hotkey: "h",
+          label: "Hand off",
+          onPress: () => openHandoffBar($)
+        }
+      ) : handoffSlot() ? /* @__PURE__ */ h(Button, { key: "dash-handoff", variant: "secondary", label: "Hand off", onPress: () => openHandoffBar($) }) : /* @__PURE__ */ h(Button, { key: "dash-handoff", variant: "secondary", label: "Compact", onPress: () => openCompact($, e) })
     ],
     // The terminal says it in a word; the desktop draws an icon, with this button laid blank over it to take the click.
     // No-break spaces, not braille blanks: some fonts draw U+2800 as a dot.

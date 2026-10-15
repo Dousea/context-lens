@@ -285,7 +285,7 @@ export async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePro
                   hotkey draws its letter over the label. */}
               {handoffLoud() ? (
                 <Box key="dash-handoff-key" width={0} height={1} overflow="hidden">
-                  <Button key="dash-handoff-h" plain hotkey="h" label="Handoff" onPress={() => openHandoffBar($)} />
+                  <Button key="dash-handoff-h" plain hotkey="h" label="Hand off" onPress={() => openHandoffBar($)} />
                 </Box>
               ) : null}
               {/* Its width is a spacer in the flow, not the image: the app can lay an image out at no width, and the
@@ -341,7 +341,7 @@ export async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePro
                     color={handoffLook(handoffLevel()).label}
                     hover={{ scope: 'handoff', color: handoffLook(handoffLevel(), true).label }}
                   >
-                    {handoffSlot() ? 'Handoff' : 'Compact'}
+                    {handoffSlot() ? 'Hand off' : 'Compact'}
                   </Text>
                 </Box>
                 <Box
@@ -364,9 +364,15 @@ export async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePro
               </Box>
             </Box>
           ) : handoffLoud() ? (
-            <Button key="dash-handoff" variant="primary" hotkey="h" label="Handoff" onPress={() => openHandoffBar($)} />
+            <Button
+              key="dash-handoff"
+              variant="primary"
+              hotkey="h"
+              label="Hand off"
+              onPress={() => openHandoffBar($)}
+            />
           ) : handoffSlot() ? (
-            <Button key="dash-handoff" variant="secondary" label="Handoff" onPress={() => openHandoffBar($)} />
+            <Button key="dash-handoff" variant="secondary" label="Hand off" onPress={() => openHandoffBar($)} />
           ) : (
             <Button key="dash-handoff" variant="secondary" label="Compact" onPress={() => openCompact($, e)} />
           ),

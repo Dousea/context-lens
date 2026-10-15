@@ -58,7 +58,7 @@ export async function compactBar(
             key="compact-to-handoff"
             plain
             dimColor
-            label="Handoff instead"
+            label="Hand off instead"
             onPress={async () => {
               await update($, compactAsk, () => false)
               await openHandoffBar($)
