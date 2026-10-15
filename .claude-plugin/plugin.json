@@ -66,7 +66,7 @@
     "hide": {
       "type": "string",
       "title": "Switched off",
-      "description": "Comma-separated: handoff (the Handoff button), timer (the cache timer), reason (the judge line), swamp (the context alert), hot (the running-low alert), cold (the cold-cache alert). Empty shows everything.",
+      "description": "Comma-separated: handoff (the Hand off button), timer (the cache timer), reason (the judge line), swamp (the context alert), hot (the running-hot alert), cold (the cold-cache alert). Empty shows everything.",
       "default": ""
     },
     "subagents": {
@@ -111,8 +111,8 @@
     },
     "handoffButton": {
       "type": "string",
-      "title": "Handoff button",
-      "description": "advised: the button is Compact, and turns into a glowing Handoff when Haiku says a fresh chat would pay off. always: the button is always Handoff.",
+      "title": "Hand off button",
+      "description": "advised: the button is Compact, and turns into a glowing Hand off when Haiku says a fresh chat would pay off. always: the button is always Hand off.",
       "default": "advised",
       "options": [
         "advised",

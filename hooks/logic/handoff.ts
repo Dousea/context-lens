@@ -370,7 +370,7 @@ export const setAdviceNow = (value: typeof adviceNow) => {
   adviceNow = value
 }
 const HANDOFF_ADVICE_LEVEL = 50
-// "Always" (the Handoff button setting) keeps the slot as Handoff, calm in a grey box, and loud only once advised.
+// "Always" (the Hand off button setting) keeps the slot as Handoff, calm in a grey box, and loud only once advised.
 export const handoffLevel = () =>
   adviceNow ? HANDOFF_ADVICE_LEVEL : config.handoffButton === 'always' ? HANDOFF_BOX_AT : 0
 export const handoffLoud = () => adviceNow !== null

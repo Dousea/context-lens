@@ -3793,7 +3793,7 @@ describe('dashboard', () => {
   )
 
   test(
-    'Handoff button set to always: Handoff from the start, calm, no glow, with Compact beside it',
+    'Hand off button set to always: Hand off from the start, calm, no glow, with Compact beside it',
     { options: { layout: 'default', handoffButton: 'always' } } as never,
     async ($, on) => {
       engine(on)

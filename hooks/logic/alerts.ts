@@ -125,7 +125,7 @@ export async function checkSwamp($: EngineInterface) {
   if (preview !== undefined && !context.window) context.window = 200_000
   const wasStep = handoffGlowStep(lastContext?.percent ?? 0)
   setLastContext({ tokens, window: context.window ?? 0, percent })
-  // The Handoff button turns white and glows harder with the context: redraw the band when it crosses a step.
+  // The Hand off button turns white and glows harder with the context: redraw the band when it crosses a step.
   if (handoffGlowStep(percent) !== wasStep) $.ui.invalidate('ui.render')
   await checkHot($, rateLimits ?? [])
   const over = percent >= config.swampAt

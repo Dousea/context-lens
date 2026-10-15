@@ -193,7 +193,7 @@ export async function settingsPanel($: EngineInterface, e: RenderInput<'AbovePro
   const showParts = [
     ['timer', 'Cache timer'],
     ['reason', 'Judge line'],
-    ['hot', 'Running-low alert'],
+    ['hot', 'Running-hot alert'],
     ['cold', 'Cold-cache alert'],
   ] as const
   const summaries: Record<SettingsCard, string> = {
@@ -668,7 +668,7 @@ export async function settingsPanel($: EngineInterface, e: RenderInput<'AbovePro
                         }),
                         settingRow({
                           key: 'settings-handoff-button',
-                          label: 'Handoff button',
+                          label: 'Hand off button',
                           value: handoffButton,
                           options: [
                             { value: 'hidden', label: 'Hidden' },

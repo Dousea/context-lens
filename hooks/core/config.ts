@@ -23,7 +23,7 @@ export type JudgeConfig = {
   layout: 'default' | 'minimal'
   /** Who writes a compaction's summary: Haiku 5.5 (the default, a fraction of the price) or the chat's own model. */
   compactWith: 'haiku' | 'session'
-  /** advised: the footer slot is Compact until Haiku advises a handoff. always: it is always the Handoff button. */
+  /** advised: the footer slot is Compact until Haiku advises a handoff. always: it is always the Hand off button. */
   handoffButton: 'advised' | 'always'
   /** on: every subagent the chat sends off gets an effort picked by the judge before it starts. */
   subagents: 'on' | 'off'
@@ -41,8 +41,8 @@ export type JudgeConfig = {
 /** The swamp thresholds the settings offer, in percent of the context window. */
 export const SWAMP_STEPS = [10, 20, 30, 40, 50, 60, 70, 80] as const
 
-/** The parts of context-lens a person can switch off: the Handoff button, the cache timer, the judge's reason line and
- * the context (swamp), running-low (hot) and cold-cache alerts. The Context card switches off the button and the context
+/** The parts of context-lens a person can switch off: the Hand off button, the cache timer, the judge's reason line and
+ * the context (swamp), running-hot (hot) and cold-cache alerts. The Context card switches off the button and the context
  * alert, the Look card the rest; the judge-down alert always shows. Each alert also has its own ✕. */
 export const HIDEABLE = ['handoff', 'timer', 'reason', 'swamp', 'hot', 'cold'] as const
 export type Hideable = (typeof HIDEABLE)[number]

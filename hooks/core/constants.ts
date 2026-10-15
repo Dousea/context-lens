@@ -48,5 +48,5 @@ export const COMPACT_FADE_MS = 450
 export const FROST_WIDTH = 440
 export const FROST_HEIGHT = 64
 
-/** Context share from which the dashboard's Handoff button turns white: below it a handoff saves little. */
+/** Context share from which the dashboard's Hand off button turns white: below it a handoff saves little. */
 export const HANDOFF_LOUD_AT = 30

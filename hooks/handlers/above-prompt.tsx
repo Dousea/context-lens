@@ -116,8 +116,8 @@ export function registerAbovePromptHooks(on: On) {
       if (open) return await settingsPanel($, e)
       // The compact bar: an optional note for the summary, then Compact (or Enter).
       if (e.surface !== 'terminal' && (await read($, compactAsk))) return await compactBar($, e)
-      // The handoff bar: quick or full, then what follows, and a line saying what that does. Opened by ⇥ or the swamp
-      // band's Handoff; Go keeps the choice for next time. Enter presses Go once the bar holds the keyboard.
+      // The handoff bar: quick or full, then what follows, and a line saying what that does. Opened by ⇥ or the cold and swamp
+      // bands' Hand off; Go keeps the choice for next time. Enter presses Go once the bar holds the keyboard.
       const choice = await read($, handoffPick)
       if (choice) return await handoffBar($, e, choice)
       // The setup guide, one step at a time: the lean, the handoff, then a word on what else is there. The

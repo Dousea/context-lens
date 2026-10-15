@@ -85,14 +85,14 @@ export function registerCommandHooks(on: On) {
       }))
       $.ui.invalidate('ui.render')
       return {
-        text: 'The running-hot band is showing now (a test). It goes away at the next check unless a limit really is close.',
+        text: 'The "Running hot" band is showing now (a test). It goes away at the next check unless a limit really is close.',
       }
     }
     if (arg === 'down') {
       await update($, judgeDownHidden, () => null)
       await update($, judgeDown, () => 'Haiku is out of credits (402)')
       $.ui.invalidate('ui.render')
-      return { text: 'The judge-down band is showing now (a test). It goes away once the judge answers again.' }
+      return { text: 'The "Judge down" band is showing now (a test). It goes away once the judge answers again.' }
     }
     if (arg === 'swamp') {
       // Shows the swamp band now, to try it: the next check puts back the real figure.
@@ -100,7 +100,7 @@ export function registerCommandHooks(on: On) {
       await update($, swamped, () => SWAMP_TOKENS)
       $.ui.invalidate('ui.render')
       return {
-        text: 'The swamp band is showing now (a test). It goes away at the next check unless the chat really is swamped.',
+        text: 'The "Context swamped" band is showing now (a test). It goes away at the next check unless the context really is swamped.',
       }
     }
     if (arg === 'save') return { text: await toggleSave($) }
@@ -178,14 +178,14 @@ model used: ${lastRequest ? `${lastRequest.model} at ${lastRequest.effort ?? 'no
 Saved to ${out}.md and .json`,
       }
     }
-    // A test aid: marks the cache cold now, so the Compact button can be tried without waiting out the hour.
+    // A test aid: marks the cache cold now, so the cold band's buttons can be tried without waiting out the hour.
     if (arg === 'cold') {
       setColdForced(true)
       setCacheExpires(await $.clock.now())
       await update($, cacheLeft, () => 0)
       $.ui.invalidate('ui.render')
       return {
-        text: 'The cache shows as cold now (a test). Compact is in the footer. The next response restarts the countdown.',
+        text: 'The "Cache went cold" band is showing now (a test), with Compact and Hand off. The next response restarts the countdown.',
       }
     }
     if (arg === 'stats' || arg === 'saved') return { text: `Auto, this session:\n${savedText(await read($, saved))}` }

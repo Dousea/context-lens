@@ -4371,7 +4371,7 @@ async function settingsPanel($, e) {
   const showParts = [
     ["timer", "Cache timer"],
     ["reason", "Judge line"],
-    ["hot", "Running-low alert"],
+    ["hot", "Running-hot alert"],
     ["cold", "Cold-cache alert"]
   ];
   const summaries = {
@@ -4700,7 +4700,7 @@ async function settingsPanel($, e) {
             }),
             settingRow({
               key: "settings-handoff-button",
-              label: "Handoff button",
+              label: "Hand off button",
               value: handoffButton,
               options: [
                 { value: "hidden", label: "Hidden" },
@@ -5219,21 +5219,21 @@ function registerCommandHooks(on) {
       }));
       $.ui.invalidate("ui.render");
       return {
-        text: "The running-hot band is showing now (a test). It goes away at the next check unless a limit really is close."
+        text: 'The "Running hot" band is showing now (a test). It goes away at the next check unless a limit really is close.'
       };
     }
     if (arg === "down") {
       await update22($, judgeDownHidden3, () => null);
       await update22($, judgeDown3, () => "Haiku is out of credits (402)");
       $.ui.invalidate("ui.render");
-      return { text: "The judge-down band is showing now (a test). It goes away once the judge answers again." };
+      return { text: 'The "Judge down" band is showing now (a test). It goes away once the judge answers again.' };
     }
     if (arg === "swamp") {
       await update22($, swampHiddenAt3, () => null);
       await update22($, swamped3, () => SWAMP_TOKENS);
       $.ui.invalidate("ui.render");
       return {
-        text: "The swamp band is showing now (a test). It goes away at the next check unless the chat really is swamped."
+        text: 'The "Context swamped" band is showing now (a test). It goes away at the next check unless the context really is swamped.'
       };
     }
     if (arg === "save") return { text: await toggleSave($) };
@@ -5310,7 +5310,7 @@ Saved to ${out}.md and .json`
       await update22($, cacheLeft5, () => 0);
       $.ui.invalidate("ui.render");
       return {
-        text: "The cache shows as cold now (a test). Compact is in the footer. The next response restarts the countdown."
+        text: 'The "Cache went cold" band is showing now (a test), with Compact and Hand off. The next response restarts the countdown.'
       };
     }
     if (arg === "stats" || arg === "saved") return { text: `Auto, this session:

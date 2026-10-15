@@ -25,7 +25,7 @@ export const HANDOFF_PILL_H = 19
 export function handoffGlowStep(percent: number): number {
   return percent < HANDOFF_LOUD_AT ? 0 : Math.min(5, 1 + Math.floor((percent - HANDOFF_LOUD_AT) / 10))
 }
-/** The glow behind the Handoff button, one design per step, drawn on a screenshot of the real bar: a tight violet rim
+/** The glow behind the Hand off button, one design per step, drawn on a screenshot of the real bar: a tight violet rim
  * just past the button (about 121 by 32 px there), wider, softer and brighter each step, pulsing between a low and a
  * peak. Centred on the button by the layer the dashboard puts it in. A preview draws it tighter than the app does, so
  * judge a change in the app. */
@@ -38,7 +38,7 @@ const GLOW_LEVELS: ReadonlyArray<{ spread: number; blur: number; peak: number; l
   { spread: 3.5, blur: 2.4, peak: 0.95, low: 0.4, period: 1.5 },
 ]
 /** The glow's drawing in CSS px, measured on the desktop band: the primary
- * Handoff button is 77 by 20 with a 6 px radius, and the band leaves 8 px above and below it. The drawing is no wider
+ * Hand off button is 77 by 20 with a 6 px radius, and the band leaves 8 px above and below it. The drawing is no wider
  * than the layer it sits in, so the app never scales it (a Svg is at most as wide as its box). */
 export const GLOW_W = HANDOFF_PILL_W + 16
 export const GLOW_H = HANDOFF_PILL_H + 16

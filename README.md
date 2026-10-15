@@ -6,8 +6,8 @@ A band above the prompt for Claude Code that does two things:
 - **Shows what the chat costs to keep.** A row under the effort line carries the prompt-cache countdown (for the main chat, and for a subagent when you look at one), the context window by category, and the rate-limit windows with their reset times. A request that rewrites a still-warm cache is marked `re-cached`.
 
 ```
-✦ High                                    [Auto on] [Handoff] [Settings]
-● 38:12 │ ctx ██████████░░░░░░░ 152k/250k │ 5h ████░░░░ 46% 2h14m │ 7d ██░░ 21% 3d
+✦ High                                                      [Compact] [Settings]
+● 38m │ ctx ██████████░░░░░░░ 152k/250k │ 5h ████░░░░ 46% 2h14m │ 7d ██░░ 21% 3d
 ```
 
 ## Install

@@ -113,7 +113,7 @@ export function registerFooterHooks(on: On) {
         )}
         {/* How long the prompt cache stays warm: grey, yellow from 20 minutes, red from 5, then "cold" (the next message
             writes the whole context again). Nothing before the first response. */}
-        {/* Cold: the band above the prompt says it and holds Compact; the footer only shows the state, in ice blue. */}
+        {/* Cold: the band above the prompt says it and holds Compact and Hand off; the footer only shows the state, in ice blue. */}
         {/* Hovering it reveals a card above the prompt (the cache scope); see the hover cards in AbovePrompt. */}
         {config.hide.includes('timer') ? null : v.cacheNow === 0 ? (
           <Text color={ICE} hover={{ scope: 'cache', backgroundColor: HOVER_BOX }}>
