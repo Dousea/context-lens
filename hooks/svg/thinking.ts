@@ -1,4 +1,4 @@
-import { tintHex } from './theme'
+import { tintHex } from '../theme'
 
 /** The thinking dots' size in pixels. */
 export const THINK_W = 34

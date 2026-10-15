@@ -1,8 +1,8 @@
 import type { EngineInterface, RenderInput } from 'claude-code'
 
 import type { Effort, ModelKey } from '../../types'
-import { ART_COLUMNS, ART_FRAME_MS, ART_MIN_WIDTH, ART_ROWS, artFrame, type ArtKind, MOVING } from '../art'
-import { MARK_SVG } from '../brand-mark'
+import { ART_COLUMNS, ART_FRAME_MS, ART_MIN_WIDTH, ART_ROWS, artFrame, type ArtKind, MOVING } from '../svg/art'
+import { MARK_SVG } from '../svg/brand-mark'
 import { EFFORT_LABELS, EFFORTS, MODELS } from '../core/constants'
 import { ACCENT, BRAND_BG, BRAND_EDGE } from '../core/palette'
 import type { Snap } from '../logic/effort'

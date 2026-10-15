@@ -1,4 +1,4 @@
-import { getTheme, tintHex } from './theme'
+import { getTheme, tintHex } from '../theme'
 
 // Art for the terminal's bands: a small Raster of `▀` cells, each two pixels tall (foreground on top, background
 // below). Pure functions of the kind and a frame count, so the art can be tested and blitted from a timer.

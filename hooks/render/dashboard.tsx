@@ -1,7 +1,7 @@
 import { atom, type EngineInterface, read, type RenderInput, update } from 'claude-code'
 
 import type { Effort, ModelKey } from '../../types'
-import { MARK_SVG } from '../brand-mark'
+import { MARK_SVG } from '../svg/brand-mark'
 import { config } from '../core/config'
 import { EFFORT_LABELS, FROST_HEIGHT, FROST_WIDTH, MODELS } from '../core/constants'
 import { loadedSession, renderLog } from '../core/debug'
@@ -40,7 +40,7 @@ import {
 } from '../svg/glows'
 import { DASH_MARK_OFF, DASH_SVG } from '../svg/scenes'
 import { themedEls } from '../theme'
-import { PILL_H, THINK_W, thinkingSvg } from '../thinking'
+import { PILL_H, THINK_W, thinkingSvg } from '../svg/thinking'
 import { appHint, introFresh, introShows, setIntroFresh, terminalBand } from './band'
 import { lensRow } from './lens-row'
 

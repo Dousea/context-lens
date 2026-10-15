@@ -1,6 +1,6 @@
 import type { EngineInterface, RenderInput } from 'claude-code'
 
-import { MARK_SVG } from '../brand-mark'
+import { MARK_SVG } from '../svg/brand-mark'
 import { FROST_HEIGHT, FROST_WIDTH } from '../core/constants'
 import { ACCENT, BRAND_BG, BRAND_EDGE, CARD_CLOSE_HOVER, DONE_ACCENT, DONE_BG, DONE_EDGE } from '../core/palette'
 import { cardLanded, cardRunning, type HandoffCard } from '../logic/handoff'

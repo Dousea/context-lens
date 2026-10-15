@@ -1,71 +1,55 @@
 import { describe, expect, mock, test as baseTest } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
+import { readConfig } from '../hooks/core/config'
+import { cacheSafe } from '../hooks/core/constants'
+import { claudeCandidates, noClaudeHint } from '../hooks/core/env'
+import { hotVisible, resetLabel } from '../hooks/logic/alerts'
+import { benchGrade, benchReport, stepsGrade } from '../hooks/logic/bench'
+import { cacheClock, cacheColor, cacheLabel, cacheTtlOf, mostlyCached } from '../hooks/logic/cache'
+import { compactTranscript } from '../hooks/logic/compact'
+import { hoverTips } from '../hooks/logic/effort'
 import {
-  subagentFloor,
-  subagentModelFor,
-  switchWorth,
-  subagentPays,
-  subagentNote,
-  priceOf,
-  namedEffort,
-  hotVisible,
-  tipped,
-  bounded,
-  handoffEvidence,
-  parseHandoffAnswer,
-  parseVerdict,
-  capped,
-  resetLabel,
-  HANDOFF_PROMPT,
-  handoffMessage,
-  withAttachments,
-  endsOnQuestion,
-  keepsEffort,
-  benchGrade,
-  benchReport,
-  stepsGrade,
-  judgeFailure,
-  contextFrom,
-  readConfig,
-  asSpent,
-  cacheColor,
-  cacheLabel,
-  hoverTips,
-  cacheClock,
-  cacheSafe,
-  cacheTtlOf,
-  mostlyCached,
-  isFollowUp,
-  savedText,
   forkOutcome,
-  setupNext,
-  setupBack,
-  setupCounter,
-  dashboardLines,
-  appHintText,
-  renamedSettings,
-  subagentSteerable,
-  bandFit,
-  turnLineFor,
-  flashColor,
+  HANDOFF_PROMPT,
+  handoffEvidence,
+  handoffMessage,
+  parseHandoffAnswer,
+} from '../hooks/logic/handoff'
+import {
+  bounded,
+  capped,
+  contextFrom,
+  endsOnQuestion,
+  isFollowUp,
+  judgeFailure,
+  keepsEffort,
+  namedEffort,
+  parseVerdict,
+  tipped,
+  withAttachments,
+} from '../hooks/logic/judge'
+import { renamedSettings } from '../hooks/logic/settings'
+import { setupBack, setupCounter, setupNext } from '../hooks/logic/setup'
+import { asSpent, savedText, turnLineFor, weighted } from '../hooks/logic/spend'
+import { subagentFloor, subagentModelFor, subagentSteerable } from '../hooks/logic/subagents'
+import { priceOf, subagentNote, subagentPays, switchWorth } from '../hooks/logic/switching'
+import { appHintText, bandFit } from '../hooks/render/band'
+import { dashboardLines, flashColor } from '../hooks/render/dashboard'
+import { handoffLook } from '../hooks/svg/controls'
+import {
   handoffGlowStep,
-  weighted,
-  handoffLook,
-  claudeCandidates,
-  noClaudeHint,
-  compactTranscript,
-  judgeGlowSvg,
-  judgeGlowAt,
-  judgeBrightnessAt,
-  JUDGE_RISE_MS,
   JUDGE_FADE_MS,
-  JUDGE_STEP_MS,
   JUDGE_PIECE_MS,
-} from '../hooks/register'
-import { ART_COLUMNS, artFrame, artPixel, MOVING } from '../hooks/art'
+  JUDGE_RISE_MS,
+  JUDGE_STEP_MS,
+  judgeBrightnessAt,
+  judgeGlowAt,
+  judgeGlowSvg,
+} from '../hooks/svg/glows'
+import { ART_COLUMNS, artFrame, artPixel, MOVING } from '../hooks/svg/art'
 import { isLight, lightHex, lightProps, setLight, setTheme, themedEls, themedSvg, tint, tintHex } from '../hooks/theme'
-import { thinkingSvg } from '../hooks/thinking'
+import { thinkingSvg } from '../hooks/svg/thinking'
 
 // Most tests below were written for the footer's buttons: they run in the minimal look unless they name another.
 // The dashboard's own tests pass { layout: 'default' }.
