@@ -27,8 +27,8 @@ For the mod API (`$`, `on(...)`, `ui.render`, state, timers), load the `plugin-a
 
 ## Checks
 
-- `npm run build` rebuilds `hooks/dist/register.tsx` (`npm install` first). Run it after every change to `hooks/` and before testing: the tests load the bundle through `hooks.json`. `npm run build:check` fails when the committed bundle is out of date.
-- `claude plugin test .` runs every test. All pass; there are no known failures, so any failure is yours.
+- `npm run build` rebuilds `hooks/dist/register.tsx` (`npm install` first). Run it after every change to `hooks/` and before testing: the tests load the bundle through `hooks.json`. `npm run build:check` fails when the committed bundle is out of date; the pre-commit hook in `.githooks/` runs it, set up by `npm install` (`core.hooksPath`). A plugin test cannot run it: tests may import only their own files and `claude-code`.
+- `npm test` runs `build:check`, then `claude plugin test .`, which runs every test. All pass; there are no known failures, so any failure is yours.
 - `claude plugin validate .` checks the manifest and marketplace.
 - `npm run typecheck` type-checks the hooks and the tests against the host's types in `.claude-plugin/types/`, which the host writes when it loads the plugin (`claude --plugin-dir .`). It reports no errors, so any error is yours.
 - `npm run format` formats the repo with Prettier (`npm install` first); `npm run format:check` reports files that are not formatted.
@@ -48,7 +48,7 @@ For the mod API (`$`, `on(...)`, `ui.render`, state, timers), load the `plugin-a
 
 - `main` is what the `Dousea/context-lens` marketplace serves, and a fresh install copies its tip whatever the version says, so `main` must always be releasable. Work on a branch (`feat/…`, `fix/…`, `docs/…`) and merge when it is ready.
 - Bump `version` in `.claude-plugin/plugin.json` only when releasing, never per commit: semver, and below 1.0 a patch for fixes and a minor for features. Installs update when the version differs, not only when it rises.
-- Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/): `type(scope): description` in the imperative, subject at most 72 characters, details in the body. Scopes in use: `band`, `footer`, `judge`, `model`, `settings`. No version prefixes and no AI attribution.
+- Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/): `type(scope): description` in the imperative, subject at most 72 characters, details in the body. Scopes in use: `band`, `build`, `footer`, `judge`, `model`, `settings`. No version prefixes and no AI attribution.
 
 ## Naming: Prefer full, descriptive names
 

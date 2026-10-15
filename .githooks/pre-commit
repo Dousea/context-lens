@@ -1,0 +1,3 @@
+#!/bin/sh
+# The host loads hooks/dist/register.tsx: a commit with a stale bundle ships old code.
+npm run -s build:check

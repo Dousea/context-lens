@@ -6,7 +6,9 @@
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit -p .",
     "build": "node scripts/build.mjs",
-    "build:check": "node scripts/build.mjs --check"
+    "build:check": "node scripts/build.mjs --check",
+    "prepare": "git config core.hooksPath .githooks || true",
+    "test": "npm run -s build:check && claude plugin test ."
   },
   "devDependencies": {
     "esbuild": "0.25.10",
