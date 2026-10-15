@@ -17,18 +17,22 @@ export function handoffCardTree(
   above: unknown,
   onDismiss?: () => unknown,
 ) {
-  const { Box, Text, Svg, Button } = themedEls($.ui.resolve(e))
+  const elements = themedEls($.ui.resolve(e))
+  const { Box, Text, Button } = elements
+  const Svg = 'Svg' in elements ? elements.Svg : undefined
   const by = fresh.full ? 'Full' : 'Quick'
-  const words = {
-    writing: [
-      '✦ Handing off…',
-      `${by} handoff being written. ${fresh.full ? 'Your skill takes a little while.' : 'A few seconds.'}`,
-    ],
-    done: ['✦ Handoff complete', 'Carried on from the last chat. The old one is cleared.'],
-    copied: ['✦ Handoff copied', 'Paste it into a new chat. This one stays.'],
-    compacting: ['✦ Compacting…', 'The chat is being summed up. Takes a minute or so.'],
-    compacted: ['✦ Compact complete', 'The chat is summed up; the next message reads far less.'],
-  }[fresh.kind]
+  const words = (
+    {
+      writing: [
+        '✦ Handing off…',
+        `${by} handoff being written. ${fresh.full ? 'Your skill takes a little while.' : 'A few seconds.'}`,
+      ],
+      done: ['✦ Handoff complete', 'Carried on from the last chat. The old one is cleared.'],
+      copied: ['✦ Handoff copied', 'Paste it into a new chat. This one stays.'],
+      compacting: ['✦ Compacting…', 'The chat is being summed up. Takes a minute or so.'],
+      compacted: ['✦ Compact complete', 'The chat is summed up; the next message reads far less.'],
+    } satisfies Record<HandoffCard['kind'], [string, string]>
+  )[fresh.kind]
   // Compacting is a wait in the background, not a result: one quiet line over the band's calm art, not the loud glow.
   const quiet = fresh.kind === 'compacting'
   const card = (
@@ -43,20 +47,22 @@ export function handoffCardTree(
       borderStyle="round"
       borderColor={cardLanded(fresh.kind) ? DONE_EDGE : BRAND_EDGE}
     >
-      <Box key="reply-handoff-art" position="absolute" top={-1} right={0} bottom={-1}>
-        {quiet ? (
-          <Svg source={DASH_SVG} alt="compacting" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
-        ) : cardRunning(fresh.kind) ? (
-          <Svg source={HANDOFF_SVG} alt="handing off" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
-        ) : (
-          <Svg
-            source={cardLanded(fresh.kind) ? DONE_SVG : BRAND_SVG}
-            alt="context-lens"
-            width={FROST_WIDTH * 2}
-            height={FROST_HEIGHT * 2}
-          />
-        )}
-      </Box>
+      {Svg ? (
+        <Box key="reply-handoff-art" position="absolute" top={-1} right={0} bottom={-1}>
+          {quiet ? (
+            <Svg source={DASH_SVG} alt="compacting" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
+          ) : cardRunning(fresh.kind) ? (
+            <Svg source={HANDOFF_SVG} alt="handing off" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
+          ) : (
+            <Svg
+              source={cardLanded(fresh.kind) ? DONE_SVG : BRAND_SVG}
+              alt="context-lens"
+              width={FROST_WIDTH * 2}
+              height={FROST_HEIGHT * 2}
+            />
+          )}
+        </Box>
+      ) : null}
       <Box
         key="reply-handoff-words"
         position="relative"

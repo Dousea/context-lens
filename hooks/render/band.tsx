@@ -3,6 +3,7 @@ import type {
   ButtonProps,
   ElementConstructor,
   EngineInterface,
+  RenderChildren,
   RenderInput,
   SvgProps,
   TextProps,
@@ -228,8 +229,8 @@ export function terminalPanel(
   e: RenderInput<'AbovePrompt'>,
   key: string,
   title: string,
-  words: unknown,
-  controls: unknown[],
+  words: RenderChildren,
+  controls: RenderChildren[],
 ) {
   const { Box, Text } = themedEls($.ui.resolve(e))
   return (
@@ -279,8 +280,8 @@ type TerminalBand = {
   title: string
   detail: string
   hint?: string
-  buttons: unknown[]
-  extra?: unknown
+  buttons: RenderChildren[]
+  extra?: RenderChildren
   word?: { text: string; color: string; rest: string }
 }
 

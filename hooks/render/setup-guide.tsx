@@ -1,4 +1,4 @@
-import { atom, type EngineInterface, read, type RenderInput, update } from 'claude-code'
+import { atom, type EngineInterface, read, type RenderChildren, type RenderInput, update } from 'claude-code'
 
 import type { SettingsDraft } from '../../types'
 import { config } from '../core/config'
@@ -34,7 +34,7 @@ export async function setupGuide($: EngineInterface, e: RenderInput<'AbovePrompt
   const go = (to: SetupStep | null) => () => goSetup($, to)
   const back = setupBack(step)
   const counter = setupCounter(step)
-  const nav = (forward: unknown) => [
+  const nav = (forward: RenderChildren) => [
     ...(back ? [<Button key="setup-back" plain dimColor label="Back" onPress={go(back)} />] : []),
     forward,
     <Button key="setup-close" plain role="dismiss" label="✕" onPress={() => closeSetup($)} />,
@@ -44,7 +44,7 @@ export async function setupGuide($: EngineInterface, e: RenderInput<'AbovePrompt
   // layer, drawn last: the app draws anything in the flow under the absolute art, where it takes no clicks
   // (position="relative" does not lift it). The spacer keeps the words clear of them; room is their width in
   // columns. The art is still: every click redraws the band.
-  const band = (words: unknown, room: number, controls: unknown[]) =>
+  const band = (words: RenderChildren, room: number, controls: RenderChildren[]) =>
     e.surface === 'terminal' ? (
       terminalPanel(
         $,
@@ -102,7 +102,7 @@ export async function setupGuide($: EngineInterface, e: RenderInput<'AbovePrompt
     // Five stops, the marker on the one picked. The track is lit in the accent from the middle out to the marker, so it
     // shows which way it leans, and the words name the stop and say what it does.
     const lean = shown.bias
-    const track: unknown[] = []
+    const track: RenderChildren[] = []
     for (const n of [-2, -1, 0, 1, 2]) {
       if (n > -2) {
         const lit = lean > 0 ? n > 0 && n <= lean : lean < 0 ? n <= 0 && n > lean : false

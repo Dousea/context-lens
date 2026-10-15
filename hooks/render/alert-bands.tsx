@@ -58,7 +58,7 @@ export function savedCardTree($: EngineInterface, e: RenderInput<'AbovePrompt'>)
 }
 
 export async function judgeDownBand($: EngineInterface, e: RenderInput<'AbovePrompt'>, downReason: string) {
-  const { Box, Text, Button, Svg } = themedEls($.ui.resolve(e))
+  const { Box, Text, Button } = themedEls($.ui.resolve(e))
 
   if (e.surface === 'terminal')
     return terminalBand($, e, {
@@ -79,6 +79,7 @@ export async function judgeDownBand($: EngineInterface, e: RenderInput<'AbovePro
         />,
       ],
     })
+  const { Svg } = themedEls($.ui.resolve(e))
   return (
     <Box
       key="down"
@@ -130,7 +131,7 @@ export async function hotBand(
   e: RenderInput<'AbovePrompt'>,
   heat: { kind: string; percent: number; resetsAt: string | null },
 ) {
-  const { Box, Text, Button, Svg } = themedEls($.ui.resolve(e))
+  const { Box, Text, Button } = themedEls($.ui.resolve(e))
 
   const saving = (await read($, saveUntil)) !== null
   const window = heat.kind === 'five_hour' ? '5h' : 'weekly'
@@ -157,6 +158,7 @@ export async function hotBand(
         <Button key="hot-close" plain role="dismiss" label="✕" onPress={() => closeHot($, heat)} />,
       ],
     })
+  const { Svg } = themedEls($.ui.resolve(e))
   return (
     <Box
       key="hot"
@@ -206,7 +208,7 @@ export async function hotBand(
 }
 
 export async function coldBand($: EngineInterface, e: RenderInput<'AbovePrompt'>, coldTokens: number) {
-  const { Box, Text, Button, Svg } = themedEls($.ui.resolve(e))
+  const { Box, Text, Button } = themedEls($.ui.resolve(e))
 
   const line = `Next message rereads ${kTokens(coldTokens)} tokens at full price.`
   if (e.surface === 'terminal')
@@ -224,6 +226,7 @@ export async function coldBand($: EngineInterface, e: RenderInput<'AbovePrompt'>
         <Button key="cold-handoff" variant="primary" hotkey="h" label="Handoff" onPress={() => openHandoffBar($)} />,
       ],
     })
+  const { Svg } = themedEls($.ui.resolve(e))
   // The art is a backdrop: an absolutely placed layer behind the right side, so the words and buttons sit on it.
   return (
     <Box
@@ -278,7 +281,7 @@ export async function coldBand($: EngineInterface, e: RenderInput<'AbovePrompt'>
 }
 
 export async function swampBand($: EngineInterface, e: RenderInput<'AbovePrompt'>, swampTokens: number) {
-  const { Box, Text, Button, Svg } = themedEls($.ui.resolve(e))
+  const { Box, Text, Button } = themedEls($.ui.resolve(e))
 
   const handing = (await read($, handoffStage)) !== null
   if (e.surface === 'terminal')
@@ -302,6 +305,7 @@ export async function swampBand($: EngineInterface, e: RenderInput<'AbovePrompt'
         />,
       ],
     })
+  const { Svg } = themedEls($.ui.resolve(e))
   return (
     <Box
       key="swamp"

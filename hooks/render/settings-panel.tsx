@@ -1,4 +1,4 @@
-import { atom, type EngineInterface, read, type RenderInput, update } from 'claude-code'
+import { atom, type EngineInterface, read, type RenderChildren, type RenderInput, update } from 'claude-code'
 
 import type { Effort, SettingsCard, SettingsDraft } from '../../types'
 import { config, type Hideable, SWAMP_STEPS } from '../core/config'
@@ -297,7 +297,7 @@ export async function settingsPanel($: EngineInterface, e: RenderInput<'AbovePro
   const flip = (field: 'subagents' | 'subagentModel' | 'overrideDefinitions' | 'holdOffer') => () =>
     set(field)(shown[field] === 'on' ? 'off' : 'on')
   // The slider: five stops, the marker on the one in force. No animation, a click moves it.
-  const track: unknown[] = []
+  const track: RenderChildren[] = []
   for (const n of [-2, -1, 0, 1, 2]) {
     if (n > -2)
       track.push(
@@ -348,7 +348,7 @@ export async function settingsPanel($: EngineInterface, e: RenderInput<'AbovePro
   const frameOnly = probeLevel === 2
   const bare = probeLevel === 3
   // Desktop keeps title and buttons as absolute layers straight under the panel; the terminal gets a wrapping row.
-  const headRow = (kids: unknown[]) =>
+  const headRow = (kids: RenderChildren[]) =>
     term ? (
       <Box key="settings-head" flexDirection="row" flexWrap="wrap" justifyContent="space-between" columnGap={2}>
         {kids}
