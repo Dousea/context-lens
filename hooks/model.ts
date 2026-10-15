@@ -74,10 +74,11 @@ export const formatUntil = (ms: number): string => {
   return `${Math.ceil(left / MINUTE_MS)}m`
 }
 
-export const bar = (fraction: number, width: number): string => {
-  const filled = Math.round(Math.min(1, Math.max(0, fraction)) * width)
-  return '█'.repeat(filled) + '░'.repeat(width - filled)
-}
+const GAUGE = '▁▂▃▄▅▆▇█'
+
+/** A fill in one cell, an eighth block per eighth; an empty one keeps the lowest so the gauge still shows. */
+export const gauge = (fraction: number): string =>
+  GAUGE[Math.max(1, Math.round(Math.min(1, Math.max(0, fraction)) * GAUGE.length)) - 1]!
 
 export const resolveTtl = (explicit: unknown, fallback: CacheTtl): CacheTtl =>
   explicit === '5m' || explicit === '1h' ? explicit : fallback
@@ -91,7 +92,7 @@ export const toContextView = (breakdown: SessionContextBreakdown): ContextView =
 })
 
 /** The autocompact buffer: free space the engine compacts before it reaches. */
-const BUFFER_COLOR = 'warning'
+export const BUFFER_COLOR = 'warning'
 
 export type BarSegment = { kind: CategoryKind; color: string; cells: number }
 
@@ -132,70 +133,102 @@ export const fillBar = (fraction: number, width: number): BarSegment[] => {
   ]
 }
 
-export const segmentGlyph = (kind: CategoryKind): string => (kind === 'used' ? '█' : '░')
+// A heavy rule on a light one sits at mid-height, so the bar reads as part of the text line, not a block.
+export const segmentGlyph = (kind: CategoryKind): string => (kind === 'used' ? '━' : '─')
 
-export type UsageStyle = 'full' | 'bar' | 'percent'
+export type UsageStyle = 'full' | 'gauge' | 'percent'
 
-/** One rate-limit window as the line draws it. */
-export type UsageWindow = { label: string; percent: number; reset: string | null }
+/** One rate-limit window as the line draws it, its label in words and short. */
+export type UsageWindow = { label: string; short: string; percent: number; reset: string | null }
 
-const USAGE_STYLES: readonly UsageStyle[] = ['full', 'bar', 'percent']
-const SEPARATOR = 3 // ' │ '
+const USAGE_STYLES: readonly UsageStyle[] = ['full', 'gauge', 'percent']
+const SEPARATOR = 3 // ' · '
 const MIN_CTX_BAR = 8
-const MIN_USAGE_BAR = 5
+// A usage window draws a bar of its own only when the row gives each one this much; else a one-cell gauge.
+const MIN_USAGE_BAR = 10
+export const CONTEXT_LABEL = { label: 'Context', short: 'Ctx' } as const
+
+const RATE_LABEL: Record<string, { label: string; short: string }> = {
+  five_hour: { label: 'Session', short: '5h' },
+  seven_day: { label: 'Week', short: '7d' },
+  spend_limit: { label: 'Spend', short: '$' },
+}
 
 export const usageWindow = (limit: RateLimit, now: number): UsageWindow => {
   const resetsAt = limit.resetsAt === undefined ? NaN : Date.parse(limit.resetsAt)
   return {
-    label: RATE_LABEL[limit.kind] ?? limit.kind,
+    ...(RATE_LABEL[limit.kind] ?? { label: limit.kind, short: limit.kind }),
     percent: Math.round(limit.percentUsed),
     reset: Number.isNaN(resetsAt) ? null : formatUntil(resetsAt - now),
   }
 }
 
-const RATE_LABEL: Record<string, string> = { five_hour: '5h', seven_day: '7d', spend_limit: '$' }
-
-/** Columns a usage window's text takes in a style, its gaps included but not its bar. */
-const usageTextWidth = (w: UsageWindow, style: UsageStyle): number =>
-  w.label.length +
+/** Columns a usage window takes in a style, its gaps included: label, gauge, percent and `↻` reset. */
+const usageWidth = (w: UsageWindow, style: UsageStyle, short: boolean): number =>
+  (short ? w.short : w.label).length +
   1 +
-  (style === 'percent' ? 0 : 1) +
+  (style === 'percent' ? 0 : 2) +
   `${w.percent}%`.length +
-  (style === 'full' && w.reset !== null ? 1 + w.reset.length : 0)
+  (style === 'full' && w.reset !== null ? 3 + w.reset.length : 0)
 
-/** Bar widths in cells; `usageBar` is each usage window's, 0 in the `percent` style. */
-export type LineLayout = { ctxBar: number; usageBar: number; ctxText: string; style: UsageStyle; windows: number }
+/** Bar widths in cells, `usageBar` each usage window's (0 draws gauges), and which texts and labels fit beside them. */
+export type LineLayout = {
+  ctxBar: number
+  usageBar: number
+  ctxText: string
+  style: UsageStyle
+  windows: number
+  short: boolean
+}
 
 /**
- * Fills `columns`: the text takes what it needs and the bars split the rest,
- * half to the context bar and half shared by the usage bars. When the bars no
- * longer fit at their minimum, the context drops its window size (never its
- * token count), then the usage windows lose their reset times, then their bars,
- * then drop from the end, and last the context bar goes. A null `headWidth`
- * is a row with no cache clock, which starts at the context.
+ * Fills `columns`: the text takes what it needs and the bars the rest. On a wide
+ * row the usage windows draw bars of their own, sharing half of it, beside the
+ * context's; else each is a one-cell gauge and the context bar takes it all.
+ * When the context bar no longer fits at its minimum, the labels shorten
+ * (Context to Ctx, Session to 5h, Week to 7d), then the context drops its window
+ * size (never its token count), then the usage windows lose their reset times,
+ * then their gauges, then drop from the end, and last the context bar goes. A
+ * null `headWidth` is a row with no cache clock, which starts at the context;
+ * `usageBars` false keeps the usage windows to their gauges.
  */
 export const layoutLine = (
   columns: number,
   headWidth: number | null,
   ctxTexts: readonly string[],
   windows: readonly UsageWindow[],
+  usageBars = true,
 ): LineLayout => {
   for (let n = windows.length; n >= 0; n--) {
     for (const style of USAGE_STYLES) {
       for (const ctxText of ctxTexts) {
-        const usageText = windows.slice(0, n).reduce((sum, w) => sum + SEPARATOR + usageTextWidth(w, style), 0)
-        const room =
-          columns - (headWidth === null ? 0 : headWidth + SEPARATOR) - 'ctx '.length - 1 - ctxText.length - usageText
-        const bars = style === 'percent' ? 0 : n
-        const usageBar = bars === 0 ? 0 : Math.floor(room / 2 / bars)
-        const ctxBar = room - usageBar * bars
-        if (ctxBar >= MIN_CTX_BAR && (bars === 0 || usageBar >= MIN_USAGE_BAR)) {
-          return { ctxBar, usageBar, ctxText, style, windows: n }
+        for (const short of [false, true]) {
+          const usage = windows.slice(0, n).reduce((sum, w) => sum + SEPARATOR + usageWidth(w, style, short), 0)
+          const label = short ? CONTEXT_LABEL.short : CONTEXT_LABEL.label
+          const room =
+            columns - (headWidth === null ? 0 : headWidth + SEPARATOR) - label.length - 2 - ctxText.length - usage
+
+          // A bar in place of each gauge gives its cell back to the bars.
+          if (usageBars && style === 'full' && !short && n > 0) {
+            const usageBar = Math.floor((room + n) / 2 / n)
+            const ctxBar = room + n - usageBar * n
+            if (usageBar >= MIN_USAGE_BAR && ctxBar >= MIN_CTX_BAR) {
+              return { ctxBar, usageBar, ctxText, style, windows: n, short }
+            }
+          }
+          if (room >= MIN_CTX_BAR) return { ctxBar: room, usageBar: 0, ctxText, style, windows: n, short }
         }
       }
     }
   }
-  return { ctxBar: 0, usageBar: 0, ctxText: ctxTexts[ctxTexts.length - 1] ?? '', style: 'percent', windows: 0 }
+  return {
+    ctxBar: 0,
+    usageBar: 0,
+    ctxText: ctxTexts[ctxTexts.length - 1] ?? '',
+    style: 'percent',
+    windows: 0,
+    short: true,
+  }
 }
 
 export const fillColor = (fraction: number): string => {

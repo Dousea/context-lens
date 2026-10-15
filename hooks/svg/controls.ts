@@ -1,6 +1,6 @@
 import type { SettingsCard } from '../../types'
 import { HANDOFF_LOUD_AT } from '../core/constants'
-import { ACCENT, DASH_BG, DASH_DIM, HOVER_BOX } from '../core/palette'
+import { ACCENT, DASH_BG, DASH_DIM, HOVER_BOX, themeHex } from '../core/palette'
 import { HANDOFF_BOX_AT, HANDOFF_PILL_H, HANDOFF_PILL_W, inPhase } from './glows'
 
 /** The Enter mark as Claude's prompt box draws it: a return arrow, down the right side and back left. */
@@ -19,6 +19,22 @@ export function ringSvg(percent: number, color: string): string {
   const p = Math.max(0, Math.min(100, percent))
   const c = 2 * Math.PI * 6
   return `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="none" stroke="${color}" stroke-opacity=".25" stroke-width="2.2"/><circle cx="8" cy="8" r="6" fill="none" stroke="${color}" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="${((c * p) / 100).toFixed(2)} ${c.toFixed(2)}" transform="rotate(-90 8 8)"/></svg>`
+}
+
+/** The context bar as a thin strip, the terminal's rule drawn: what is used a 4 px band in its rows' colours, the free
+ * space and the buffer a 2 px line. Drawn wide and stretched to its slot, so it takes the width the row gives it. */
+export function stripSvg(parts: readonly { kind: string; color: string; cells: number }[]): string {
+  const cells = parts.reduce((sum, part) => sum + part.cells, 0)
+  let x = 0
+  const rects = parts
+    .filter(part => part.cells > 0)
+    .map(part => {
+      const used = part.kind === 'used'
+      const rect = `<rect x="${x}" y="${used ? 0 : 1}" width="${part.cells}" height="${used ? 4 : 2}" fill="${themeHex(part.kind === 'free' ? 'subtle' : part.color)}"/>`
+      x += part.cells
+      return rect
+    })
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="4000" height="4" viewBox="0 0 ${Math.max(1, cells)} 4" preserveAspectRatio="none" shape-rendering="crispEdges">${rects.join('')}</svg>`
 }
 
 /** The dashboard's settings icon: an outlined cog of eight teeth, drawn rather than a glyph, since the gear character

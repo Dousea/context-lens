@@ -128,18 +128,38 @@ test('the line counts the main cache down and shows the context and usage', asyn
   for (const surface of ['terminal', 'desktop'] as const) {
     const line = await $.ui.mount({ plugin: PLUGIN, surface, component: 'AbovePrompt', props: band(140) })
     expect(await line.find({ text: /^60m$/ })).toBeDefined()
-    expect(await line.find({ text: /^152k\/250k$/ })).toBeDefined()
-    expect(await line.find({ text: /^5h$/ })).toBeDefined()
+    expect(await line.find({ text: /^152k$/ })).toBeDefined()
+    expect(await line.find({ text: /^\/ 250k$/ })).toBeDefined()
+    expect(await line.find({ text: /^Session$/ })).toBeDefined()
     expect(await line.find({ text: /^46%$/ })).toBeDefined()
-    expect(await line.find({ text: /^2h14m$/ })).toBeDefined()
-    expect(await line.find({ text: /^7d$/ })).toBeDefined()
-    expect(await line.find({ text: /^3d$/ })).toBeDefined()
+    expect(await line.find({ text: /^↻ 2h14m$/ })).toBeDefined()
+    expect(await line.find({ text: /^Week$/ })).toBeDefined()
+    expect(await line.find({ text: /^↻ 3d$/ })).toBeDefined()
     await line.unmount()
   }
 
   await clock.advance(30 * MINUTE)
   const line = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', component: 'AbovePrompt', props: band(140) })
   expect(await line.find({ text: /^30m$/ })).toBeDefined()
+})
+
+test('the usage windows draw bars on a wide terminal and one-cell gauges on a narrower one', async ($, on) => {
+  mock.clock(on, { now: 0 })
+  engine(on)
+  answering(on, 140_000, 4_000)
+  await begin($)
+  await step($)
+
+  const wide = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', component: 'AbovePrompt', props: band(140) })
+  expect(await wide.find({ key: 'u-5h-bar' })).toBeDefined()
+  expect(await wide.find({ text: /^System prompt$/ })).toBeUndefined()
+  expect(await wide.find({ text: /^▄$/ })).toBeUndefined()
+  await wide.unmount()
+
+  const narrow = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', component: 'AbovePrompt', props: band(100) })
+  expect(await narrow.find({ key: 'u-5h-bar' })).toBeUndefined()
+  expect(await narrow.find({ text: /^▄$/ })).toBeDefined()
+  await narrow.unmount()
 })
 
 test('a narrow line keeps the token count and drops the reset times', async ($, on) => {
@@ -151,7 +171,7 @@ test('a narrow line keeps the token count and drops the reset times', async ($, 
 
   const line = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', component: 'AbovePrompt', props: band(60) })
   expect(await line.find({ text: /^152k/ })).toBeDefined()
-  expect(await line.find({ text: /^2h14m$/ })).toBeUndefined()
+  expect(await line.find({ text: /^↻ 2h14m$/ })).toBeUndefined()
 })
 
 test('a request that rewrites a warm cache is marked re-cached', async ($, on) => {
@@ -183,7 +203,8 @@ test('a subagent in view shows its own five-minute clock', async ($, on) => {
   })
   expect(await line.find({ text: /^pz-implementer$/ })).toBeUndefined()
   expect(await line.find({ text: /^4:00$/ })).toBeDefined()
-  expect(await line.find({ text: /^22k\/250k$/ })).toBeDefined()
+  expect(await line.find({ text: /^22k$/ })).toBeDefined()
+  expect(await line.find({ text: /^\/ 250k$/ })).toBeDefined()
 
   const mainLine = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', component: 'AbovePrompt', props: band(140) })
   expect(await mainLine.find({ text: /^—$/ })).toBeDefined()
@@ -201,8 +222,9 @@ baseTest(
 
     for (const surface of ['terminal', 'desktop'] as const) {
       const line = await $.ui.mount({ plugin: PLUGIN, surface, component: 'AbovePrompt', props: band(140) })
-      expect(await line.find({ text: /^ctx$/ })).toBeDefined()
-      expect(await line.find({ text: /^152k\/250k$/ })).toBeDefined()
+      expect(await line.find({ text: /^Context$/ })).toBeDefined()
+      expect(await line.find({ text: /^152k$/ })).toBeDefined()
+      expect(await line.find({ text: /^\/ 250k$/ })).toBeDefined()
       expect(await line.find({ text: /^60m$/ })).toBeUndefined()
       expect(await line.find({ text: /^●$/ })).toBeUndefined()
       await line.unmount()
@@ -220,9 +242,32 @@ test('the lens row stays under an alert band on the terminal', async ($, on) => 
   await $.command.run({ command: 'context-lens', args: 'cold' } as never)
   const line = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', component: 'AbovePrompt', props: band(140) })
   expect(await line.find({ key: 'cold-hide' })).toBeDefined()
-  expect(await line.find({ text: /^ctx$/ })).toBeDefined()
-  expect(await line.find({ text: /^152k\/250k$/ })).toBeDefined()
+  expect(await line.find({ text: /^Context$/ })).toBeDefined()
+  expect(await line.find({ text: /^152k$/ })).toBeDefined()
+  expect(await line.find({ text: /^\/ 250k$/ })).toBeDefined()
 })
+
+baseTest(
+  'the desktop strip and rings follow the light look',
+  { options: { layout: 'default', appearance: 'light' } },
+  async ($, on) => {
+    mock.clock(on, { now: 0 })
+    engine(on)
+    answering(on, 140_000, 4_000)
+    await begin($)
+    await step($)
+
+    const line = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', component: 'AbovePrompt', props: band(140) })
+    const dashboard = JSON.stringify(keyed(await line.drawn(), 'dash'))
+    expect(dashboard).toContain('"u-5h-ring"')
+    expect(dashboard).toContain('preserveAspectRatio=\\"none\\"')
+    // The messages row (permission) and the dim free space are drawn for a dark app, then turned for a light one.
+    expect(dashboard).not.toContain('#b1b9f9')
+    expect(dashboard).not.toContain('#3b3b42')
+    // The tokens used carry the band's text colour: the app's default would be white on a light band in a dark app.
+    expect((await line.find({ text: /^152k$/ }))?.props.color).toMatch(/^#/)
+  },
+)
 
 /** The element keyed `key` in a drawn tree, with everything under it. */
 function keyed(node: unknown, key: string): unknown {
@@ -237,7 +282,7 @@ function keyed(node: unknown, key: string): unknown {
   return undefined
 }
 
-test('desktop draws the lens row inside the dashboard, its bars as boxes', async ($, on) => {
+test('desktop draws the lens row inside the dashboard, the context as a strip and the limits as rings', async ($, on) => {
   mock.clock(on, { now: 0 })
   engine(on)
   answering(on, 140_000, 4_000)
@@ -248,10 +293,21 @@ test('desktop draws the lens row inside the dashboard, its bars as boxes', async
   const dashboard = JSON.stringify(keyed(await line.drawn(), 'dash'))
   expect(dashboard).toContain('"lens-row"')
   expect(dashboard).toContain('"ctx-bar"')
-  expect(dashboard).toContain('"u-5h-bar"')
-  // A run of block glyphs wraps and hatches in the desktop's proportional font.
-  expect(dashboard).not.toContain('█')
-  expect(dashboard).not.toContain('░')
+  expect(dashboard).toContain('preserveAspectRatio=\\"none\\"')
+  expect(dashboard).toContain('"u-5h-ring"')
+  expect(dashboard).toContain('"u-7d-ring"')
+  // Every row keeps its colour in the strip, however small its share of the window.
+  expect(dashboard).toContain('#b1b9f9')
+  // The breakdown waits under the context for the pointer: each row by name and tokens.
+  expect(await line.find({ text: /^System prompt$/ })).toBeDefined()
+  expect(await line.find({ text: /^Messages$/ })).toBeDefined()
+  expect(await line.find({ text: /^Free space$/ })).toBeDefined()
+  // No usage bars and no gauges: a ring takes their place.
+  expect(dashboard).not.toContain('"u-5h-bar"')
+  expect(dashboard).not.toContain('▄')
+  // A run of rule glyphs wraps and leaves gaps in the desktop's proportional font.
+  expect(dashboard).not.toContain('━')
+  expect(dashboard).not.toContain('─')
   // The lens row carries the cache and the context, so the title does not repeat them.
   expect(await line.find({ key: 'dash-ring' })).toBeUndefined()
   expect(dashboard).not.toContain('% context')

@@ -6,11 +6,13 @@ import {
   formatRemaining,
   formatTokens,
   formatUntil,
+  gauge,
   isRecache,
   layoutLine,
   stackedBar,
   warmth,
 } from '../hooks/model'
+import { stripSvg } from '../hooks/svg/controls'
 
 const MINUTE = 60_000
 const usage = (read: number, written: number, uncached = 100) => ({
@@ -105,6 +107,21 @@ describe('the context bar', () => {
     expect(cells).toEqual([4, 8])
   })
 
+  test("a row of a few percent shows at the desktop strip's fine split, where a terminal's cells round it away", () => {
+    const wide = {
+      totalTokens: 60_000,
+      maxTokens: 1_000_000,
+      categories: [
+        { name: 'System prompt', tokens: 35_000, color: 'promptBorder', kind: 'used' as const },
+        { name: 'Messages', tokens: 25_000, color: 'permission', kind: 'used' as const },
+        { name: 'Free space', tokens: 940_000, color: 'inactive', kind: 'free' as const },
+      ],
+    }
+    const messages = (width: number) => stackedBar(wide, null, width).find(s => s.color === 'permission')?.cells ?? 0
+    expect(messages(20)).toBe(0)
+    expect(messages(1000)).toBe(25)
+  })
+
   test('the cells always add up to the width', () => {
     for (const width of [8, 13, 31, 48]) {
       expect(stackedBar(view, 190_000, width).reduce((sum, s) => sum + s.cells, 0)).toBe(width)
@@ -114,17 +131,17 @@ describe('the context bar', () => {
 
 describe('the line layout', () => {
   const windows = [
-    { label: '5h', percent: 46, reset: '2h14m' },
-    { label: '7d', percent: 21, reset: '3d' },
+    { label: 'Session', short: '5h', percent: 46, reset: '2h14m' },
+    { label: 'Week', short: '7d', percent: 21, reset: '3d' },
   ]
-  const ctx = ['84k/200k', '84k']
+  const ctx = ['84k / 200k', '84k']
   const HEAD = 5
 
   /** The columns a layout draws, as the band lays it out with one-cell gaps. */
-  const drawnWidth = (layout: ReturnType<typeof layoutLine>): number =>
-    HEAD +
-    3 +
-    'ctx '.length +
+  const drawnWidth = (layout: ReturnType<typeof layoutLine>, head: number | null = HEAD): number =>
+    (head === null ? 0 : head + 3) +
+    (layout.short ? 'Ctx' : 'Context').length +
+    1 +
     (layout.ctxBar > 0 ? layout.ctxBar + 1 : 0) +
     layout.ctxText.length +
     windows
@@ -133,35 +150,42 @@ describe('the line layout', () => {
         (sum, w) =>
           sum +
           3 +
-          w.label.length +
+          (layout.short ? w.short : w.label).length +
           1 +
-          (layout.style === 'percent' ? 0 : layout.usageBar + 1) +
+          (layout.style === 'percent' ? 0 : layout.usageBar > 0 ? layout.usageBar + 1 : 2) +
           `${w.percent}%`.length +
-          (layout.style === 'full' ? 1 + (w.reset?.length ?? 0) : 0),
+          (layout.style === 'full' ? 3 + (w.reset?.length ?? 0) : 0),
         0,
       )
 
-  test('the bars split what the text leaves, half to the context', () => {
-    const layout = layoutLine(140, HEAD, ctx, windows)
-    expect(layout).toMatchObject({ ctxText: '84k/200k', style: 'full', windows: 2, usageBar: 22, ctxBar: 46 })
+  test('a wide line gives the usage windows bars, sharing half of what the text leaves', () => {
+    expect(layoutLine(140, HEAD, ctx, windows)).toMatchObject({
+      ctxBar: 37,
+      usageBar: 18,
+      ctxText: '84k / 200k',
+      style: 'full',
+      windows: 2,
+      short: false,
+    })
   })
 
-  test('the line fills its columns exactly', () => {
-    for (const columns of [70, 90, 110, 140, 200]) {
+  test('a narrower line draws gauges and gives the context bar all the room', () => {
+    expect(layoutLine(100, HEAD, ctx, windows)).toMatchObject({ ctxBar: 31, usageBar: 0, short: false })
+  })
+
+  test('the line fills its columns exactly, with or without the cache clock', () => {
+    for (const columns of [60, 70, 90, 110, 140, 200]) {
       expect(drawnWidth(layoutLine(columns, HEAD, ctx, windows))).toBe(columns)
+      expect(drawnWidth(layoutLine(columns, null, ctx, windows), null)).toBe(columns)
     }
   })
 
-  test('a line with no cache clock gives its columns to the bars', () => {
-    for (const columns of [70, 90, 110, 140, 200]) {
-      expect(drawnWidth(layoutLine(columns, null, ctx, windows)) - HEAD - 3).toBe(columns)
-    }
-  })
-
-  test('narrower lines drop the window size, then the reset times, then the usage bars, then windows', () => {
-    expect(layoutLine(66, HEAD, ctx, windows)).toMatchObject({ ctxText: '84k', style: 'full', windows: 2 })
-    expect(layoutLine(58, HEAD, ctx, windows)).toMatchObject({ style: 'bar', windows: 2 })
-    expect(layoutLine(45, HEAD, ctx, windows)).toMatchObject({ style: 'percent', windows: 2, usageBar: 0 })
+  test('narrower lines shorten the labels, then drop the window size, the reset times, the gauges, then windows', () => {
+    expect(layoutLine(78, HEAD, ctx, windows)).toMatchObject({ short: false, ctxText: '84k / 200k', style: 'full' })
+    expect(layoutLine(70, HEAD, ctx, windows)).toMatchObject({ short: true, ctxText: '84k / 200k', style: 'full' })
+    expect(layoutLine(60, HEAD, ctx, windows)).toMatchObject({ short: true, ctxText: '84k', style: 'full', windows: 2 })
+    expect(layoutLine(50, HEAD, ctx, windows)).toMatchObject({ style: 'gauge', windows: 2 })
+    expect(layoutLine(43, HEAD, ctx, windows)).toMatchObject({ style: 'percent', windows: 2 })
     expect(layoutLine(38, HEAD, ctx, windows).windows).toBeLessThan(2)
   })
 
@@ -173,7 +197,31 @@ describe('the line layout', () => {
     for (let columns = 30; columns <= 160; columns++) {
       const layout = layoutLine(columns, HEAD, ctx, windows)
       if (layout.ctxBar > 0) expect(layout.ctxBar).toBeGreaterThanOrEqual(8)
-      if (layout.style !== 'percent' && layout.windows > 0) expect(layout.usageBar).toBeGreaterThanOrEqual(5)
+      if (layout.usageBar > 0) expect(layout.usageBar).toBeGreaterThanOrEqual(10)
     }
+  })
+
+  test('a gauge fills a cell by eighths and never vanishes', () => {
+    expect(gauge(0)).toBe('▁')
+    expect(gauge(0.46)).toBe('▄')
+    expect(gauge(1)).toBe('█')
+  })
+})
+
+describe('the desktop strip', () => {
+  test('what is used is a band in its theme colours, the free space and the buffer a thinner line', () => {
+    const svg = stripSvg([
+      { kind: 'used', color: 'permission', cells: 6 },
+      { kind: 'free', color: 'inactive', cells: 3 },
+      { kind: 'buffer', color: 'warning', cells: 1 },
+    ])
+    expect(svg).toContain('viewBox="0 0 10 4"')
+    expect(svg).toContain('<rect x="0" y="0" width="6" height="4" fill="#b1b9f9"/>')
+    expect(svg).toContain('<rect x="6" y="1" width="3" height="2" fill="#3b3b42"/>')
+    expect(svg).toContain('<rect x="9" y="1" width="1" height="2" fill="#e0a33a"/>')
+  })
+
+  test('a colour the theme table does not know draws dim', () => {
+    expect(stripSvg([{ kind: 'used', color: 'diffAdded', cells: 1 }])).toContain('fill="#8b8b93"')
   })
 })

@@ -456,6 +456,25 @@ var DONE_EDGE = "#2f7a4c";
 var FLASH_COLOR = "#9b7bff";
 var UNINSTALL_RED = "#ff6b6b";
 var CARD_CLOSE_HOVER = "#00000040";
+var THEME_KEY_HEX = {
+  text: DASH_TEXT,
+  inactive: DASH_DIM,
+  subtle: CARD_HOVER_EDGE,
+  success: DONE_ACCENT,
+  warning: YELLOW,
+  error: RED,
+  claude: "#d77757",
+  permission: "#b1b9f9",
+  suggestion: "#b1b9f9",
+  remember: "#b1b9f9",
+  planMode: "#48968c",
+  autoAccept: "#af87ff",
+  merged: "#af87ff",
+  promptBorder: "#888888",
+  bashBorder: "#fd5db1",
+  ide: "#4782c8"
+};
+var themeHex = (color) => THEME_KEY_HEX[color] ?? (/^#[0-9a-fA-F]{6}$/.test(color) ? color : DASH_DIM);
 
 // hooks/handlers/above-prompt.tsx
 import { atom as atom21, read as read18, update as update20 } from "claude-code";
@@ -644,10 +663,8 @@ var formatUntil = (ms) => {
   if (left >= HOUR_MS) return `${Math.floor(left / HOUR_MS)}h${Math.floor(left % HOUR_MS / MINUTE_MS)}m`;
   return `${Math.ceil(left / MINUTE_MS)}m`;
 };
-var bar = (fraction, width) => {
-  const filled = Math.round(Math.min(1, Math.max(0, fraction)) * width);
-  return "█".repeat(filled) + "░".repeat(width - filled);
-};
+var GAUGE = "▁▂▃▄▅▆▇█";
+var gauge = (fraction) => GAUGE[Math.max(1, Math.round(Math.min(1, Math.max(0, fraction)) * GAUGE.length)) - 1];
 var resolveTtl = (explicit, fallback) => explicit === "5m" || explicit === "1h" ? explicit : fallback;
 var toContextView = (breakdown) => ({
   totalTokens: breakdown.totalTokens,
@@ -683,37 +700,54 @@ var fillBar = (fraction, width) => {
     { kind: "free", color: "inactive", cells: width - filled }
   ];
 };
-var segmentGlyph = (kind) => kind === "used" ? "█" : "░";
-var USAGE_STYLES = ["full", "bar", "percent"];
+var segmentGlyph = (kind) => kind === "used" ? "━" : "─";
+var USAGE_STYLES = ["full", "gauge", "percent"];
 var SEPARATOR = 3;
 var MIN_CTX_BAR = 8;
-var MIN_USAGE_BAR = 5;
+var MIN_USAGE_BAR = 10;
+var CONTEXT_LABEL = { label: "Context", short: "Ctx" };
+var RATE_LABEL = {
+  five_hour: { label: "Session", short: "5h" },
+  seven_day: { label: "Week", short: "7d" },
+  spend_limit: { label: "Spend", short: "$" }
+};
 var usageWindow = (limit, now) => {
   const resetsAt = limit.resetsAt === void 0 ? NaN : Date.parse(limit.resetsAt);
   return {
-    label: RATE_LABEL[limit.kind] ?? limit.kind,
+    ...RATE_LABEL[limit.kind] ?? { label: limit.kind, short: limit.kind },
     percent: Math.round(limit.percentUsed),
     reset: Number.isNaN(resetsAt) ? null : formatUntil(resetsAt - now)
   };
 };
-var RATE_LABEL = { five_hour: "5h", seven_day: "7d", spend_limit: "$" };
-var usageTextWidth = (w, style) => w.label.length + 1 + (style === "percent" ? 0 : 1) + `${w.percent}%`.length + (style === "full" && w.reset !== null ? 1 + w.reset.length : 0);
-var layoutLine = (columns, headWidth, ctxTexts, windows) => {
+var usageWidth = (w, style, short) => (short ? w.short : w.label).length + 1 + (style === "percent" ? 0 : 2) + `${w.percent}%`.length + (style === "full" && w.reset !== null ? 3 + w.reset.length : 0);
+var layoutLine = (columns, headWidth, ctxTexts, windows, usageBars = true) => {
   for (let n = windows.length; n >= 0; n--) {
     for (const style of USAGE_STYLES) {
       for (const ctxText of ctxTexts) {
-        const usageText = windows.slice(0, n).reduce((sum, w) => sum + SEPARATOR + usageTextWidth(w, style), 0);
-        const room = columns - (headWidth === null ? 0 : headWidth + SEPARATOR) - "ctx ".length - 1 - ctxText.length - usageText;
-        const bars = style === "percent" ? 0 : n;
-        const usageBar = bars === 0 ? 0 : Math.floor(room / 2 / bars);
-        const ctxBar = room - usageBar * bars;
-        if (ctxBar >= MIN_CTX_BAR && (bars === 0 || usageBar >= MIN_USAGE_BAR)) {
-          return { ctxBar, usageBar, ctxText, style, windows: n };
+        for (const short of [false, true]) {
+          const usage = windows.slice(0, n).reduce((sum, w) => sum + SEPARATOR + usageWidth(w, style, short), 0);
+          const label = short ? CONTEXT_LABEL.short : CONTEXT_LABEL.label;
+          const room = columns - (headWidth === null ? 0 : headWidth + SEPARATOR) - label.length - 2 - ctxText.length - usage;
+          if (usageBars && style === "full" && !short && n > 0) {
+            const usageBar = Math.floor((room + n) / 2 / n);
+            const ctxBar = room + n - usageBar * n;
+            if (usageBar >= MIN_USAGE_BAR && ctxBar >= MIN_CTX_BAR) {
+              return { ctxBar, usageBar, ctxText, style, windows: n, short };
+            }
+          }
+          if (room >= MIN_CTX_BAR) return { ctxBar: room, usageBar: 0, ctxText, style, windows: n, short };
         }
       }
     }
   }
-  return { ctxBar: 0, usageBar: 0, ctxText: ctxTexts[ctxTexts.length - 1] ?? "", style: "percent", windows: 0 };
+  return {
+    ctxBar: 0,
+    usageBar: 0,
+    ctxText: ctxTexts[ctxTexts.length - 1] ?? "",
+    style: "percent",
+    windows: 0,
+    short: true
+  };
 };
 var fillColor = (fraction) => {
   if (fraction >= 0.85) return "error";
@@ -2266,6 +2300,17 @@ function ringSvg(percent, color) {
   const c = 2 * Math.PI * 6;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="none" stroke="${color}" stroke-opacity=".25" stroke-width="2.2"/><circle cx="8" cy="8" r="6" fill="none" stroke="${color}" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="${(c * p / 100).toFixed(2)} ${c.toFixed(2)}" transform="rotate(-90 8 8)"/></svg>`;
 }
+function stripSvg(parts) {
+  const cells = parts.reduce((sum, part) => sum + part.cells, 0);
+  let x = 0;
+  const rects = parts.filter((part) => part.cells > 0).map((part) => {
+    const used = part.kind === "used";
+    const rect = `<rect x="${x}" y="${used ? 0 : 1}" width="${part.cells}" height="${used ? 4 : 2}" fill="${themeHex(part.kind === "free" ? "subtle" : part.color)}"/>`;
+    x += part.cells;
+    return rect;
+  });
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="4000" height="4" viewBox="0 0 ${Math.max(1, cells)} 4" preserveAspectRatio="none" shape-rendering="crispEdges">${rects.join("")}</svg>`;
+}
 function settingsSvg(color) {
   const step = 2 * Math.PI / 8;
   const pts = [];
@@ -2708,6 +2753,7 @@ var lensLiveTokens2 = atom14({ plugin: "context-lens", key: "lensLive" }, null);
 var lensRewritten2 = atom14({ plugin: "context-lens", key: "lensRewritten" }, false);
 var lensLimits2 = atom14({ plugin: "context-lens", key: "lensLimits" }, []);
 var lensNow2 = atom14({ plugin: "context-lens", key: "lensNow" }, 0);
+var STRIP_STEPS = 1e3;
 function lensCacheTime(state, left) {
   if (state === "uncached") return "—";
   if (state === "cold") return "cold";
@@ -2726,7 +2772,9 @@ async function lensRow($, e, columns) {
   const agentId = e.props.view.agentId;
   const agent = agentId === void 0 ? void 0 : agentList.find((a) => a.id === agentId) ?? { ...emptyClock("5m"), id: agentId, type: "agent" };
   if (agent === void 0 && mainClock.lastAt === null && ctx === null && limits.length === 0) return null;
-  const { Box, Text } = themedEls($.ui.resolve(e));
+  const els = themedEls($.ui.resolve(e));
+  const { Box, Text } = els;
+  const Svg = e.surface !== "terminal" && "Svg" in els ? els.Svg : void 0;
   const clock = agent ?? mainClock;
   const state = warmth(clock, at);
   const time = lensCacheTime(state, remainingMs(clock, at));
@@ -2735,35 +2783,67 @@ async function lensRow($, e, columns) {
   const headWidth = showClock ? 2 + time.length + (showRewritten ? " re-cached".length : 0) : null;
   const max = ctx?.maxTokens ?? 0;
   const used = agent === void 0 ? live ?? ctx?.totalTokens ?? 0 : clockTokens(agent);
-  const ctxTexts = max > 0 ? [`${formatTokens(used)}/${formatTokens(max)}`, formatTokens(used)] : [formatTokens(used)];
+  const ctxTexts = max > 0 ? [`${formatTokens(used)} / ${formatTokens(max)}`, formatTokens(used)] : [formatTokens(used)];
   const windows = limits.map((l) => usageWindow(l, at));
-  const layout = layoutLine(columns, headWidth, ctxTexts, windows);
-  const segments = max === 0 || layout.ctxBar === 0 ? [] : agent === void 0 && ctx !== null ? stackedBar(ctx, live, layout.ctxBar) : fillBar(used / max, layout.ctxBar);
-  const boxedBar = (key, parts, cells) => /* @__PURE__ */ h(Box, { key, flexDirection: "row", flexGrow: cells, flexShrink: 1, width: 0, minWidth: 0 }, parts.filter((s) => s.cells > 0).map((s, i) => /* @__PURE__ */ h(
+  const layout = layoutLine(columns, headWidth, ctxTexts, windows, Svg === void 0);
+  const cells = Svg ? STRIP_STEPS : layout.ctxBar;
+  const segments = max === 0 || layout.ctxBar === 0 ? [] : agent === void 0 && ctx !== null ? stackedBar(ctx, live, cells) : fillBar(used / max, cells);
+  const lineBar = (key, parts) => /* @__PURE__ */ h(Box, { key, flexDirection: "row" }, parts.filter((s) => s.cells > 0).map((s, i) => /* @__PURE__ */ h(Text, { key: `${key}-${i}`, color: s.color }, segmentGlyph(s.kind).repeat(s.cells))));
+  const breakdown = agent === void 0 && ctx !== null ? ctx.categories : [];
+  const [usedText, maxText] = layout.ctxText.split(" / ");
+  return /* @__PURE__ */ h(Box, { key: "lens-row", flexDirection: "row", gap: 1, alignItems: "center" }, showClock && /* @__PURE__ */ h(Text, { color: LENS_WARMTH_COLOR[state] }, "●"), showClock && /* @__PURE__ */ h(Text, { color: state === "uncached" ? "inactive" : LENS_WARMTH_COLOR[state] }, time), showClock && showRewritten && /* @__PURE__ */ h(Text, { color: "warning" }, "re-cached"), showClock && /* @__PURE__ */ h(Text, { dimColor: true }, "·"), /* @__PURE__ */ h(
     Box,
     {
-      key: `${key}-${i}`,
-      flexGrow: s.cells,
-      width: 0,
-      backgroundColor: s.kind === "free" ? "subtle" : s.color
-    }
-  )));
-  const glyphs = e.surface === "terminal";
-  return /* @__PURE__ */ h(Box, { key: "lens-row", flexDirection: "row", gap: 1 }, showClock && /* @__PURE__ */ h(Text, { color: LENS_WARMTH_COLOR[state] }, "●"), showClock && /* @__PURE__ */ h(Text, { color: state === "uncached" ? "inactive" : LENS_WARMTH_COLOR[state] }, time), showClock && showRewritten && /* @__PURE__ */ h(Text, { color: "warning" }, "re-cached"), showClock && /* @__PURE__ */ h(Text, { dimColor: true }, "│"), /* @__PURE__ */ h(Text, null, "ctx"), segments.length > 0 && !glyphs && boxedBar("ctx-bar", segments, layout.ctxBar), segments.length > 0 && glyphs && /* @__PURE__ */ h(Box, { flexDirection: "row" }, segments.filter((s) => s.cells > 0).map((s, i) => /* @__PURE__ */ h(Text, { key: `s${i}`, color: s.color }, segmentGlyph(s.kind).repeat(s.cells)))), /* @__PURE__ */ h(Text, null, layout.ctxText), windows.slice(0, layout.windows).map((w) => /* @__PURE__ */ h(
-    Box,
-    {
-      key: `u-${w.label}`,
+      key: "lens-context",
+      position: "relative",
       flexDirection: "row",
       gap: 1,
-      flexGrow: glyphs || layout.style === "percent" ? 0 : layout.usageBar,
+      alignItems: "center",
+      flexGrow: Svg ? 1 : 0,
+      flexShrink: 1,
       minWidth: 0
     },
-    /* @__PURE__ */ h(Text, { dimColor: true }, "│"),
-    /* @__PURE__ */ h(Text, null, w.label),
-    layout.style !== "percent" && (glyphs ? /* @__PURE__ */ h(Text, { color: fillColor(w.percent / 100) }, bar(w.percent / 100, layout.usageBar)) : boxedBar(`u-${w.label}-bar`, fillBar(w.percent / 100, layout.usageBar), layout.usageBar)),
-    /* @__PURE__ */ h(Text, { color: layout.style === "percent" ? fillColor(w.percent / 100) : void 0 }, w.percent, "%"),
-    layout.style === "full" && w.reset !== null && /* @__PURE__ */ h(Text, { dimColor: true }, w.reset)
-  )));
+    /* @__PURE__ */ h(Text, { dimColor: true }, layout.short ? CONTEXT_LABEL.short : CONTEXT_LABEL.label),
+    segments.length > 0 && Svg && /* @__PURE__ */ h(
+      Box,
+      {
+        key: "ctx-bar",
+        flexGrow: 1,
+        flexShrink: 1,
+        width: 0,
+        minWidth: 0,
+        flexDirection: "column",
+        justifyContent: "center"
+      },
+      /* @__PURE__ */ h(Svg, { source: stripSvg(segments), alt: `${layout.ctxText} tokens of context`, height: 4 })
+    ),
+    segments.length > 0 && !Svg && lineBar("ctx-bar", segments),
+    /* @__PURE__ */ h(Text, { color: DASH_TEXT }, usedText),
+    maxText && /* @__PURE__ */ h(Text, { dimColor: true }, "/ ", maxText),
+    Svg && breakdown.length > 0 && /* @__PURE__ */ h(
+      Box,
+      {
+        position: "absolute",
+        left: 0,
+        right: 0,
+        display: "none",
+        hover: { display: "flex" },
+        flexDirection: "row",
+        flexWrap: "wrap",
+        columnGap: 2,
+        rowGap: 0
+      },
+      breakdown.map((c) => /* @__PURE__ */ h(Box, { key: `ctx-${c.name}`, flexDirection: "row", gap: 1, flexShrink: 0 }, /* @__PURE__ */ h(Text, { color: c.kind === "buffer" ? BUFFER_COLOR : c.kind === "free" ? "inactive" : c.color }, "■"), /* @__PURE__ */ h(Text, { dimColor: true }, c.name), /* @__PURE__ */ h(Text, null, formatTokens(c.tokens))))
+    )
+  ), windows.slice(0, layout.windows).map((w) => /* @__PURE__ */ h(Box, { key: `u-${w.short}`, flexDirection: "row", gap: 1, flexShrink: 0, alignItems: "center" }, /* @__PURE__ */ h(Text, { dimColor: true }, "·"), /* @__PURE__ */ h(Text, { dimColor: true }, layout.short ? w.short : w.label), layout.style !== "percent" && Svg && /* @__PURE__ */ h(Box, { key: `u-${w.short}-ring`, flexShrink: 0 }, /* @__PURE__ */ h(
+    Svg,
+    {
+      source: ringSvg(w.percent, themeHex(fillColor(w.percent / 100))),
+      alt: `${w.percent}% of the ${w.label.toLowerCase()} limit`,
+      width: 14,
+      height: 14
+    }
+  )), layout.style !== "percent" && !Svg && layout.usageBar === 0 && /* @__PURE__ */ h(Text, { color: fillColor(w.percent / 100) }, gauge(w.percent / 100)), layout.usageBar > 0 && lineBar(`u-${w.short}-bar`, fillBar(w.percent / 100, layout.usageBar)), /* @__PURE__ */ h(Text, { color: fillColor(w.percent / 100) }, w.percent, "%"), layout.style === "full" && w.reset !== null && /* @__PURE__ */ h(Text, { dimColor: true }, "↻ ", w.reset))));
 }
 
 // hooks/render/band.tsx

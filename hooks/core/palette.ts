@@ -81,3 +81,28 @@ export let FLASH_COLOR = '#9b7bff'
 export const UNINSTALL_RED = '#ff6b6b'
 /** The card ✕'s hover: the app's ghost fill is lost on the green and violet cards, so a darker wash of the card itself. */
 export const CARD_CLOSE_HOVER = '#00000040'
+
+/** Claude Code's theme keys as hex, for an Svg, which takes no theme key: the signals and greys in the mod's own
+ * shades, the rest as the app's dark theme draws them. The light look turns them as it turns every drawing. */
+const THEME_KEY_HEX: Record<string, string> = {
+  text: DASH_TEXT,
+  inactive: DASH_DIM,
+  subtle: CARD_HOVER_EDGE,
+  success: DONE_ACCENT,
+  warning: YELLOW,
+  error: RED,
+  claude: '#d77757',
+  permission: '#b1b9f9',
+  suggestion: '#b1b9f9',
+  remember: '#b1b9f9',
+  planMode: '#48968c',
+  autoAccept: '#af87ff',
+  merged: '#af87ff',
+  promptBorder: '#888888',
+  bashBorder: '#fd5db1',
+  ide: '#4782c8',
+}
+
+/** A theme key, or a hex as it is, as hex; a key it does not know draws in the dim grey. */
+export const themeHex = (color: string): string =>
+  THEME_KEY_HEX[color] ?? (/^#[0-9a-fA-F]{6}$/.test(color) ? color : DASH_DIM)
