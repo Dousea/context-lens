@@ -73,7 +73,6 @@ export type SettingsDraft = {
   holdOffer?: string
   /** violet (the brand), orange (Claude's) or rose (cherry blossom). */
   theme?: string
-  appearance?: string
 }
 
 export type CacheTtl = '5m' | '1h'
@@ -180,7 +179,7 @@ declare module 'claude-code' {
         seen: boolean
       } | null
       /** The setup guide's step, or null when it is closed. */
-      setupStep: 'lean' | 'handoff' | 'look' | 'done' | null
+      setupStep: 'lean' | 'handoff' | 'done' | null
       /** Choices made in the setup guide, saved together at Done or the cross. */
       setupDraft: SettingsDraft
       /** Auto on model: the judge may suggest another model (never switched without a yes). Off by default. */

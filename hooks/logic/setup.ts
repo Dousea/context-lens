@@ -12,7 +12,7 @@ const setupStep = atom({ plugin: 'context-lens', key: 'setupStep' } as const, nu
 // the plugin, and the app says so in the chat, so a save per click filled the chat with notices.
 const setupDraft = atom({ plugin: 'context-lens', key: 'setupDraft' } as const, {})
 
-export type SetupStep = 'lean' | 'handoff' | 'look' | 'done'
+export type SetupStep = 'lean' | 'handoff' | 'done'
 
 /** The lean's five stops, cheaper to smarter: a name, and what it does to the judge's pick (see tipped). */
 export const LEAN_STOPS = [
@@ -23,26 +23,24 @@ export const LEAN_STOPS = [
   ['Smartest', 'more picks go higher'],
 ] as const
 
-/** The guide's step after this one: the lean, the handoff, the look, then done. */
+/** The guide's step after this one: the lean, the handoff, then done. */
 export function setupNext(step: SetupStep): SetupStep | null {
   if (step === 'lean') return 'handoff'
-  if (step === 'handoff') return 'look'
-  if (step === 'look') return 'done'
+  if (step === 'handoff') return 'done'
   return null
 }
 
 /** The step Back goes to; the lean is the first. */
 export function setupBack(step: SetupStep): SetupStep | null {
   if (step === 'handoff') return 'lean'
-  if (step === 'look') return 'handoff'
-  if (step === 'done') return 'look'
+  if (step === 'done') return 'handoff'
   return null
 }
 
-/** "2/3" for the step shown; the closing step has no number. */
+/** "1/2" for the step shown; the closing step has no number. */
 export function setupCounter(step: SetupStep): string {
-  const n = { lean: 1, handoff: 2, look: 3, done: 0 }[step]
-  return n ? `${n}/3` : ''
+  const n = { lean: 1, handoff: 2, done: 0 }[step]
+  return n ? `${n}/2` : ''
 }
 
 /** Shows a step of the guide; the handoff step needs the installed skills to pick from. */
@@ -57,7 +55,6 @@ export function setupShown(draft: SettingsDraft, saved: JudgeConfig) {
     bias: draft.bias !== undefined ? Number(draft.bias) : saved.bias,
     handoffSkill: draft.handoffSkill ?? saved.handoffSkill,
     hide: (draft.hide ?? saved.hide.join(',')).split(',').filter(Boolean) as Hideable[],
-    appearance: (draft.appearance ?? saved.appearance) as JudgeConfig['appearance'],
   }
 }
 
@@ -69,10 +66,9 @@ async function flushSetup($: EngineInterface) {
     bias: String(config.bias),
     handoffSkill: config.handoffSkill,
     hide: config.hide.join(','),
-    appearance: config.appearance,
   }
   const changes: Record<string, string> = {}
-  for (const field of ['hide', 'bias', 'handoffSkill', 'appearance'] as const) {
+  for (const field of ['hide', 'bias', 'handoffSkill'] as const) {
     const value = draft[field]
     if (value !== undefined && value.trim() !== saved[field]) changes[field] = value.trim()
   }

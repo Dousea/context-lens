@@ -216,8 +216,7 @@ var config = {
   subagentModel: "off",
   overrideDefinitions: "off",
   holdOffer: "on",
-  theme: "violet",
-  appearance: "auto"
+  theme: "violet"
 };
 var setConfig = (value) => {
   config = value;
@@ -240,7 +239,6 @@ function readConfig(options) {
     overrideDefinitions: str(o.overrideDefinitions) === "on" ? "on" : "off",
     holdOffer: str(o.holdOffer) === "off" ? "off" : "on",
     theme: THEMES.find((t) => t === str(o.theme)) ?? "violet",
-    appearance: ["dark", "light"].find((a) => a === str(o.appearance)) ?? "auto",
     // Everything shows unless switched off; the judge's line too.
     hide: (o.hide === void 0 ? "" : str(o.hide)).split(",").map((part) => part.trim()).filter((part) => HIDEABLE.includes(part))
   };
@@ -406,13 +404,10 @@ function applyTheme() {
   CARD_HOVER = neutral ? "#1c1c1c" : "#1c1c20";
   CARD_HOVER_EDGE = neutral ? "#3b3b3b" : "#3b3b42";
   HOVER_BOX = neutral ? "#2b2b2b" : "#2b2b2f";
-  applyAppearance();
+  setLight(claudeIsLight);
 }
 var claudeIsLight = false;
 var appearanceCheckedAt = -Infinity;
-function applyAppearance() {
-  setLight(config.appearance === "light" || config.appearance === "auto" && claudeIsLight);
-}
 async function refreshAppearance($) {
   const now = await $.clock.now().catch(() => Date.now());
   if (now - appearanceCheckedAt < 4e3) return;
@@ -422,7 +417,7 @@ async function refreshAppearance($) {
   const lightNow = typeof value === "string" && value.startsWith("light");
   if (lightNow === claudeIsLight) return;
   claudeIsLight = lightNow;
-  applyAppearance();
+  setLight(claudeIsLight);
   $.ui.invalidate("ui.render");
 }
 var BRAND_BG = "#15121f";
@@ -1918,19 +1913,17 @@ var LEAN_STOPS = [
 ];
 function setupNext(step) {
   if (step === "lean") return "handoff";
-  if (step === "handoff") return "look";
-  if (step === "look") return "done";
+  if (step === "handoff") return "done";
   return null;
 }
 function setupBack(step) {
   if (step === "handoff") return "lean";
-  if (step === "look") return "handoff";
-  if (step === "done") return "look";
+  if (step === "done") return "handoff";
   return null;
 }
 function setupCounter(step) {
-  const n = { lean: 1, handoff: 2, look: 3, done: 0 }[step];
-  return n ? `${n}/3` : "";
+  const n = { lean: 1, handoff: 2, done: 0 }[step];
+  return n ? `${n}/2` : "";
 }
 async function goSetup($, step) {
   if (step === "handoff") await loadInstalledSkills($);
@@ -1940,8 +1933,7 @@ function setupShown(draft, saved5) {
   return {
     bias: draft.bias !== void 0 ? Number(draft.bias) : saved5.bias,
     handoffSkill: draft.handoffSkill ?? saved5.handoffSkill,
-    hide: (draft.hide ?? saved5.hide.join(",")).split(",").filter(Boolean),
-    appearance: draft.appearance ?? saved5.appearance
+    hide: (draft.hide ?? saved5.hide.join(",")).split(",").filter(Boolean)
   };
 }
 async function flushSetup($) {
@@ -1950,11 +1942,10 @@ async function flushSetup($) {
   const saved5 = {
     bias: String(config.bias),
     handoffSkill: config.handoffSkill,
-    hide: config.hide.join(","),
-    appearance: config.appearance
+    hide: config.hide.join(",")
   };
   const changes = {};
-  for (const field of ["hide", "bias", "handoffSkill", "appearance"]) {
+  for (const field of ["hide", "bias", "handoffSkill"]) {
     const value = draft[field];
     if (value !== void 0 && value.trim() !== saved5[field]) changes[field] = value.trim();
   }
@@ -2018,8 +2009,7 @@ var SETTING_FIELDS = {
   subagentModel: "subagentModel",
   overrideDefinitions: "overrideDefinitions",
   holdOffer: "holdOffer",
-  theme: "theme",
-  appearance: "appearance"
+  theme: "theme"
 };
 async function saveSetting($, field, value) {
   const { deny } = await $.config.set({ key: `context-lens.${SETTING_FIELDS[field]}`, value }).catch((error) => ({ deny: error instanceof Error ? error.message : String(error) }));
@@ -2043,7 +2033,6 @@ async function saveSetting($, field, value) {
     overrideDefinitions: config.overrideDefinitions,
     holdOffer: config.holdOffer,
     theme: config.theme,
-    appearance: config.appearance,
     [SETTING_FIELDS[field]]: value
   };
   setConfig(readConfig(raw));
@@ -4310,8 +4299,7 @@ async function settingsPanel($, e) {
     subagentModel: draft.subagentModel ?? config.subagentModel,
     overrideDefinitions: draft.overrideDefinitions ?? config.overrideDefinitions,
     holdOffer: draft.holdOffer ?? config.holdOffer,
-    theme: draft.theme ?? config.theme,
-    appearance: draft.appearance ?? config.appearance
+    theme: draft.theme ?? config.theme
   };
   const panelNow = await $.clock.now();
   const sameSet = (a, b) => a.split(",").filter(Boolean).sort().join() === b.split(",").filter(Boolean).sort().join();
@@ -4674,17 +4662,6 @@ async function settingsPanel($, e) {
                 onSelect: set("layout")
               }),
               settingRow({
-                key: "settings-appearance",
-                label: "Appearance",
-                value: shown.appearance,
-                options: [
-                  { value: "auto", label: "Match Claude Code" },
-                  { value: "dark", label: "Dark" },
-                  { value: "light", label: "Light" }
-                ],
-                onSelect: set("appearance")
-              }),
-              settingRow({
                 key: "settings-theme",
                 label: "Theme",
                 value: shown.theme,
@@ -4824,21 +4801,6 @@ async function setupGuide($, e, step) {
       ...nav(nextButton)
     ]);
   }
-  if (step === "look") {
-    const mode = shown.appearance;
-    return band("Dark or light panels?", 56, [
-      ...["auto", "dark", "light"].map((value) => /* @__PURE__ */ h(
-        Button,
-        {
-          key: `setup-look-${value}`,
-          plain: true,
-          label: `${mode === value ? "◉" : "○"} ${{ auto: "Match Claude Code", dark: "Dark", light: "Light" }[value]}`,
-          onPress: () => setDraft("appearance", value)
-        }
-      )),
-      ...nav(nextButton)
-    ]);
-  }
   return band("⏻ Auto on or off. ⚙ all settings. Auto pauses on Fable.", 24, [
     ...nav(/* @__PURE__ */ h(Button, { key: "setup-done", variant: "primary", autoFocus: true, label: "Done", onPress: () => closeSetup($) }))
   ]);
@@ -4907,7 +4869,7 @@ function registerAbovePromptHooks(on) {
       const choice = await read18($, handoffPick3);
       if (choice) return await handoffBar($, e, choice);
       const storedStep = await read18($, setupStep2);
-      const step = storedStep && !["lean", "handoff", "look", "done"].includes(storedStep) ? "lean" : storedStep;
+      const step = storedStep && !["lean", "handoff", "done"].includes(storedStep) ? "lean" : storedStep;
       if (step) return await setupGuide($, e, step);
       const downReason = await read18($, judgeDown2);
       if (downReason && downReason !== await read18($, judgeDownHidden2)) return await judgeDownBand($, e, downReason);

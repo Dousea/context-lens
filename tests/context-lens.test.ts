@@ -1839,7 +1839,6 @@ describe('setup guide', () => {
     const band = await $.ui.mount(DESK)
     await band.press({ key: 'setup-next' })
     await band.press({ key: 'setup-next' })
-    await band.press({ key: 'setup-next' })
     await band.press({ key: 'setup-done' })
     await band.unmount()
     await mocked.advance(16_000)
@@ -1853,18 +1852,15 @@ describe('setup guide', () => {
     await panel.unmount()
   })
 
-  test('the steps run lean, handoff, look, done; Back goes one step back', () => {
+  test('the steps run lean, handoff, done; Back goes one step back', () => {
     expect(setupNext('lean')).toBe('handoff')
-    expect(setupNext('handoff')).toBe('look')
-    expect(setupNext('look')).toBe('done')
+    expect(setupNext('handoff')).toBe('done')
     expect(setupNext('done')).toBeNull()
     expect(setupBack('lean')).toBeNull()
     expect(setupBack('handoff')).toBe('lean')
-    expect(setupBack('look')).toBe('handoff')
-    expect(setupBack('done')).toBe('look')
-    expect(setupCounter('lean')).toBe('1/3')
-    expect(setupCounter('handoff')).toBe('2/3')
-    expect(setupCounter('look')).toBe('3/3')
+    expect(setupBack('done')).toBe('handoff')
+    expect(setupCounter('lean')).toBe('1/2')
+    expect(setupCounter('handoff')).toBe('2/2')
     expect(setupCounter('done')).toBe('')
   })
 
@@ -1880,7 +1876,7 @@ describe('setup guide', () => {
     await clickable(band, 'setup-actions')
     // Branded: the name in the footer's purple, the step counter beside it.
     expect(await drawn(band)).toContain('"color":"#a79cf7"')
-    expect(await drawn(band)).toContain('✦ context-lens setup  1/3')
+    expect(await drawn(band)).toContain('✦ context-lens setup  1/2')
     // The right side: a still SVG (every click redraws the band, and a redrawn animation flickers) with the gradient.
     const first = await drawn(band)
     expect(first).toContain('"type":"Svg"')
@@ -1890,39 +1886,30 @@ describe('setup guide', () => {
     expect(set).toEqual([])
     expect(said.join(' ')).not.toContain('judges')
 
-    // 1/3 the lean: each stop is named and says what it does; the track lights toward the marker.
+    // 1/2 the lean: each stop is named and says what it does; the track lights toward the marker.
     expect(await drawn(band)).toContain('Balanced: ')
     await band.press({ key: 'setup-bias4' })
     expect(await drawn(band)).toContain('Smartest: ')
     expect(await drawn(band)).toContain('{"color":"#a79cf7"},"children":["──"]')
     await band.press({ key: 'setup-next' })
 
-    // 2/3 the handoff: the installed skills to pick from.
-    expect(await drawn(band)).toContain('2/3')
+    // 2/2 the handoff: the installed skills to pick from.
+    expect(await drawn(band)).toContain('2/2')
     expect(await drawn(band)).toContain('/session-handoff')
     await band.select({ key: 'setup-skill', value: 'session-handoff' })
     await band.press({ key: 'setup-next' })
 
-    // 3/3 the look: match Claude Code, dark or light. Light is picked here.
-    expect(await drawn(band)).toContain('3/3')
-    expect(await drawn(band)).toContain('Dark or light panels?')
-    expect(await drawn(band)).toContain('◉ Match Claude Code')
-    await band.press({ key: 'setup-look-light' })
-    expect(await drawn(band)).toContain('◉ Light')
-    await band.press({ key: 'setup-next' })
-
-    // The last word: the footer's buttons and Fable; no step of ticks. Back goes to the look step.
+    // The last word: the footer's buttons and Fable; no step of ticks. Back goes to the handoff step.
     expect(await drawn(band)).toContain('Auto pauses on Fable')
     expect(await band.find({ key: 'setup-box-timer' })).toBeUndefined()
     await band.press({ key: 'setup-back' })
-    expect(await drawn(band)).toContain('3/3')
+    expect(await drawn(band)).toContain('2/2')
     await band.press({ key: 'setup-next' })
     expect(set).toEqual([])
     await band.press({ key: 'setup-done' })
     expect(set).toEqual([
       { key: 'context-lens.effortBias', value: '2' },
       { key: 'context-lens.handoffSkill', value: 'session-handoff' },
-      { key: 'context-lens.appearance', value: 'light' },
     ])
     await band.unmount()
     await expect($.ui.mount(DESK)).rejects.toThrow()
@@ -3439,23 +3426,7 @@ describe('dashboard', () => {
   })
 
   test(
-    'light appearance, set in the settings: the band is drawn pale',
-    { options: { layout: 'default', appearance: 'light' } } as never,
-    async ($, on) => {
-      engine(on)
-      mock.clock(on)
-      await start($, on)
-      await closeSetup($, DESK_BAND)
-      const band = await $.ui.mount(DESK_BAND)
-      const text = await drawn(band)
-      expect(text).toContain(lightHex('#141416', 'surface'))
-      expect(text).not.toContain('"backgroundColor":"#141416"')
-      await band.unmount()
-    },
-  )
-
-  test(
-    "auto appearance follows Claude Code's own theme row: light turns it pale, dark turns it back",
+    "the look follows Claude Code's own theme row: light turns it pale, dark turns it back",
     { options: { layout: 'default' } } as never,
     async ($, on) => {
       engine(on)

@@ -21,15 +21,12 @@ export function applyTheme() {
   CARD_HOVER = neutral ? '#1c1c1c' : '#1c1c20'
   CARD_HOVER_EDGE = neutral ? '#3b3b3b' : '#3b3b42'
   HOVER_BOX = neutral ? '#2b2b2b' : '#2b2b2f'
-  applyAppearance()
+  setLight(claudeIsLight)
 }
 
-// Claude Code's own theme, read from its /config row: a light one turns everything light when appearance is auto.
+// Claude Code's own theme, read from its /config row: a light one turns everything light.
 let claudeIsLight = false
 let appearanceCheckedAt = -Infinity
-function applyAppearance() {
-  setLight(config.appearance === 'light' || (config.appearance === 'auto' && claudeIsLight))
-}
 /** Reads Claude Code's theme row (at most every few seconds) and redraws when light or dark changed. */
 export async function refreshAppearance($: EngineInterface) {
   const now = await $.clock.now().catch(() => Date.now())
@@ -40,7 +37,7 @@ export async function refreshAppearance($: EngineInterface) {
   const lightNow = typeof value === 'string' && value.startsWith('light')
   if (lightNow === claudeIsLight) return
   claudeIsLight = lightNow
-  applyAppearance()
+  setLight(claudeIsLight)
   $.ui.invalidate('ui.render')
 }
 export let BRAND_BG = '#15121f'

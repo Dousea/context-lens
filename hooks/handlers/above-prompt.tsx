@@ -120,11 +120,10 @@ export function registerAbovePromptHooks(on: On) {
       // band's Handoff; Go keeps the choice for next time. Enter presses Go once the bar holds the keyboard.
       const choice = await read($, handoffPick)
       if (choice) return await handoffBar($, e, choice)
-      // The setup guide, one step at a time: the lean, the handoff, the look, then a word on what else is there. The
+      // The setup guide, one step at a time: the lean, the handoff, then a word on what else is there. The
       // choices are saved together at Done or ✕ (see setupDraft). A stored step the guide does not know starts it at the lean.
       const storedStep = await read($, setupStep)
-      const step =
-        storedStep && !(['lean', 'handoff', 'look', 'done'] as const).includes(storedStep) ? 'lean' : storedStep
+      const step = storedStep && !(['lean', 'handoff', 'done'] as const).includes(storedStep) ? 'lean' : storedStep
       if (step) return await setupGuide($, e, step)
       // The judge is failing: the effort stays as it is until it answers again.
       const downReason = await read($, judgeDown)

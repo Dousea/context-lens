@@ -171,21 +171,6 @@ export async function setupGuide($: EngineInterface, e: RenderInput<'AbovePrompt
       ...nav(nextButton),
     ])
   }
-  if (step === 'look') {
-    // Match Claude Code is the default; the other two fix it. The choice shows at once.
-    const mode = shown.appearance
-    return band('Dark or light panels?', 56, [
-      ...(['auto', 'dark', 'light'] as const).map(value => (
-        <Button
-          key={`setup-look-${value}`}
-          plain
-          label={`${mode === value ? '◉' : '○'} ${{ auto: 'Match Claude Code', dark: 'Dark', light: 'Light' }[value]}`}
-          onPress={() => setDraft('appearance', value)}
-        />
-      )),
-      ...nav(nextButton),
-    ])
-  }
   return band('⏻ Auto on or off. ⚙ all settings. Auto pauses on Fable.', 24, [
     ...nav(<Button key="setup-done" variant="primary" autoFocus label="Done" onPress={() => closeSetup($)} />),
   ])

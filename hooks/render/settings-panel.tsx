@@ -173,7 +173,6 @@ export async function settingsPanel($: EngineInterface, e: RenderInput<'AbovePro
     overrideDefinitions: draft.overrideDefinitions ?? config.overrideDefinitions,
     holdOffer: draft.holdOffer ?? config.holdOffer,
     theme: draft.theme ?? config.theme,
-    appearance: draft.appearance ?? config.appearance,
   }
   const panelNow = await $.clock.now()
   // Dirty only while the draft differs from what is saved: a control set back to its saved value is no change.
@@ -687,17 +686,6 @@ export async function settingsPanel($: EngineInterface, e: RenderInput<'AbovePro
                                 { value: 'minimal', label: 'Minimal' },
                               ],
                               onSelect: set('layout'),
-                            }),
-                            settingRow({
-                              key: 'settings-appearance',
-                              label: 'Appearance',
-                              value: shown.appearance,
-                              options: [
-                                { value: 'auto', label: 'Match Claude Code' },
-                                { value: 'dark', label: 'Dark' },
-                                { value: 'light', label: 'Light' },
-                              ],
-                              onSelect: set('appearance'),
                             }),
                             settingRow({
                               key: 'settings-theme',

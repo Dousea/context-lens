@@ -35,8 +35,6 @@ export type JudgeConfig = {
   holdOffer: 'on' | 'off'
   /** The accent colour of everything context-lens draws: the brand violet, Claude orange or cherry-blossom rose. */
   theme: ThemeName
-  /** auto: light when Claude Code's own theme is light. dark and light fix it. */
-  appearance: 'auto' | 'dark' | 'light'
 }
 
 /** The swamp thresholds the settings offer, in percent of the context window. */
@@ -68,7 +66,6 @@ export let config: JudgeConfig = {
   overrideDefinitions: 'off',
   holdOffer: 'on',
   theme: 'violet',
-  appearance: 'auto',
 }
 export const setConfig = (value: typeof config) => {
   config = value
@@ -93,7 +90,6 @@ export function readConfig(options: unknown): JudgeConfig {
     overrideDefinitions: str(o.overrideDefinitions) === 'on' ? 'on' : 'off',
     holdOffer: str(o.holdOffer) === 'off' ? 'off' : 'on',
     theme: THEMES.find(t => t === str(o.theme)) ?? 'violet',
-    appearance: (['dark', 'light'] as const).find(a => a === str(o.appearance)) ?? 'auto',
     // Everything shows unless switched off; the judge's line too.
     hide: (o.hide === undefined ? '' : str(o.hide))
       .split(',')

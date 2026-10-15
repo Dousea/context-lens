@@ -52,7 +52,6 @@ export const SETTING_FIELDS = {
   overrideDefinitions: 'overrideDefinitions',
   holdOffer: 'holdOffer',
   theme: 'theme',
-  appearance: 'appearance',
 } as const
 
 export async function saveSetting($: EngineInterface, field: keyof typeof SETTING_FIELDS, value: string) {
@@ -84,7 +83,6 @@ export async function saveSetting($: EngineInterface, field: keyof typeof SETTIN
     overrideDefinitions: config.overrideDefinitions,
     holdOffer: config.holdOffer,
     theme: config.theme,
-    appearance: config.appearance,
     [SETTING_FIELDS[field]]: value,
   }
   setConfig(readConfig(raw))

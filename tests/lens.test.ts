@@ -261,27 +261,43 @@ test('the lens row stays under an alert band on the terminal', async ($, on) => 
   expect(await line.find({ text: /^\/ 250k$/ })).toBeDefined()
 })
 
-baseTest(
-  'the drawn strip and rings follow the light look',
-  { options: { layout: 'default', appearance: 'light' } },
-  async ($, on) => {
-    mock.clock(on, { now: 0 })
-    engine(on)
-    answering(on, 140_000, 4_000)
-    await begin($)
-    await step($)
+baseTest('the drawn strip and rings follow the light look', { options: { layout: 'default' } }, async ($, on) => {
+  const clock = mock.clock(on, { now: 0 })
+  engine(on)
+  // Claude Code's own theme is light: the band follows it.
+  on(
+    'config.list',
+    () =>
+      ({
+        value: [
+          {
+            key: 'theme',
+            label: 'Theme',
+            kind: 'choice',
+            value: 'light',
+            provider: { kind: 'engine' },
+            isLocked: false,
+          },
+        ],
+      }) as never,
+  )
+  answering(on, 140_000, 4_000)
+  await begin($)
+  await step($)
 
-    const line = await $.ui.mount({ plugin: PLUGIN, surface: 'mobile', component: 'AbovePrompt', props: band(140) })
-    const dashboard = JSON.stringify(keyed(await line.drawn(), 'dash'))
-    expect(dashboard).toContain('"u-5h-ring"')
-    expect(dashboard).toContain('preserveAspectRatio=\\"none\\"')
-    // The messages row (permission) and the dim free space are drawn for a dark app, then turned for a light one.
-    expect(dashboard).not.toContain('#b1b9f9')
-    expect(dashboard).not.toContain('#3b3b42')
-    // The tokens used carry the band's text colour: the app's default would be white on a light band in a dark app.
-    expect((await line.find({ text: /^152k$/ }))?.props.color).toMatch(/^#/)
-  },
-)
+  // The first draw reads the theme row; the redraw it asks for is light.
+  await (await $.ui.mount({ plugin: PLUGIN, surface: 'mobile', component: 'AbovePrompt', props: band(140) })).unmount()
+  await clock.advance(100)
+  const line = await $.ui.mount({ plugin: PLUGIN, surface: 'mobile', component: 'AbovePrompt', props: band(140) })
+  const dashboard = JSON.stringify(keyed(await line.drawn(), 'dash'))
+  expect(dashboard).toContain('"u-5h-ring"')
+  expect(dashboard).toContain('preserveAspectRatio=\\"none\\"')
+  // The messages row (permission) and the dim free space are drawn for a dark app, then turned for a light one.
+  expect(dashboard).not.toContain('#b1b9f9')
+  expect(dashboard).not.toContain('#3b3b42')
+  // The tokens used carry the band's text colour: the app's default would be white on a light band in a dark app.
+  expect((await line.find({ text: /^152k$/ }))?.props.color).toMatch(/^#/)
+})
 
 test('the desktop shows the context and the usage itself: the dashboard keeps the cache clock alone, in its title', async ($, on) => {
   const clock = mock.clock(on, { now: 0 })

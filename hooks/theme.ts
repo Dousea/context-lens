@@ -11,7 +11,7 @@ export const THEMES: readonly ThemeName[] = ['violet', 'orange', 'rose']
 const HUES: Record<Exclude<ThemeName, 'violet'>, number> = { orange: 15, rose: 340 }
 
 let current: ThemeName = 'violet'
-// Light appearance: the panels are drawn for a dark app; on a light one every colour is turned (lightHex) so the surfaces
+// The light look: the panels are drawn for a dark app; on a light one every colour is turned (lightHex) so the surfaces
 // come out pale and the text and accents deep. It sits on top of the theme's hue, so every theme has a light form.
 let light = false
 export const setLight = (on: boolean) => {
