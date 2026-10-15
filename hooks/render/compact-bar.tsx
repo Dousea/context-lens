@@ -1,4 +1,4 @@
-import { atom, type EngineInterface, type RenderInput, update } from 'claude-code'
+import { atom, type EngineInterface, type RenderInput, type RenderSurface, update } from 'claude-code'
 
 import { COMPACT_FADE_MS, FROST_HEIGHT, FROST_WIDTH } from '../core/constants'
 import { ACCENT, BRAND_BG, BRAND_EDGE, CARD_CLOSE_HOVER } from '../core/palette'
@@ -13,10 +13,15 @@ import { introLayer, introShows, markTitle } from './band'
 
 const compactAsk = atom({ plugin: 'context-lens', key: 'compactAsk' } as const, false)
 
-export async function compactBar($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
-  const { Box, Text, Button, Svg } = themedEls($.ui.resolve(e))
+export async function compactBar(
+  $: EngineInterface,
+  e: RenderInput<'AbovePrompt', Exclude<RenderSurface, 'terminal'>>,
+) {
+  const elements = themedEls($.ui.resolve(e))
+  const { Box, Text, Button, Svg } = elements
+  // Mobile has no field (the app's stand-in for one draws nothing): there Compact goes without a note.
+  const Input = e.surface !== 'mobile' && 'Input' in elements ? elements.Input : undefined
 
-  const { Input } = themedEls($.ui.resolve(e))
   const go = () => compactCold($, compactNote)
   const nowCompact = await $.clock.now()
   // One redraw once the fade is over, to drop its layer.
@@ -79,34 +84,36 @@ export async function compactBar($: EngineInterface, e: RenderInput<'AbovePrompt
         {/* The window reaches a row above and below the field (absolutely, so the bar stays one line): one line tall,
                   it cut the field's focus ring off at the top and bottom. */}
         {/* It gives way before the Compact button does: in a narrow pane the field shrinks, the button stays. */}
-        <Box key="compact-field" position="relative" width={48} minWidth={6} height={1} flexShrink={1}>
-          <Box position="absolute" top={-1} bottom={-1} left={0} right={0} overflow="hidden">
-            <Box
-              position="absolute"
-              top={0}
-              bottom={0}
-              right={-3}
-              width={60}
-              flexDirection="row"
-              alignItems="center"
-              justifyContent="flex-end"
-              paddingRight={1}
-            >
-              <Input
-                key="compact-note"
-                placeholder="Summary (optional)"
-                submitLabel={'​'}
-                onInput={v => {
-                  setCompactNote(v)
-                }}
-                onSubmit={v => {
-                  setCompactNote(v)
-                  void go()
-                }}
-              />
+        {Input ? (
+          <Box key="compact-field" position="relative" width={48} minWidth={6} height={1} flexShrink={1}>
+            <Box position="absolute" top={-1} bottom={-1} left={0} right={0} overflow="hidden">
+              <Box
+                position="absolute"
+                top={0}
+                bottom={0}
+                right={-3}
+                width={60}
+                flexDirection="row"
+                alignItems="center"
+                justifyContent="flex-end"
+                paddingRight={1}
+              >
+                <Input
+                  key="compact-note"
+                  placeholder="Summary (optional)"
+                  submitLabel={'​'}
+                  onInput={v => {
+                    setCompactNote(v)
+                  }}
+                  onSubmit={v => {
+                    setCompactNote(v)
+                    void go()
+                  }}
+                />
+              </Box>
             </Box>
           </Box>
-        </Box>
+        ) : null}
         {/* Compact with the Enter mark in it: a white pill drawn, the word in the app's font, the mark as Claude's prompt
                   box draws its own, and a blank button over all three. A Button's label is text only, and ↵ there was a
                   hairline. */}

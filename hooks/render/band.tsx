@@ -1,12 +1,20 @@
-import type { EngineInterface, RenderInput } from 'claude-code'
+import type {
+  BoxProps,
+  ButtonProps,
+  ElementConstructor,
+  EngineInterface,
+  RenderInput,
+  SvgProps,
+  TextProps,
+} from 'claude-code'
 
 import type { Effort, ModelKey } from '../../types'
-import { ART_COLUMNS, ART_FRAME_MS, ART_MIN_WIDTH, ART_ROWS, artFrame, type ArtKind, MOVING } from '../svg/art'
-import { MARK_SVG } from '../svg/brand-mark'
 import { EFFORT_LABELS, EFFORTS, MODELS } from '../core/constants'
 import { ACCENT, BRAND_BG, BRAND_EDGE } from '../core/palette'
 import type { Snap } from '../logic/effort'
 import { keyOf, sessionModel } from '../logic/switching'
+import { ART_COLUMNS, ART_FRAME_MS, ART_MIN_WIDTH, ART_ROWS, artFrame, type ArtKind, MOVING } from '../svg/art'
+import { MARK_SVG } from '../svg/brand-mark'
 import { inPhase } from '../svg/glows'
 import { INTRO_SVG } from '../svg/scenes'
 import { themedEls } from '../theme'
@@ -41,66 +49,90 @@ export async function introShows($: EngineInterface, kind: string): Promise<bool
   introElapsed = now - introAt
   return introElapsed < INTRO_MS
 }
+/** The elements a band draws with: Box, Text and Button on every surface, Svg on those that draw images. */
+export type BandElements = {
+  Box: ElementConstructor<BoxProps>
+  Text: ElementConstructor<TextProps>
+  Button: ElementConstructor<ButtonProps>
+  Svg?: ElementConstructor<SvgProps>
+}
+
 // The mark beside a card's title, sized to one line of text.
 const TITLE_MARK_SIZE = 16
 
 /** A card's title with the context-lens mark where the ✦ stood; the ✦ stays where the surface draws no images. */
 export function markTitle(
-  els: { Box: unknown; Text: unknown; Svg?: unknown },
+  { Box, Text, Svg }: Pick<BandElements, 'Box' | 'Text' | 'Svg'>,
   key: string,
   color: string,
   title: string,
   mark = MARK_SVG,
 ) {
-  const {
-    Box: B,
-    Text: T,
-    Svg: S,
-  } = els as unknown as {
-    Box: (p: Record<string, unknown>) => unknown
-    Text: (p: Record<string, unknown>) => unknown
-    Svg?: (p: Record<string, unknown>) => unknown
-  }
-  if (!S)
+  if (!Svg)
     return (
-      <T key={key} color={color} bold wrap="truncate">
+      <Text key={key} color={color} bold wrap="truncate">
         {title}
-      </T>
+      </Text>
     )
   return (
-    <B key={key} flexDirection="row" alignItems="center" flexShrink={1} minWidth={0}>
-      <B flexShrink={0} marginRight={1} alignItems="center">
-        <S source={mark} alt="context-lens" width={TITLE_MARK_SIZE} height={TITLE_MARK_SIZE} />
-      </B>
-      <T color={color} bold wrap="truncate">
+    <Box key={key} flexDirection="row" alignItems="center" flexShrink={1} minWidth={0}>
+      <Box flexShrink={0} marginRight={1} alignItems="center">
+        <Svg source={mark} alt="context-lens" width={TITLE_MARK_SIZE} height={TITLE_MARK_SIZE} />
+      </Box>
+      <Text color={color} bold wrap="truncate">
         {title.replace(/^✦ /, '')}
-      </T>
-    </B>
+      </Text>
+    </Box>
+  )
+}
+
+/** A choice as a button per option, the picked one boxed: where a dropdown would jump the layout, or the surface
+ * draws none. */
+export function optionButtons(
+  Button: BandElements['Button'],
+  key: string,
+  value: string,
+  options: readonly { value: string; label: string }[],
+  onSelect: (value: string) => unknown,
+) {
+  return options.map(option =>
+    option.value === value ? (
+      <Button
+        key={`${key}-${option.value}`}
+        variant="secondary"
+        label={option.label}
+        onPress={() => onSelect(option.value)}
+      />
+    ) : (
+      <Button
+        key={`${key}-${option.value}`}
+        plain
+        dimColor
+        label={option.label}
+        onPress={() => onSelect(option.value)}
+      />
+    ),
   )
 }
 
 /** The entrance layer (INTRO_SVG) in a band's own colours, or nothing once the entrance is over. */
 export function introLayer(
-  els: { Box: unknown; Svg?: unknown },
+  { Box, Svg }: Pick<BandElements, 'Box' | 'Svg'>,
   key: string,
   show: boolean,
   wash = '#8b6cff',
   light = '#b9a7ff',
 ) {
-  if (!els.Svg || !show) return null
-  const { Box: B, Svg: S } = els as unknown as {
-    Box: (p: Record<string, unknown>) => unknown
-    Svg: (p: Record<string, unknown>) => unknown
-  }
+  if (!Svg || !show) return null
   return (
-    <B key={`${key}-intro`} position="absolute" top={-1} left={0} right={0} bottom={-1}>
-      <S
+    <Box key={`${key}-intro`} position="absolute" top={-1} left={0} right={0} bottom={-1}>
+      <Svg
         source={inPhase(INTRO_SVG.replace('#8b6cff', wash).replace('#b9a7ff', light), introElapsed)}
         alt=""
         width={1600}
         height={240}
       />
-    </B>
+    </Box>
   )
 }
 
@@ -119,11 +151,7 @@ export function appHintText(
 }
 
 /** A line with the app hint at the left and `words` at the right end. */
-export function hintLine(els: { Box: unknown; Text: unknown }, hint: string, words: string, key: string) {
-  const { Box, Text } = els as unknown as {
-    Box: (p: Record<string, unknown>) => unknown
-    Text: (p: Record<string, unknown>) => unknown
-  }
+export function hintLine({ Box, Text }: Pick<BandElements, 'Box' | 'Text'>, hint: string, words: string, key: string) {
   return (
     <Box key={key} flexDirection="row" justifyContent="space-between" columnGap={2}>
       {hint ? (

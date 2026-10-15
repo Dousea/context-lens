@@ -16,15 +16,18 @@ import {
 } from '../logic/setup'
 import { BRAND_SVG } from '../svg/scenes'
 import { themedEls } from '../theme'
-import { terminalPanel } from './band'
+import { optionButtons, terminalPanel } from './band'
 
 const installedSkills = atom({ plugin: 'context-lens', key: 'installedSkills' } as const, [])
 const setupDraft = atom({ plugin: 'context-lens', key: 'setupDraft' } as const, {})
 
 export async function setupGuide($: EngineInterface, e: RenderInput<'AbovePrompt'>, step: SetupStep) {
-  const { Box, Text, Button, Svg } = themedEls($.ui.resolve(e))
+  const elements = themedEls($.ui.resolve(e))
+  const { Box, Text, Button } = elements
+  const Svg = 'Svg' in elements ? elements.Svg : undefined
+  // Mobile has no dropdown (the app's stand-in for one draws nothing): there the handoff writer is a button each.
+  const Select = e.surface !== 'mobile' && 'Select' in elements ? elements.Select : undefined
 
-  const { Input, Select } = themedEls($.ui.resolve(e))
   const draft = await read($, setupDraft)
   const shown = setupShown(draft, config)
   const setDraft = (field: keyof SettingsDraft, value: string) => update($, setupDraft, d => ({ ...d, [field]: value }))
@@ -63,9 +66,11 @@ export async function setupGuide($: EngineInterface, e: RenderInput<'AbovePrompt
         borderStyle="round"
         borderColor={BRAND_EDGE}
       >
-        <Box key="setup-art" position="absolute" top={-1} right={0} bottom={-1}>
-          <Svg source={BRAND_SVG} alt="context-lens" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
-        </Box>
+        {Svg ? (
+          <Box key="setup-art" position="absolute" top={-1} right={0} bottom={-1}>
+            <Svg source={BRAND_SVG} alt="context-lens" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
+          </Box>
+        ) : null}
         <Box key="setup-words" position="relative" flexDirection="column" flexShrink={1} minWidth={0}>
           <Text color={ACCENT} bold wrap="truncate">
             {counter ? `✦ context-lens setup  ${counter}` : '✦ context-lens setup'}
@@ -151,19 +156,18 @@ export async function setupGuide($: EngineInterface, e: RenderInput<'AbovePrompt
   }
   if (step === 'handoff') {
     const skillNames = await read($, installedSkills)
+    const writers = [
+      { value: '-', label: 'Built in' },
+      ...[...new Set([...(shown.handoffSkill ? [shown.handoffSkill] : []), ...skillNames])].map(name => ({
+        value: name,
+        label: `/${name}`,
+      })),
+    ]
+    const pickWriter = (v: string) => setDraft('handoffSkill', v === '-' ? '' : v)
     return band('Who writes a Full ⇥ handoff?', 48, [
-      <Select
-        key="setup-skill"
-        value={shown.handoffSkill || '-'}
-        options={[
-          { value: '-', label: 'Built in' },
-          ...[...new Set([...(shown.handoffSkill ? [shown.handoffSkill] : []), ...skillNames])].map(name => ({
-            value: name,
-            label: `/${name}`,
-          })),
-        ]}
-        onSelect={(v: string) => setDraft('handoffSkill', v === '-' ? '' : v)}
-      />,
+      ...(Select
+        ? [<Select key="setup-skill" value={shown.handoffSkill || '-'} options={writers} onSelect={pickWriter} />]
+        : optionButtons(Button, 'setup-skill', shown.handoffSkill || '-', writers, pickWriter)),
       ...nav(nextButton),
     ])
   }

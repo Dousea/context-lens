@@ -9,19 +9,27 @@ import { closeHandoffBar, goHandoff, handoffWhat } from '../logic/handoff'
 import { KIND_CELLS, KIND_H, KIND_W, kindFlipAt, kindSwitchSvg, rowIconSvg, setKindFlipAt } from '../svg/controls'
 import { BRAND_SVG } from '../svg/scenes'
 import { themedEls } from '../theme'
-import { introLayer, introShows, terminalPanel } from './band'
+import { introLayer, introShows, optionButtons, terminalPanel } from './band'
 
 const handoffPick = atom({ plugin: 'context-lens', key: 'handoffPick' } as const, null)
 
 export async function handoffBar($: EngineInterface, e: RenderInput<'AbovePrompt'>, choice: HandoffChoice) {
-  const { Box, Text, Button, Svg } = themedEls($.ui.resolve(e))
+  const elements = themedEls($.ui.resolve(e))
+  const { Box, Text, Button } = elements
+  const Svg = 'Svg' in elements ? elements.Svg : undefined
+  // Mobile has no dropdown (the app's stand-in for one draws nothing): there the choice is a button each.
+  const Select = e.surface !== 'mobile' && 'Select' in elements ? elements.Select : undefined
+  const afterOptions = [
+    { value: 'continue', label: 'Clear & carry on' },
+    { value: 'confirm', label: 'Clear & wait' },
+    { value: 'copy', label: 'Keep chat & copy' },
+  ]
 
   const setBar = (change: Partial<HandoffChoice>) => async () => {
     if (change.kind && change.kind !== choice.kind) setKindFlipAt(await $.clock.now())
     await update($, handoffPick, () => ({ ...choice, ...change }))
     // The write alone redraws the bar; a full invalidate redraws the art too, which flickers.
   }
-  const { Select } = themedEls($.ui.resolve(e))
   const what = handoffWhat(choice, config.handoffSkill)
   // Go is the one lit button: the picked kind is a quiet box, the other plain text. The app draws a hotkey's
   // letter faint on a grey button, so only the terminal gets letters there.
@@ -117,16 +125,18 @@ export async function handoffBar($: EngineInterface, e: RenderInput<'AbovePrompt
         />
       )
     ) : null,
-    <Select
-      key="handoff-after"
-      value={choice.after}
-      options={[
-        { value: 'continue', label: 'Clear & carry on' },
-        { value: 'confirm', label: 'Clear & wait' },
-        { value: 'copy', label: 'Keep chat & copy' },
-      ]}
-      onSelect={v => setBar({ after: v as HandoffAfter })()}
-    />,
+    ...(Select
+      ? [
+          <Select
+            key="handoff-after"
+            value={choice.after}
+            options={afterOptions}
+            onSelect={v => setBar({ after: v as HandoffAfter })()}
+          />,
+        ]
+      : optionButtons(Button, 'handoff-after', choice.after, afterOptions, v =>
+          setBar({ after: v as HandoffAfter })(),
+        )),
     <Button key="handoff-go" variant="primary" autoFocus label="Go" onPress={() => goHandoff($, choice)} />,
     <Button key="handoff-close" plain role="dismiss" label="✕" onPress={() => closeHandoffBar($)} />,
   ]
@@ -157,9 +167,11 @@ export async function handoffBar($: EngineInterface, e: RenderInput<'AbovePrompt
       borderStyle="round"
       borderColor={BRAND_EDGE}
     >
-      <Box key="handoff-art" position="absolute" top={-1} right={0} bottom={-1}>
-        <Svg source={BRAND_SVG} alt="context-lens" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
-      </Box>
+      {Svg ? (
+        <Box key="handoff-art" position="absolute" top={-1} right={0} bottom={-1}>
+          <Svg source={BRAND_SVG} alt="context-lens" width={FROST_WIDTH * 2} height={FROST_HEIGHT * 2} />
+        </Box>
+      ) : null}
       {/* The entrance as the bar opens, only then: a choice redraws the bar. */}
       {introLayer({ Box, Svg }, 'handoff', await introShows($, 'handoff'))}
       {/* One line: the name, then what the picked kind does, dim. */}

@@ -23,7 +23,7 @@ import { typeCommand } from '../logic/switching'
 import { autoSwitchSvg, binSvg, rowIconSvg } from '../svg/controls'
 import { SETTINGS_MARK, SETTINGS_TITLE } from '../svg/scenes'
 import { themedEls, type ThemeName, THEMES } from '../theme'
-import { introLayer, introShows } from './band'
+import { introLayer, introShows, optionButtons } from './band'
 
 const settingsOpen = atom({ plugin: 'context-lens', key: 'settingsOpen' } as const, false)
 const installedSkills = atom({ plugin: 'context-lens', key: 'installedSkills' } as const, [])
@@ -38,7 +38,8 @@ let uninstalling = false
 /** A plain /reload-plugins holds back a change that would make the next message re-read the chat without the cache; --force reloads anyway. */
 const RELOAD_ARGS = '--force'
 export function uninstallButton($: EngineInterface, els: ReturnType<EngineInterface['ui']['resolve']>) {
-  const { Box, Text, Button, Svg } = els
+  const { Box, Text, Button } = els
+  const Svg = 'Svg' in els ? els.Svg : undefined
   const armed = Date.now() - uninstallArmedAt < UNINSTALL_ARM_MS
   const press = async () => {
     if (uninstalling) return
@@ -127,12 +128,14 @@ const BIAS_WORDS = ['Cheapest', 'Cheaper', 'Balanced', 'Smarter', 'Smartest'] as
 const THEME_LABELS: Record<ThemeName, string> = { violet: 'Violet', orange: 'Claude orange', rose: 'Cherry blossom' }
 
 export async function settingsPanel($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
-  const { Box, Text, Button, Svg } = themedEls($.ui.resolve(e))
+  const elements = themedEls($.ui.resolve(e))
+  const { Box, Text, Button } = elements
+  const Svg = 'Svg' in elements ? elements.Svg : undefined
+  const Select = e.surface !== 'mobile' && 'Select' in elements ? elements.Select : undefined
 
   // The app gives this slot maxRows rows and drops a taller tree whole, without a word. With gaps the panel is 12
   // rows (2 border, 2 header, 4 settings, 4 gaps); without, 7.
   const roomy = (typeof e.props.maxRows === 'number' ? e.props.maxRows : 12) >= 12
-  const { Select } = themedEls($.ui.resolve(e))
   const opts = (values: readonly string[]) => values.map(value => ({ value, label: value }))
   // The skills and commands installed here, to pick the handoff writer from: no typing, no file paths. A plugin
   // cannot open a file dialog, and a skill is run by its name anyway.
@@ -309,7 +312,8 @@ export async function settingsPanel($: EngineInterface, e: RenderInput<'AbovePro
   // The terminal has no art and few rows: no gaps, one row under the title.
   const term = e.surface === 'terminal'
   // The terminal's dropdown opens its list inside the wrapping row, which jumps the layout and is hard to click.
-  // There a short list is a row of buttons, the picked one boxed; a long one (the skills) stays a dropdown.
+  // There a short list is a row of buttons, the picked one boxed; a long one (the skills) stays a dropdown. A surface
+  // with no dropdown (mobile, where the app's stand-in for one draws nothing) gets the buttons for any list.
   type SettingRow = {
     key: string
     label?: string
@@ -318,25 +322,14 @@ export async function settingsPanel($: EngineInterface, e: RenderInput<'AbovePro
     onSelect: (v: string) => unknown
   }
   const settingRow = (p: SettingRow) =>
-    term && p.options.length <= 5 ? (
+    (term && p.options.length <= 5) || !Select ? (
       <Box key={p.key} width="100%" flexDirection="row" flexWrap="wrap" columnGap={1} alignItems="center">
         {p.label ? (
           <Text key={`${p.key}-label`} dimColor>
             {p.label}
           </Text>
         ) : null}
-        {p.options.map(o =>
-          o.value === p.value ? (
-            <Button
-              key={`${p.key}-${o.value}`}
-              variant="secondary"
-              label={o.label}
-              onPress={() => p.onSelect(o.value)}
-            />
-          ) : (
-            <Button key={`${p.key}-${o.value}`} plain dimColor label={o.label} onPress={() => p.onSelect(o.value)} />
-          ),
-        )}
+        {optionButtons(Button, p.key, p.value, p.options, p.onSelect)}
       </Box>
     ) : (
       <Select key={p.key} label={p.label} value={p.value} options={p.options} onSelect={p.onSelect} />
@@ -380,7 +373,7 @@ export async function settingsPanel($: EngineInterface, e: RenderInput<'AbovePro
     >
       {term ? null : introLayer({ Box, Svg }, 'settings', await introShows($, 'settings'))}
       {/* The top bar: barely a shade lighter than the band, holding the title, Save and the cross. */}
-      {!term ? (
+      {Svg && !term ? (
         <Box
           key="settings-bar"
           position="absolute"

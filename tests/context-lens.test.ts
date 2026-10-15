@@ -4753,3 +4753,23 @@ describe('theme', () => {
     }
   })
 })
+
+describe('mobile', () => {
+  const MOBILE = { plugin: 'context-lens', surface: 'mobile', ...BAND } as never
+
+  test('the settings panel has no dropdown there: each list is a row of buttons', async ($, on) => {
+    engine(on)
+    mock.clock(on)
+    on('session.start', (_$, e) => ({ cwd: e.cwd }) as never)
+    on('command.register', () => ({ value: undefined }) as never)
+    await $.session.start({ cwd: '.', surface: 'mobile', isInteractive: true } as never)
+    await $.command.run({ command: 'context-lens', args: 'settings' } as never)
+
+    const panel = await $.ui.mount(MOBILE)
+    await panel.press({ key: 'settings-card-auto' })
+
+    expect(await panel.find({ key: 'settings-floor-low' })).toBeDefined()
+    expect(await drawn(panel)).not.toContain('"type":"Select"')
+    await panel.unmount()
+  })
+})
