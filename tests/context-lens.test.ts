@@ -3911,6 +3911,31 @@ describe('dashboard', () => {
     await band.unmount()
   })
 
+  for (const handoffButton of ['advised', 'always']) {
+    test(
+      `terminal: the slot reads ${handoffButton === 'always' ? 'Handoff, with Compact beside it' : 'Compact until a handoff is advised'}`,
+      { options: { layout: 'default', handoffButton } } as never,
+      async ($, on) => {
+        engine(on)
+        mock.clock(on)
+        await start($, on, 'terminal')
+        const at = {
+          plugin: 'context-lens',
+          surface: 'terminal',
+          ...BAND,
+          props: { ...BAND.props, bodyColumns: 120, maxRows: 14 },
+        } as never
+        await closeSetup($, at)
+
+        const band = await $.ui.mount(at)
+        const always = handoffButton === 'always'
+        expect((await band.find({ key: 'dash-handoff' }))?.text).toContain(always ? 'Handoff' : 'Compact')
+        expect(Boolean(await band.find({ key: 'dash-compact' }))).toBe(always)
+        await band.unmount()
+      },
+    )
+  }
+
   test('terminal: the same band with the effort row under it', DASH, async ($, on) => {
     engine(on)
     mock.clock(on)

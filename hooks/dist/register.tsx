@@ -3632,14 +3632,14 @@ async function dashboardBand($, e) {
   };
   const buttons = [
     // Once the slot is Handoff (advised, or the setting says always), Compact stays beside it as quiet text, so both are
-    // a press away. Desktop only, where there is room for it; the terminal compacts in one press from its own rows.
-    ...e.surface !== "terminal" && "Svg" in els && !config.hide.includes("handoff") && handoffSlot() && (typeof e.props.bodyColumns !== "number" || e.props.bodyColumns >= COMPACT_BUTTON_MIN_COLUMNS) ? [/* @__PURE__ */ h(Button, { key: "dash-compact", plain: true, dimColor: true, label: "Compact", onPress: () => openCompact($, e) })] : [],
+    // a press away, where the band has room for it.
+    ...!config.hide.includes("handoff") && handoffSlot() && (typeof e.props.bodyColumns !== "number" || e.props.bodyColumns >= COMPACT_BUTTON_MIN_COLUMNS) ? [/* @__PURE__ */ h(Button, { key: "dash-compact", plain: true, dimColor: true, label: "Compact", onPress: () => openCompact($, e) })] : [],
     ...config.hide.includes("handoff") ? [] : [
       // One button in one place: Compact until Haiku says a fresh chat would suit, then Handoff, loud. Pressing it opens
       // the matching card, which can switch to the other. Desktop draws it: no box on a fresh chat, then a
       // step a percent of context to a white box at HANDOFF_LOUD_AT (handoffLook), the label as Text over the box and
-      // a blank button over both to take the click. The terminal keeps the plain buttons: grey, white from
-      // HANDOFF_LOUD_AT.
+      // a blank button over both to take the click. The terminal draws plain buttons: Compact, then Handoff, primary
+      // once advised.
       "Svg" in els && e.surface !== "terminal" ? /* @__PURE__ */ h(Box, { key: "dash-handoff-wrap", flexShrink: 0, flexDirection: "row" }, handoffLoud() && !e.props.isWorking ? /* @__PURE__ */ h(
         Box,
         {
@@ -3743,7 +3743,7 @@ async function dashboardBand($, e) {
             onPress: () => handoffSlot() ? openHandoffBar($) : openCompact($, e)
           }
         )
-      ))) : handoffLoud() ? /* @__PURE__ */ h(Button, { key: "dash-handoff", variant: "primary", hotkey: "h", label: "Handoff", onPress: () => openHandoffBar($) }) : /* @__PURE__ */ h(Button, { key: "dash-handoff", variant: "secondary", label: "Handoff", onPress: () => openHandoffBar($) })
+      ))) : handoffLoud() ? /* @__PURE__ */ h(Button, { key: "dash-handoff", variant: "primary", hotkey: "h", label: "Handoff", onPress: () => openHandoffBar($) }) : handoffSlot() ? /* @__PURE__ */ h(Button, { key: "dash-handoff", variant: "secondary", label: "Handoff", onPress: () => openHandoffBar($) }) : /* @__PURE__ */ h(Button, { key: "dash-handoff", variant: "secondary", label: "Compact", onPress: () => openCompact($, e) })
     ],
     // The terminal says it in a word; the desktop draws an icon, with this button laid blank over it to take the click.
     // No-break spaces, not braille blanks: some fonts draw U+2800 as a dot.
