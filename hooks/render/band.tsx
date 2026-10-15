@@ -245,7 +245,8 @@ type TerminalBand = {
   bg: string
   edge: string
   title: string
-  detail: string
+  /** null draws no detail row; an empty string keeps it, blank. */
+  detail: string | null
   buttons: RenderChildren[]
   extra?: RenderChildren
   word?: { text: string; color: string; rest: string }
@@ -253,11 +254,11 @@ type TerminalBand = {
 
 /** What of the band fits in `maxRows` rows. The app scrolls a taller tree in a window and says "n more", so the band gives up,
  * in this order: an empty detail row (one with words is kept), the border and art, the effort row, the lens row. The effort line itself stays. */
-export function bandFit(maxRows: number, parts: { detailText: boolean; lens: boolean; effort: number }) {
-  const fit = { detail: true, border: true, effort: parts.effort > 0, lens: parts.lens }
+export function bandFit(maxRows: number, parts: { detail: 'words' | 'empty' | 'none'; lens: boolean; effort: number }) {
+  const fit = { detail: parts.detail !== 'none', border: true, effort: parts.effort > 0, lens: parts.lens }
   const rows = () =>
     1 + (fit.border ? 2 : 0) + (fit.detail ? 1 : 0) + (fit.lens ? 1 : 0) + (fit.effort ? parts.effort : 0)
-  if (rows() > maxRows && !parts.detailText) fit.detail = false
+  if (rows() > maxRows && parts.detail === 'empty') fit.detail = false
   if (rows() > maxRows) fit.border = false
   if (rows() > maxRows) fit.effort = false
   if (rows() > maxRows) fit.lens = false
@@ -271,7 +272,11 @@ export async function terminalBand($: EngineInterface, e: RenderInput<'AboveProm
   const { rows: effort, height } = await effortRows($, e)
   const maxRows = typeof e.props.maxRows === 'number' ? e.props.maxRows : 99
   // An empty detail row is kept (so a band does not move when an alert appears) until the room runs out.
-  const fit = bandFit(maxRows, { detailText: Boolean(b.detail), lens: b.extra !== null, effort: height ?? 0 })
+  const fit = bandFit(maxRows, {
+    detail: b.detail === null ? 'none' : b.detail ? 'words' : 'empty',
+    lens: b.extra !== null,
+    effort: height ?? 0,
+  })
   const art = fit.border ? bandArt($, e, b.kind) : null
   const rows = fit.effort ? effort : null
   // The lens row stays under every band: the dashboard passes its own; an alert gets one sized to what the art leaves.

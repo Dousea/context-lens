@@ -2695,7 +2695,7 @@ async function effortRows($, e) {
   ) + 2 + pickerWidth("Effort", EFFORTS);
   const columns = typeof e.props.bodyColumns === "number" ? e.props.bodyColumns : 100;
   const height = (bothWidth > columns ? 2 : 1) + (question ? 1 : 0);
-  const noteLine = inAgent ? null : detailLine({ Box, Text }, reasonNote, "effort-note");
+  const noteLine = inAgent || config.hide.includes("reason") ? null : detailLine({ Box, Text }, reasonNote, "effort-note");
   return { question, rows, height, noteLine };
 }
 
@@ -2889,9 +2889,9 @@ function terminalPanel($, e, key, title, words, controls) {
   );
 }
 function bandFit(maxRows, parts) {
-  const fit = { detail: true, border: true, effort: parts.effort > 0, lens: parts.lens };
+  const fit = { detail: parts.detail !== "none", border: true, effort: parts.effort > 0, lens: parts.lens };
   const rows = () => 1 + (fit.border ? 2 : 0) + (fit.detail ? 1 : 0) + (fit.lens ? 1 : 0) + (fit.effort ? parts.effort : 0);
-  if (rows() > maxRows && !parts.detailText) fit.detail = false;
+  if (rows() > maxRows && parts.detail === "empty") fit.detail = false;
   if (rows() > maxRows) fit.border = false;
   if (rows() > maxRows) fit.effort = false;
   if (rows() > maxRows) fit.lens = false;
@@ -2901,7 +2901,11 @@ async function terminalBand($, e, b) {
   const { Box, Text } = themedEls($.ui.resolve(e));
   const { rows: effort, height } = await effortRows($, e);
   const maxRows = typeof e.props.maxRows === "number" ? e.props.maxRows : 99;
-  const fit = bandFit(maxRows, { detailText: Boolean(b.detail), lens: b.extra !== null, effort: height ?? 0 });
+  const fit = bandFit(maxRows, {
+    detail: b.detail === null ? "none" : b.detail ? "words" : "empty",
+    lens: b.extra !== null,
+    effort: height ?? 0
+  });
   const art = fit.border ? bandArt($, e, b.kind) : null;
   const rows = fit.effort ? effort : null;
   const columns = typeof e.props.bodyColumns === "number" ? e.props.bodyColumns : 100;
@@ -3492,6 +3496,7 @@ async function dashboardBand($, e) {
     // The judge's reason and the handoff advice are about the chat's own prompt, not a subagent's work.
     reason: inAgent ? "" : adviceNow ? `Handoff would suit: ${adviceNow}` : config.hide.includes("reason") ? "" : reason
   });
+  const detailRow = detail || (config.hide.includes("reason") ? null : "");
   const toggleSettings = async () => {
     if (await read15($, settingsOpen2)) {
       await update16($, settingsDraft2, () => ({}));
@@ -3656,7 +3661,7 @@ async function dashboardBand($, e) {
       bg: DASH_BG,
       edge: DASH_EDGE,
       title: head.replace(/^✦ /, ""),
-      detail,
+      detail: detailRow,
       buttons,
       extra: lens,
       word: { text: pair, color: await effortFlash($, what, judgingHere, entering), rest }
@@ -3785,7 +3790,7 @@ async function dashboardBand($, e) {
         buttons[buttons.length - 1]
       ))
     ) : null)),
-    detailLine({ Box, Text }, detail || " ", "dash-detail"),
+    detailRow === null ? null : detailLine({ Box, Text }, detailRow || " ", "dash-detail"),
     lens
   );
 }

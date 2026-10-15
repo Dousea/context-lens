@@ -1,6 +1,7 @@
 import { atom, type EngineInterface, read, type RenderInput, update } from 'claude-code'
 
 import type { Effort, ModelKey } from '../../types'
+import { config } from '../core/config'
 import { EFFORTS, MODELS } from '../core/constants'
 import { effortOf, pickEffort, snap, toggleAutoEffort, toggleAutoModel } from '../logic/effort'
 import { saveSetting } from '../logic/settings'
@@ -208,6 +209,7 @@ export async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt
     pickerWidth('Effort', EFFORTS)
   const columns = typeof e.props.bodyColumns === 'number' ? e.props.bodyColumns : 100
   const height = (bothWidth > columns ? 2 : 1) + (question ? 1 : 0)
-  const noteLine = inAgent ? null : detailLine({ Box, Text }, reasonNote, 'effort-note')
+  const noteLine =
+    inAgent || config.hide.includes('reason') ? null : detailLine({ Box, Text }, reasonNote, 'effort-note')
   return { question, rows, height, noteLine }
 }

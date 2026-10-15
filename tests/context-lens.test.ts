@@ -289,7 +289,7 @@ describe('auto', () => {
   })
 
   test('the band gives up rows in order when the app leaves it little room, and keeps the effort line', () => {
-    const all = { detailText: false, lens: true, effort: 1 }
+    const all = { detail: 'empty' as const, lens: true, effort: 1 }
     expect(bandFit(6, all)).toEqual({ detail: true, border: true, effort: true, lens: true })
     // The paste: room for 5 rows, a 6-row band: the empty detail row goes.
     expect(bandFit(5, all)).toEqual({ detail: false, border: true, effort: true, lens: true })
@@ -297,7 +297,9 @@ describe('auto', () => {
     expect(bandFit(2, all)).toEqual({ detail: false, border: false, effort: false, lens: true })
     expect(bandFit(1, all)).toEqual({ detail: false, border: false, effort: false, lens: false })
     // An alert's words are kept: the border and the effort row give way first.
-    expect(bandFit(5, { ...all, detailText: true })).toEqual({ detail: true, border: false, effort: true, lens: true })
+    expect(bandFit(5, { ...all, detail: 'words' })).toEqual({ detail: true, border: false, effort: true, lens: true })
+    // No detail row at all: the room it would take is the border's.
+    expect(bandFit(5, { ...all, detail: 'none' })).toEqual({ detail: false, border: true, effort: true, lens: true })
   })
 
   test("a typed skill is judged like a prompt (told what it is); the app's own commands are not", async ($, on) => {
@@ -3968,6 +3970,47 @@ describe('dashboard', () => {
     expect(text).not.toContain('"type":"Raster"')
     await band.unmount()
   })
+
+  test(
+    'with the reason hidden the band draws no detail row, on the terminal and the desktop',
+    { options: { layout: 'default', hide: 'reason' } } as never,
+    async ($, on) => {
+      engine(on)
+      mock.clock(on)
+      await start($, on, 'terminal')
+      const terminal = {
+        plugin: 'context-lens',
+        surface: 'terminal',
+        ...BAND,
+        props: { ...BAND.props, bodyColumns: 120, maxRows: 14 },
+      } as never
+      await closeSetup($, terminal)
+
+      for (const at of [terminal, DESK_BAND]) {
+        const band = await $.ui.mount(at)
+        expect(await band.find({ key: 'dash-detail' })).toBeUndefined()
+        await band.unmount()
+      }
+    },
+  )
+
+  for (const hide of ['', 'reason']) {
+    test(
+      `the minimal look on the terminal ${hide ? 'draws no reason row once it is hidden' : 'draws the reason under the pickers'}`,
+      { options: { layout: 'minimal', hide } } as never,
+      async ($, on) => {
+        engine(on)
+        mock.clock(on)
+        await start($, on, 'terminal')
+        const at = { plugin: 'context-lens', surface: 'terminal', ...BAND } as never
+        await closeSetup($, at)
+
+        const band = await $.ui.mount(at)
+        expect(Boolean(await band.find({ key: 'effort-note' }))).toBe(!hide)
+        await band.unmount()
+      },
+    )
+  }
 
   test(
     "the minimal look draws no band and keeps the footer's buttons",

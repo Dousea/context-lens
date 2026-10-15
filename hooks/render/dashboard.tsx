@@ -230,6 +230,8 @@ export async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePro
           ? ''
           : reason,
   })
+  // With the reason hidden the row goes unless there is advice in it; else an empty one keeps the band's height.
+  const detailRow = detail || (config.hide.includes('reason') ? null : '')
   const toggleSettings = async () => {
     if (await read($, settingsOpen)) {
       await update($, settingsDraft, () => ({}))
@@ -400,7 +402,7 @@ export async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePro
       bg: DASH_BG,
       edge: DASH_EDGE,
       title: head.replace(/^✦ /, ''),
-      detail,
+      detail: detailRow,
       buttons,
       extra: lens,
       word: { text: pair, color: await effortFlash($, what, judgingHere, entering), rest },
@@ -570,7 +572,7 @@ export async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePro
         </Box>
       </Box>
       {/* An empty detail still takes its row, so the band keeps its height when a reason arrives. */}
-      {detailLine({ Box, Text }, detail || ' ', 'dash-detail')}
+      {detailRow === null ? null : detailLine({ Box, Text }, detailRow || '\u00a0', 'dash-detail')}
       {lens}
     </Box>
   )
