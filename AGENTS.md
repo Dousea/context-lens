@@ -28,6 +28,7 @@ For the mod API (`$`, `on(...)`, `ui.render`, state, timers), load the `plugin-a
 
 - `claude plugin test .` runs every test. All pass; there are no known failures, so any failure is yours.
 - `claude plugin validate .` checks the manifest and marketplace.
+- `npm run typecheck` type-checks the hooks and the tests against the host's types in `.claude-plugin/types/`, which the host writes when it loads the plugin (`claude --plugin-dir .`). It reports no errors, so any error is yours.
 - `npm run format` formats the repo with Prettier (`npm install` first); `npm run format:check` reports files that are not formatted.
 - Try a change live with `CONTEXT_LENS_LOG=<file> claude --plugin-dir <repo or worktree path>`. A `--plugin-dir` copy replaces the installed `context-lens@context-lens` for that session. `/context-lens debug` shows the state, and `/reload-plugins` reloads the installed copy, not the working tree.
 
