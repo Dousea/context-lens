@@ -725,7 +725,7 @@ describe('offer a model first', () => {
   }
 
   test(
-    'model on Manual, hold off: a typed prompt goes on at once and the other model is suggested in a toast',
+    'model on Manual, hold off: a typed prompt goes on at once and the offer stays above it, with letter keys',
     NO_HOLD,
     async ($, on) => {
       engine(on)
@@ -740,9 +740,12 @@ describe('offer a model first', () => {
       await settle(ui)
 
       expect(through).toEqual(['vad heter mappen?'])
-      expect(toasts.join(' ')).toContain('Suggestion: switch to Haiku?')
-      expect((await ui.find({ key: 'accept' }))?.props.hotkey).toBeUndefined()
-      expect(await ui.find({ key: 'never' })).toBeUndefined()
+      expect(toasts.join(' ')).not.toContain('Haiku')
+      expect(await drawn(ui)).toContain('Switch to Haiku?"," ","The context reloads.')
+      // A message starting with a digit is not taken for an answer: the keys are letters, pressed with the band focused.
+      expect((await ui.find({ key: 'accept' }))?.props.hotkey).toBe('w')
+      expect((await ui.find({ key: 'decline' }))?.props.hotkey).toBe('k')
+      expect((await ui.find({ key: 'never' }))?.props).toMatchObject({ hotkey: 'd', label: "Don't show again" })
       await step($)
       expect(sent[0]?.model).toBe('claude-opus-5-5')
       await ui.unmount()
@@ -833,7 +836,7 @@ describe('offer a model first', () => {
     await ui.unmount()
   })
 
-  test("Don't ask again sends the prompt as it is and turns the hold off: the next offer is a toast", async ($, on) => {
+  test("Don't ask again sends the prompt as it is and turns the hold off: the next offer shows and waits", async ($, on) => {
     engine(on)
     const says = [
       '{"model":"haiku","effort":"low","why":"simple"}',
@@ -855,7 +858,35 @@ describe('offer a model first', () => {
     const second = await sendHeld($, on, 'write the parser')
     await second.sending
     expect(second.through).toEqual(['vad heter mappen?', 'write the parser'])
-    expect(toasts.join(' ')).toContain('Suggestion: switch to Sonnet?')
+    await settle(ui)
+    expect(await drawn(ui)).toContain('Switch to Sonnet?')
+    expect(toasts.join(' ')).not.toContain('Sonnet')
+    await ui.unmount()
+  })
+
+  test("Don't show again turns model offers off: the next prompt suggests nothing", NO_HOLD, async ($, on) => {
+    engine(on)
+    const says = [
+      '{"model":"haiku","effort":"low","why":"simple"}',
+      '{"model":"sonnet","effort":"medium","why":"normal work"}',
+    ]
+    on('model.complete', () => ({ value: { isAnswered: true as const, text: says.shift() ?? '', usage: USAGE } }))
+    const toasts = toastsOf(on)
+    mock.clock(on)
+    const ui = await $.ui.mount({ plugin: 'context-lens', surface: 'terminal', ...BAND })
+
+    const first = await sendHeld($, on)
+    await first.sending
+    await settle(ui)
+    await ui.press({ key: 'never' })
+    expect(toasts.join(' ')).toContain('no more model offers')
+    expect(await ui.find({ key: 'accept' })).toBeUndefined()
+
+    const second = await sendHeld($, on, 'write the parser')
+    await second.sending
+    await settle(ui)
+    expect(second.through).toEqual(['vad heter mappen?', 'write the parser'])
+    expect(await ui.find({ key: 'accept' })).toBeUndefined()
     await ui.unmount()
   })
 
@@ -1607,7 +1638,7 @@ describe('footer', () => {
     await ui.unmount()
   })
 
-  test('an offer that holds no prompt takes no digit: a 1 typed in the composer stays the next message', async ($, on) => {
+  test('an offer that holds no prompt takes letters, no digit: a 1 typed in the composer stays the next message', async ($, on) => {
     engine(on)
     judgeSays(on, '{"model":"haiku","effort":"low","why":"simple"}')
     mock.clock(on)
@@ -1618,9 +1649,10 @@ describe('footer', () => {
     for (let i = 0; i < 5; i++) await ui.redraw()
 
     expect(await ui.find({ key: 'accept' })).toBeDefined()
-    expect((await ui.find({ key: 'accept' }))?.props.hotkey).toBeUndefined()
+    expect((await ui.find({ key: 'accept' }))?.props.hotkey).toBe('w')
     expect((await ui.find({ key: 'accept' }))?.props.plain).toBeUndefined()
-    expect((await ui.find({ key: 'decline' }))?.props.hotkey).toBeUndefined()
+    expect((await ui.find({ key: 'decline' }))?.props.hotkey).toBe('k')
+    expect((await ui.find({ key: 'never' }))?.props.hotkey).toBe('d')
     await ui.unmount()
   })
 
@@ -3120,7 +3152,7 @@ describe('settings panel', () => {
     await panel.press({ key: 'bias3' })
     await panel.select({ key: 'settings-floor', value: 'medium' })
     expect(await drawn(panel)).toContain('Never below')
-    expect(await panel.find({ key: 'settings-hold-offer-switch' })).toBeDefined()
+    expect(await panel.find({ key: 'settings-hold-offer' })).toBeDefined()
     await panel.press({ key: 'settings-back' })
 
     // Subagents: both switches in one card; the model one waits on the effort one.
@@ -3787,6 +3819,13 @@ describe('dashboard', () => {
     expect(readConfig({}).handoffButton).toBe('advised')
     expect(readConfig({ handoffButton: 'always' }).handoffButton).toBe('always')
     expect(readConfig({ handoffButton: 'sometimes' }).handoffButton).toBe('advised')
+  })
+
+  test('readConfig keeps holdOffer to on (Hold), off (Show) or never (Off), and saved values keep their meaning', () => {
+    expect(readConfig({}).holdOffer).toBe('on')
+    expect(readConfig({ holdOffer: 'off' }).holdOffer).toBe('off')
+    expect(readConfig({ holdOffer: 'never' }).holdOffer).toBe('never')
+    expect(readConfig({ holdOffer: 'maybe' }).holdOffer).toBe('on')
   })
 
   test(

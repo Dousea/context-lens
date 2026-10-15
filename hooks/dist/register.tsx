@@ -237,7 +237,7 @@ function readConfig(options) {
     subagents: str(o.subagents) === "on" ? "on" : "off",
     subagentModel: str(o.subagentModel) === "on" ? "on" : "off",
     overrideDefinitions: str(o.overrideDefinitions) === "on" ? "on" : "off",
-    holdOffer: str(o.holdOffer) === "off" ? "off" : "on",
+    holdOffer: ["off", "never"].find((h2) => h2 === str(o.holdOffer)) ?? "on",
     theme: THEMES.find((t) => t === str(o.theme)) ?? "violet",
     // Everything shows unless switched off; the judge's line too.
     hide: (o.hide === void 0 ? "" : str(o.hide)).split(",").map((part) => part.trim()).filter((part) => HIDEABLE.includes(part))
@@ -2640,13 +2640,19 @@ async function effortRows($, e) {
       "context-lens: prompts are not held for model offers now. /context-lens settings, Model, turns it back on."
     );
   };
+  const neverOffer = async () => {
+    await dismiss();
+    await saveSetting($, "holdOffer", "never");
+    $.ui.toast("context-lens: no more model offers. /context-lens settings, Model, turns them back on.");
+  };
   const offerKeys = offer && e.surface === "terminal";
+  const offerKey = (digit, letter) => offerKeys ? digit : e.surface === "terminal" ? letter : void 0;
   const question = wanted ? /* @__PURE__ */ h(Box, { flexDirection: "column" }, /* @__PURE__ */ h(Box, { flexDirection: "row", gap: 1, alignItems: "center" }, /* @__PURE__ */ h(Text, null, suggestedAs === "subagent" ? `Hand this to a ${MODELS.find((m) => m.key === wanted)?.label} subagent?` : `Switch to ${MODELS.find((m) => m.key === wanted)?.label}?`, " ", offer ? `Your prompt waits ${Math.max(1, Math.ceil((offer.until - await $.clock.now()) / 1e3))}s.` : "The context reloads."), /* @__PURE__ */ h(
     Button,
     {
       key: "accept",
       variant: "primary",
-      hotkey: offerKeys ? "1" : void 0,
+      hotkey: offerKey("1", "w"),
       plain: offerKeys ? true : void 0,
       label: suggestedAs === "subagent" ? "Hand off" : "Switch",
       onPress: acceptSuggestion(wanted)
@@ -2655,21 +2661,21 @@ async function effortRows($, e) {
     Button,
     {
       key: "decline",
-      hotkey: offerKeys ? "2" : void 0,
+      hotkey: offerKey("2", "k"),
       plain: offerKeys ? true : void 0,
       label: "Keep",
       onPress: dismiss
     }
-  ), offer ? /* @__PURE__ */ h(
+  ), /* @__PURE__ */ h(
     Button,
     {
       key: "never",
-      hotkey: offerKeys ? "3" : void 0,
+      hotkey: offerKey("3", "d"),
       plain: offerKeys ? true : void 0,
-      label: "Don't ask again",
-      onPress: neverHold
+      label: offer ? "Don't ask again" : "Don't show again",
+      onPress: offer ? neverHold : neverOffer
     }
-  ) : null)) : null;
+  ))) : null;
   if (e.surface !== "terminal") return { question, rows: null };
   const reasonNote = judging ? "Deciding…" : current2 ? `${current2.by === "manual" || current2.by === "named" ? "You" : "Why"}: ${current2.why}` : auto ? "Picks the effort at the next prompt" : "Pick an effort";
   const appModel = inAgent ? void 0 : keyOf(await $.session.model());
@@ -4319,7 +4325,7 @@ async function settingsPanel($, e) {
     ["cold", "Cold-cache alert"]
   ];
   const summaries = {
-    auto: `${BIAS_WORDS[shown.bias + 2]} · ${shown.floor} to ${shown.ceiling}${shown.holdOffer === "on" ? " · held offers" : ""}`,
+    auto: `${BIAS_WORDS[shown.bias + 2]} · ${shown.floor} to ${shown.ceiling}${shown.holdOffer === "on" ? " · held offers" : shown.holdOffer === "never" ? " · no offers" : ""}`,
     subagents: `${shown.subagents !== "on" ? "Off" : shown.subagentModel === "on" ? "Effort and cheaper model" : "Effort picked"} · definitions ${shown.overrideDefinitions === "on" ? "overridden" : "kept"}`,
     context: `${contextAlert === "off" ? "Alert off" : `Alert at ${contextAlert}%`} · ${shown.compactWith === "session" ? "Chat's model" : "Haiku"} · ${shown.handoffSkill ? `/${shown.handoffSkill}` : "built-in handoff"}`,
     look: `${shown.layout === "minimal" ? "Minimal" : "Dashboard"} · ${THEME_LABELS[shown.theme] ?? shown.theme} · ${showParts.filter(([part]) => !hidden.includes(part)).length} of ${showParts.length} shown`
@@ -4570,13 +4576,18 @@ async function settingsPanel($, e) {
                 options: opts(EFFORTS),
                 onSelect: set("ceiling")
               }),
-              settingSwitch({
+              settingRow({
                 key: "settings-hold-offer",
-                label: "Hold the prompt for a model offer",
-                on: shown.holdOffer === "on",
-                onPress: flip("holdOffer"),
-                about: shown.holdOffer === "on" ? "With model on Manual, a typed prompt waits for Switch or Keep" : "With model on Manual, a toast suggests the model and the prompt goes on"
-              })
+                label: "Model offers",
+                value: shown.holdOffer,
+                options: [
+                  { value: "on", label: "Hold" },
+                  { value: "off", label: "Show" },
+                  { value: "never", label: "Off" }
+                ],
+                onSelect: set("holdOffer")
+              }),
+              /* @__PURE__ */ h(Text, { key: "settings-hold-offer-about", dimColor: true, wrap: "truncate" }, shown.holdOffer === "on" ? "With model on Manual, a typed prompt waits for Switch or Keep" : shown.holdOffer === "off" ? "With model on Manual, the offer shows above the prompt and the prompt goes on" : "With model on Manual, the judge never suggests a model")
             ]
           ] : card === "subagents" ? bare ? [] : [
             settingSwitch({
@@ -5512,6 +5523,8 @@ function registerPromptHooks(on) {
           $.ui.toast(
             worth === "subagent" ? `Handed to a subagent on ${label}: ${verdict.why}` : `Switched to ${label} for this session: ${verdict.why}`
           );
+        } else if (config.holdOffer === "never") {
+          await update24($, suggestion5, () => null);
         } else if (worth && offerable && typedNow && config.holdOffer === "on") {
           setSuggestedAs(worth);
           await update24($, suggestion5, () => verdict.model);
@@ -5519,7 +5532,6 @@ function registerPromptHooks(on) {
         } else if (worth === "switch") {
           setSuggestedAs(worth);
           await update24($, suggestion5, () => verdict.model);
-          $.ui.toast(`Suggestion: switch to ${label}? /context-lens switch or /context-lens keep`);
         } else {
           await update24($, suggestion5, () => null);
         }

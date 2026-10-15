@@ -69,7 +69,8 @@ export type SettingsDraft = {
   subagentModel?: string
   /** on: the judge's picks replace the model and effort a subagent's definition sets; off: the definition's stay. */
   overrideDefinitions?: string
-  /** on: with model on Manual, a prompt waits for the answer to a model offer; off: the offer is a toast. */
+  /** With model on Manual. on: a prompt waits for the answer to a model offer; off: the offer shows and the prompt goes
+   *  on; never: no offer. */
   holdOffer?: string
   /** violet (the brand), orange (Claude's) or rose (cherry blossom). */
   theme?: string

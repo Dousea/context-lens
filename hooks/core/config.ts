@@ -31,8 +31,9 @@ export type JudgeConfig = {
   subagentModel: 'on' | 'off'
   /** on: the judge's picks replace the model and effort a subagent's definition sets. off: the definition's stay. */
   overrideDefinitions: 'on' | 'off'
-  /** on: with Auto for model off, a typed prompt waits for the answer when the judge names another model. off: a toast. */
-  holdOffer: 'on' | 'off'
+  /** With Auto for model off, when the judge names another model. on (Hold): a typed prompt waits for Switch or Keep.
+   *  off (Show): the prompt goes on and the offer stays above it. never (Off): no offer. */
+  holdOffer: 'on' | 'off' | 'never'
   /** The accent colour of everything context-lens draws: the brand violet, Claude orange or cherry-blossom rose. */
   theme: ThemeName
 }
@@ -88,7 +89,7 @@ export function readConfig(options: unknown): JudgeConfig {
     subagents: str(o.subagents) === 'on' ? 'on' : 'off',
     subagentModel: str(o.subagentModel) === 'on' ? 'on' : 'off',
     overrideDefinitions: str(o.overrideDefinitions) === 'on' ? 'on' : 'off',
-    holdOffer: str(o.holdOffer) === 'off' ? 'off' : 'on',
+    holdOffer: (['off', 'never'] as const).find(h => h === str(o.holdOffer)) ?? 'on',
     theme: THEMES.find(t => t === str(o.theme)) ?? 'violet',
     // Everything shows unless switched off; the judge's line too.
     hide: (o.hide === undefined ? '' : str(o.hide))

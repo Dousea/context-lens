@@ -65,11 +65,19 @@ export async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt
       'context-lens: prompts are not held for model offers now. /context-lens settings, Model, turns it back on.',
     )
   }
+  const neverOffer = async () => {
+    await dismiss()
+    await saveSetting($, 'holdOffer', 'never')
+    $.ui.toast('context-lens: no more model offers. /context-lens settings, Model, turns them back on.')
+  }
 
   // A bare digit in an empty composer presses a band Button, so a held prompt is answered with 1, 2 or 3 without focusing
   // the band. Only while it waits: otherwise a 1 typed to start a message would switch the model. Plain Buttons draw
-  // the digit beside the label (`1: Switch`).
+  // the digit beside the label (`1: Switch`). An offer the sent prompt left behind takes letters, which need the band
+  // focused, so a message starting with a digit goes on as typed; s and n belong to the hot and cold bands above it.
   const offerKeys = offer && e.surface === 'terminal'
+  const offerKey = (digit: string, letter: string) =>
+    offerKeys ? digit : e.surface === 'terminal' ? letter : undefined
 
   const question = wanted ? (
     <Box flexDirection="column">
@@ -85,27 +93,25 @@ export async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt
         <Button
           key="accept"
           variant="primary"
-          hotkey={offerKeys ? '1' : undefined}
+          hotkey={offerKey('1', 'w')}
           plain={offerKeys ? true : undefined}
           label={suggestedAs === 'subagent' ? 'Hand off' : 'Switch'}
           onPress={acceptSuggestion(wanted)}
         />
         <Button
           key="decline"
-          hotkey={offerKeys ? '2' : undefined}
+          hotkey={offerKey('2', 'k')}
           plain={offerKeys ? true : undefined}
           label="Keep"
           onPress={dismiss}
         />
-        {offer ? (
-          <Button
-            key="never"
-            hotkey={offerKeys ? '3' : undefined}
-            plain={offerKeys ? true : undefined}
-            label="Don't ask again"
-            onPress={neverHold}
-          />
-        ) : null}
+        <Button
+          key="never"
+          hotkey={offerKey('3', 'd')}
+          plain={offerKeys ? true : undefined}
+          label={offer ? "Don't ask again" : "Don't show again"}
+          onPress={offer ? neverHold : neverOffer}
+        />
       </Box>
     </Box>
   ) : null

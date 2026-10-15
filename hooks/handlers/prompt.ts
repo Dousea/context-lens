@@ -228,6 +228,8 @@ export function registerPromptHooks(on: On) {
               ? `Handed to a subagent on ${label}: ${verdict.why}`
               : `Switched to ${label} for this session: ${verdict.why}`,
           )
+        } else if (config.holdOffer === 'never') {
+          await update($, suggestion, () => null)
         } else if (worth && offerable && typedNow && config.holdOffer === 'on') {
           setSuggestedAs(worth)
           await update($, suggestion, () => verdict.model)
@@ -235,7 +237,6 @@ export function registerPromptHooks(on: On) {
         } else if (worth === 'switch') {
           setSuggestedAs(worth)
           await update($, suggestion, () => verdict.model)
-          $.ui.toast(`Suggestion: switch to ${label}? /context-lens switch or /context-lens keep`)
         } else {
           await update($, suggestion, () => null)
         }

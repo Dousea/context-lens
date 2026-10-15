@@ -197,7 +197,7 @@ export async function settingsPanel($: EngineInterface, e: RenderInput<'AbovePro
     ['cold', 'Cold-cache alert'],
   ] as const
   const summaries: Record<SettingsCard, string> = {
-    auto: `${BIAS_WORDS[shown.bias + 2]} · ${shown.floor} to ${shown.ceiling}${shown.holdOffer === 'on' ? ' · held offers' : ''}`,
+    auto: `${BIAS_WORDS[shown.bias + 2]} · ${shown.floor} to ${shown.ceiling}${shown.holdOffer === 'on' ? ' · held offers' : shown.holdOffer === 'never' ? ' · no offers' : ''}`,
     subagents: `${shown.subagents !== 'on' ? 'Off' : shown.subagentModel === 'on' ? 'Effort and cheaper model' : 'Effort picked'} · definitions ${shown.overrideDefinitions === 'on' ? 'overridden' : 'kept'}`,
     context: `${contextAlert === 'off' ? 'Alert off' : `Alert at ${contextAlert}%`} · ${shown.compactWith === 'session' ? "Chat's model" : 'Haiku'} · ${shown.handoffSkill ? `/${shown.handoffSkill}` : 'built-in handoff'}`,
     look: `${shown.layout === 'minimal' ? 'Minimal' : 'Dashboard'} · ${THEME_LABELS[shown.theme as ThemeName] ?? shown.theme} · ${showParts.filter(([part]) => !hidden.includes(part)).length} of ${showParts.length} shown`,
@@ -293,7 +293,7 @@ export async function settingsPanel($: EngineInterface, e: RenderInput<'AbovePro
     shown.overrideDefinitions === 'on'
       ? ', unless its Agent call names one'
       : ', unless its definition or Agent call sets one'
-  const flip = (field: 'subagents' | 'subagentModel' | 'overrideDefinitions' | 'holdOffer') => () =>
+  const flip = (field: 'subagents' | 'subagentModel' | 'overrideDefinitions') => () =>
     set(field)(shown[field] === 'on' ? 'off' : 'on')
   // The slider: five stops, the marker on the one in force. No animation, a click moves it.
   const track: RenderChildren[] = []
@@ -572,16 +572,24 @@ export async function settingsPanel($: EngineInterface, e: RenderInput<'AbovePro
                           options: opts(EFFORTS),
                           onSelect: set('ceiling'),
                         }),
-                        settingSwitch({
+                        settingRow({
                           key: 'settings-hold-offer',
-                          label: 'Hold the prompt for a model offer',
-                          on: shown.holdOffer === 'on',
-                          onPress: flip('holdOffer'),
-                          about:
-                            shown.holdOffer === 'on'
-                              ? 'With model on Manual, a typed prompt waits for Switch or Keep'
-                              : 'With model on Manual, a toast suggests the model and the prompt goes on',
+                          label: 'Model offers',
+                          value: shown.holdOffer,
+                          options: [
+                            { value: 'on', label: 'Hold' },
+                            { value: 'off', label: 'Show' },
+                            { value: 'never', label: 'Off' },
+                          ],
+                          onSelect: set('holdOffer'),
                         }),
+                        <Text key="settings-hold-offer-about" dimColor wrap="truncate">
+                          {shown.holdOffer === 'on'
+                            ? 'With model on Manual, a typed prompt waits for Switch or Keep'
+                            : shown.holdOffer === 'off'
+                              ? 'With model on Manual, the offer shows above the prompt and the prompt goes on'
+                              : 'With model on Manual, the judge never suggests a model'}
+                        </Text>,
                       ]),
                 ]
               : card === 'subagents'
