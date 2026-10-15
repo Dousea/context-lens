@@ -224,7 +224,7 @@ export function subagentPays(
   task: { tokens: number; effort: Effort; steps?: Steps },
 ): boolean {
   const byEffort: Steps = task.effort === 'low' ? 'one' : task.effort === 'medium' ? 'few' : 'many'
-  const steps = STEPS[Math.min(STEPS.indexOf(task.steps ?? byEffort), STEPS.indexOf(byEffort))]
+  const steps = STEPS[Math.min(STEPS.indexOf(task.steps ?? byEffort), STEPS.indexOf(byEffort))]!
   if (steps === 'one') return false
 
   const rank = (k: ModelKey) => MODELS.findIndex(m => m.key === k)

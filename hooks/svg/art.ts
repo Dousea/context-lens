@@ -3,6 +3,13 @@ import { getTheme, tintHex } from '../theme'
 // Art for the terminal's bands: a small Raster of `▀` cells, each two pixels tall (foreground on top, background
 // below). Pure functions of the kind and a frame count, so the art can be tested and blitted from a timer.
 
+// The host's runtime has Uint8Array's toBase64; the lib its tsconfig names (es2023) is older than it.
+declare global {
+  interface Uint8Array {
+    toBase64(): string
+  }
+}
+
 export type ArtKind = 'cold' | 'swamp' | 'hot' | 'down' | 'brand' | 'calm' | 'compacting' | 'done'
 
 /** The size every band's art is drawn at: 16 columns by 2 rows, 16 by 4 pixels. */

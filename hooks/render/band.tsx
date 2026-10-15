@@ -305,7 +305,7 @@ export async function terminalBand($: EngineInterface, e: RenderInput<'AboveProm
   const { rows: effort, height } = await effortRows($, e)
   const maxRows = typeof e.props.maxRows === 'number' ? e.props.maxRows : 99
   // An empty detail row is kept (so a band does not move when an alert appears) until the room runs out.
-  const fit = bandFit(maxRows, { detailText: Boolean(b.detail || b.hint), lens: b.extra !== null, effort: height })
+  const fit = bandFit(maxRows, { detailText: Boolean(b.detail || b.hint), lens: b.extra !== null, effort: height ?? 0 })
   const art = fit.border ? bandArt($, e, b.kind) : null
   const rows = fit.effort ? effort : null
   // The lens row stays under every band: the dashboard passes its own; an alert gets one sized to what the art leaves.

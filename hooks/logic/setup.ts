@@ -96,7 +96,8 @@ export async function drainSetupSave($: EngineInterface) {
       if (!field) return
       const { [field]: value, ...rest } = queue
       await $.store.set('setupSave', Object.keys(rest).length ? rest : null)
-      if (field in SETTING_FIELDS) await saveSetting($, field as keyof typeof SETTING_FIELDS, value)
+      if (field in SETTING_FIELDS && value !== undefined)
+        await saveSetting($, field as keyof typeof SETTING_FIELDS, value)
     }
   } finally {
     drainingSetup = false

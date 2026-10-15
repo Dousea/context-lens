@@ -52,7 +52,7 @@ export function subagentQuestion(prompt: string, type: string): string {
  * goes back to the chat unchecked, and at low it miscounted where medium did not (bench/results/helpers-2026-10-10.md). */
 export function subagentFloor(floor: Effort, ceiling: Effort): Effort {
   const i = Math.min(Math.max(EFFORTS.indexOf(floor), EFFORTS.indexOf('medium')), EFFORTS.indexOf(ceiling))
-  return EFFORTS[i]
+  return EFFORTS[i]!
 }
 
 /** The judge's effort for a subagent's task, within the person's slider, Min and Max and save mode; null without a verdict. */

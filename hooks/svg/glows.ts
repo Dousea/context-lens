@@ -44,7 +44,7 @@ export const GLOW_W = HANDOFF_PILL_W + 16
 export const GLOW_H = HANDOFF_PILL_H + 16
 const GLOW_BUTTON = { w: HANDOFF_PILL_W, h: HANDOFF_PILL_H, r: 6 }
 export function handoffGlowSvg(step: number, nowMs = 0): string {
-  const { spread: e, blur, peak, low, period } = GLOW_LEVELS[step]
+  const { spread: e, blur, peak, low, period } = GLOW_LEVELS[step]!
   // The pulse's place from the clock, so a redraw does not restart it from the low point.
   const lock = (svg: string) => inPhase(svg, nowMs % (period * 1000))
   const x = (GLOW_W - GLOW_BUTTON.w) / 2 - e

@@ -127,7 +127,7 @@ export async function setupGuide($: EngineInterface, e: RenderInput<'AbovePrompt
         />,
       )
     }
-    const [name, does] = LEAN_STOPS[lean + 2]
+    const [name, does] = LEAN_STOPS[lean + 2]!
     const side = (label: string, lit: boolean) =>
       lit ? (
         <Text key={label} color={ACCENT}>

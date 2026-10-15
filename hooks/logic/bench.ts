@@ -170,7 +170,7 @@ export async function runBench($: EngineInterface, cases: BenchCase[]): Promise<
   let next = 0
   const worker = async () => {
     while (next < jobs.length) {
-      const { name, ask, c } = jobs[next++]
+      const { name, ask, c } = jobs[next++]!
       // The mod never asks a judge about a short follow-up: it keeps the current effort.
       if (keepsEffort(c.message, c.context ?? '')) {
         answers.push({ id: c.id, judge: name, effort: c.current.effort, ms: 0, tokens: 0 })

@@ -221,7 +221,7 @@ const lit = (Part: unknown): unknown => {
 
 /** The parts `$.ui.resolve` hands over, with the Svg in the theme and, in a light app, the Box, Text and Button turned light. Absent stays absent. */
 export function themedEls<T extends object>(els: T): T {
-  const out: Record<string, unknown> = { ...els }
+  const out = { ...els } as Record<string, unknown>
   if ('Svg' in els) out.Svg = themedSvg((els as { Svg: unknown }).Svg)
   if (light)
     for (const part of ['Box', 'Text', 'Button'])

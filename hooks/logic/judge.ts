@@ -263,14 +263,14 @@ export async function askHaiku(
 export function tipped(effort: Effort, sure: number | undefined, bias: number): Effort {
   if (!bias || sure === undefined || sure >= (Math.abs(bias) === 1 ? 0.65 : 0.85)) return effort
   const i = Math.max(0, Math.min(EFFORTS.length - 1, EFFORTS.indexOf(effort) + Math.sign(bias)))
-  return EFFORTS[i]
+  return EFFORTS[i]!
 }
 
 /** Floor and ceiling from the settings: what Auto picks stays between them. */
 export function bounded(effort: Effort, floor: Effort, ceiling: Effort): Effort {
   const lo = EFFORTS.indexOf(floor)
   const hi = Math.max(lo, EFFORTS.indexOf(ceiling))
-  return EFFORTS[Math.max(lo, Math.min(hi, EFFORTS.indexOf(effort)))]
+  return EFFORTS[Math.max(lo, Math.min(hi, EFFORTS.indexOf(effort)))]!
 }
 
 /** Save mode caps what Auto picks at medium; a higher pick comes down to it. */
