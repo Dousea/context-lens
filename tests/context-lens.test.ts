@@ -3970,6 +3970,27 @@ describe('dashboard', () => {
     await band.unmount()
   })
 
+  for (const hide of ['', 'reason']) {
+    test(
+      `desktop: the model and effort ${hide ? 'show the hidden reason on hover' : 'have no hover while the reason has its row'}`,
+      { options: { layout: 'default', hide } } as never,
+      async ($, on) => {
+        engine(on)
+        mock.clock(on)
+        await start($, on)
+        await closeSetup($, DESK_BAND)
+
+        const band = await $.ui.mount(DESK_BAND)
+        const reason = await band.find({ text: /^Auto picks the effort at the next prompt$/ })
+        expect(Boolean(await band.find({ key: 'dash-detail' }))).toBe(!hide)
+        expect(reason).toBeDefined()
+        // The model and effort hint at a hover, and keep a card, only while the reason has no row of its own.
+        expect((await drawn(band)).includes('"underline":true')).toBe(Boolean(hide))
+        await band.unmount()
+      },
+    )
+  }
+
   test(
     'with the reason hidden the band draws no detail row, on the terminal and the desktop',
     { options: { layout: 'default', hide: 'reason' } } as never,

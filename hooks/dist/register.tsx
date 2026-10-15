@@ -3803,6 +3803,7 @@ async function dashboardBand($, e) {
     });
   const Svg = "Svg" in els ? els.Svg : void 0;
   const wordColor = await effortFlash($, what, judgingHere, entering);
+  const reasonOnHover = !inAgent && !judgingHere && config.hide.includes("reason") ? reason : "";
   glowReadAt = Date.now();
   const glowNow = await $.clock.now().catch(() => nowMs) + drawLead;
   const glowSource = Svg ? judgeGlowAt(judgeStartedAt, judgeEndedAt, glowNow) : null;
@@ -3860,7 +3861,7 @@ async function dashboardBand($, e) {
             height: DASH_MARK_SIZE
           }
         ))
-      ) : /* @__PURE__ */ h(Text, { color: v.auto ? ACCENT : DASH_DIM, bold: true }, "✦", " "), /* @__PURE__ */ h(Text, { key: "dash-level", color: wordColor, bold: true }, judgingHere && Svg ? modelName ? `${modelName} · Deciding` : "Deciding" : pair), judgingHere && Svg ? /* @__PURE__ */ h(Box, { key: "dash-thinking", flexShrink: 0, marginLeft: 1, alignItems: "center" }, /* @__PURE__ */ h(Svg, { source: thinkingSvg(), alt: "deciding", width: THINK_W, height: PILL_H })) : null),
+      ) : /* @__PURE__ */ h(Text, { color: v.auto ? ACCENT : DASH_DIM, bold: true }, "✦", " "), /* @__PURE__ */ h(Box, { key: "dash-pair", position: "relative", flexShrink: 0 }, /* @__PURE__ */ h(Text, { key: "dash-level", color: wordColor, bold: true, hover: reasonOnHover ? { underline: true } : void 0 }, judgingHere && Svg ? modelName ? `${modelName} · Deciding` : "Deciding" : pair), reasonOnHover ? /* @__PURE__ */ h(Box, { position: "absolute", left: 0, display: "none", hover: { display: "flex" } }, /* @__PURE__ */ h(Text, { wrap: "truncate" }, reasonOnHover)) : null), judgingHere && Svg ? /* @__PURE__ */ h(Box, { key: "dash-thinking", flexShrink: 0, marginLeft: 1, alignItems: "center" }, /* @__PURE__ */ h(Svg, { source: thinkingSvg(), alt: "deciding", width: THINK_W, height: PILL_H })) : null),
       rest ? /* @__PURE__ */ h(Box, { flexShrink: 1, minWidth: 0 }, /* @__PURE__ */ h(Text, { color: DASH_TEXT, bold: true, wrap: "truncate" }, rest)) : null
     ), clock ? /* @__PURE__ */ h(Box, { flexGrow: 1 }) : null, clock ? /* @__PURE__ */ h(Box, { key: "dash-cache", position: "relative", flexShrink: 0, flexDirection: "row", alignItems: "center" }, /* @__PURE__ */ h(Text, { color: DASH_DIM, bold: true }, `${CACHE_LABEL} `), Svg ? /* @__PURE__ */ h(Box, { flexShrink: 0, marginRight: 1 }, /* @__PURE__ */ h(
       Svg,
