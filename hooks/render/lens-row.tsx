@@ -74,6 +74,24 @@ export async function lensRow($: EngineInterface, e: RenderInput<'AbovePrompt'>,
         ? stackedBar(ctx, live, layout.ctxBar)
         : fillBar(used / max, layout.ctxBar)
 
+  // Off the terminal the font is proportional: a run of block glyphs wraps and hatches. There each bar is boxes in its
+  // colours that share the row's leftover width by their cells.
+  const boxedBar = (key: string, parts: readonly BarSegment[], cells: number) => (
+    <Box key={key} flexDirection="row" flexGrow={cells} flexShrink={1} width={0} minWidth={0}>
+      {parts
+        .filter(s => s.cells > 0)
+        .map((s, i) => (
+          <Box
+            key={`${key}-${i}`}
+            flexGrow={s.cells}
+            width={0}
+            backgroundColor={s.kind === 'free' ? 'subtle' : s.color}
+          />
+        ))}
+    </Box>
+  )
+  const glyphs = e.surface === 'terminal'
+
   return (
     <Box key="lens-row" flexDirection="row" gap={1}>
       <Text color={LENS_WARMTH_COLOR[state]}>●</Text>
@@ -81,7 +99,8 @@ export async function lensRow($: EngineInterface, e: RenderInput<'AbovePrompt'>,
       {showRewritten && <Text color="warning">re-cached</Text>}
       <Text dimColor>│</Text>
       <Text>ctx</Text>
-      {segments.length > 0 && (
+      {segments.length > 0 && !glyphs && boxedBar('ctx-bar', segments, layout.ctxBar)}
+      {segments.length > 0 && glyphs && (
         <Box flexDirection="row">
           {segments
             .filter(s => s.cells > 0)
@@ -94,12 +113,21 @@ export async function lensRow($: EngineInterface, e: RenderInput<'AbovePrompt'>,
       )}
       <Text>{layout.ctxText}</Text>
       {windows.slice(0, layout.windows).map(w => (
-        <Box key={`u-${w.label}`} flexDirection="row" gap={1}>
+        <Box
+          key={`u-${w.label}`}
+          flexDirection="row"
+          gap={1}
+          flexGrow={glyphs || layout.style === 'percent' ? 0 : layout.usageBar}
+          minWidth={0}
+        >
           <Text dimColor>│</Text>
           <Text>{w.label}</Text>
-          {layout.style !== 'percent' && (
-            <Text color={fillColor(w.percent / 100)}>{bar(w.percent / 100, layout.usageBar)}</Text>
-          )}
+          {layout.style !== 'percent' &&
+            (glyphs ? (
+              <Text color={fillColor(w.percent / 100)}>{bar(w.percent / 100, layout.usageBar)}</Text>
+            ) : (
+              boxedBar(`u-${w.label}-bar`, fillBar(w.percent / 100, layout.usageBar), layout.usageBar)
+            ))}
           <Text color={layout.style === 'percent' ? fillColor(w.percent / 100) : undefined}>{w.percent}%</Text>
           {layout.style === 'full' && w.reset !== null && <Text dimColor>{w.reset}</Text>}
         </Box>

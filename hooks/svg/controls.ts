@@ -3,23 +3,6 @@ import { HANDOFF_LOUD_AT } from '../core/constants'
 import { ACCENT, DASH_BG, DASH_DIM, HOVER_BOX } from '../core/palette'
 import { HANDOFF_BOX_AT, HANDOFF_PILL_H, HANDOFF_PILL_W, inPhase } from './glows'
 
-/** How many seconds the countdown image carries: the band is redrawn once a minute, with some slack. */
-const CLOCK_FRAMES = 75
-/** The dashboard's countdown as an image that ticks by itself: one frame per second, each shown for its second by a
- * CSS animation. The band is redrawn only once a minute: every redraw rebuilds the band, which restarts every image's
- * animation. The app sets the image's font and colour to the band's, so the digits match the text around them. */
-export function cacheClockSvg(msLeft: number, color: string): string {
-  const start = Math.max(0, Math.ceil(msLeft / 1000))
-  const frames: string[] = []
-  for (let j = 0; j < CLOCK_FRAMES && start - j > 0; j++) {
-    const left = start - j
-    const label = `cache ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`
-    frames.push(`<text x="0" y="12.5" style="animation-delay:${j}s">${label}</text>`)
-  }
-  frames.push(`<text x="0" y="12.5" style="animation-delay:${frames.length}s;animation-duration:100000s">❄ Cold</text>`)
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="84" height="17" viewBox="0 0 84 17"><style>text{font-size:13px;fill:${color};opacity:0;animation:f 1s step-end 1}@keyframes f{0%{opacity:1}100%{opacity:0}}</style>${frames.join('')}</svg>`
-}
-
 /** The Enter mark as Claude's prompt box draws it: a return arrow, down the right side and back left. */
 export function enterSvg(color: string): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14"><g fill="none" stroke="${color}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M11.5 2.5V7.2A1.8 1.8 0 0 1 9.7 9H2.8"/><path d="M5.3 6.4 2.7 9l2.6 2.6"/></g></svg>`

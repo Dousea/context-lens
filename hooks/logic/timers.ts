@@ -1,9 +1,8 @@
 import type { EngineInterface } from 'claude-code'
 
-import { config } from '../core/config'
 import { lastRenderAt, writeRenderLog } from '../core/debug'
 import { checkSwamp } from './alerts'
-import { cacheExpires, showCache } from './cache'
+import { showCache } from './cache'
 import { finishHandoff, handoffTimer, setHandoffTimer } from './handoff'
 import { lastContext, LENS_TICK_MS, lensTick } from './lens'
 
@@ -12,8 +11,6 @@ const CACHE_TICK_MS = 15_000
 // Redraws still owed after a chat was opened again: the app may draw the band before it is ready for one, so the
 // session's 1 s timer asks again a few times (see redrawSoon).
 let redrawsOwed = 0
-// The countdown's minute the band was last redrawn for (see cacheClockSvg).
-let clockMinute = -1
 // When the redraws were asked for: once the band has been drawn after that, none are owed any more, since each redraw
 // rebuilds the band and restarts its animations.
 let redrawAskedAt = 0
@@ -46,7 +43,7 @@ export function startTimers($: EngineInterface, from: 'start' | 'draw') {
     $.clock.every(CACHE_TICK_MS, () => void checkSwamp($).catch(() => undefined)),
     $.clock.every(LENS_TICK_MS, () => void lensTick($).catch(() => undefined)),
   ]
-  // Read the usage at once too, so the context ring is there from the start rather than a tick later.
+  // Read the usage at once too, so the context is there from the start rather than a tick later.
   void checkSwamp($)
     .then(() => $.ui.invalidate('ui.render'))
     .catch(() => undefined)
@@ -62,20 +59,11 @@ export function startTimers($: EngineInterface, from: 'start' | 'draw') {
           $.ui.invalidate('ui.render')
         }
       }
-      // Right after a start the app may not have the usage yet: ask each second until it has, so the ring shows.
+      // Right after a start the app may not have the usage yet: ask each second until it has, so the context shows.
       if (!lastContext || !lastContext.window)
         void checkSwamp($)
           .then(() => lastContext?.window && $.ui.invalidate('ui.render'))
           .catch(() => undefined)
-      // The dashboard's countdown ticks inside its own image; the band is redrawn once a minute to start the next one.
-      if (cacheExpires > 0 && !config.hide.includes('timer'))
-        void $.clock.now().then(now => {
-          const minute = Math.floor((cacheExpires - now) / 60_000)
-          if (now < cacheExpires + HANDOFF_POLL_MS && minute !== clockMinute) {
-            clockMinute = minute
-            $.ui.invalidate('ui.render')
-          }
-        })
       void writeRenderLog($).catch(() => undefined)
       void finishHandoff($).catch(() => undefined)
     }),

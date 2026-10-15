@@ -1,13 +1,9 @@
 import { atom, type EngineInterface, read, update } from 'claude-code'
 
 import type { Effort, Pick } from '../../types'
-import { config } from '../core/config'
-import { EFFORT_LABELS, EFFORTS } from '../core/constants'
+import { EFFORTS } from '../core/constants'
 import { proof } from '../core/env'
 import { pickCarried, setPickCarried } from '../core/session'
-import { cacheLabel } from './cache'
-import { lastContext } from './lens'
-import { kTokens } from './spend'
 import { sessionModel } from './switching'
 
 // Auto is two switches. `isAuto` is effort (the name stays: it is what the store and state hold);
@@ -112,36 +108,6 @@ export async function snap($: EngineInterface) {
   }
 }
 export type Snap = Awaited<ReturnType<typeof snap>>
-
-/** The hover cards' text: what Auto did and why, and what the cache countdown means with the context it guards. */
-export function hoverTips(v: Snap): { effort: string; cache: string } {
-  const effortTip = !v.auto
-    ? 'Auto is off: the effort stays as you set it. The power button turns Auto on.'
-    : v.pausedNow
-      ? 'Auto waits on this model: an effort change would rewrite its prompt cache.'
-      : !effortOf(v)
-        ? 'This model runs without an effort level, so Auto has nothing to set.'
-        : [
-            v.current
-              ? `Auto picked ${EFFORT_LABELS[v.current.effort]}${v.current.by !== 'manual' ? ` (${v.current.by})` : ''}`
-              : 'Auto picks the effort for each message',
-            v.current?.why ? `Why: ${v.current.why}` : '',
-            `Lean: ${['much cheaper', 'cheaper', 'as the judge says', 'smarter', 'much smarter'][config.bias + 2]} · range ${config.floor} to ${config.ceiling}`,
-          ]
-            .filter(Boolean)
-            .join(' · ')
-  const ctx =
-    lastContext && lastContext.window
-      ? ` · Context ${Math.round(lastContext.percent)}% · ${kTokens(lastContext.tokens)}/${kTokens(lastContext.window)}`
-      : ''
-  const cacheTip =
-    v.cacheNow === null
-      ? `No prompt cache yet: the first message writes it.${ctx}`
-      : v.cacheNow === 0
-        ? `Prompt cache cold: the next message reads the whole chat again at full price. Compact first to save.${ctx}`
-        : `Prompt cache warm for ${cacheLabel(v.cacheNow)} more: the next message reads the chat from cache, cheap and fast.${ctx}`
-  return { effort: effortTip, cache: cacheTip }
-}
 
 /** The effort to show: yours or the judge's, else what the app itself runs with. */
 export function effortOf(v: Snap): Effort | undefined {

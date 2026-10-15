@@ -37,7 +37,6 @@ import { dashboardBand, drawLead, glowReadAt, setDrawLead, setGlowReadAt } from 
 import { effortRows } from '../render/effort-rows'
 import { handoffBar } from '../render/handoff-bar'
 import { handoffCardTree } from '../render/handoff-card'
-import { lensRow } from '../render/lens-row'
 import { settingsPanel } from '../render/settings-panel'
 import { setupGuide } from '../render/setup-guide'
 import { themedEls } from '../theme'
@@ -174,16 +173,10 @@ export function registerAbovePromptHooks(on: On) {
         if (e.surface === 'terminal') return dashboardBand($, e)
         const { question } = await effortRows($, e)
         const dash = await dashboardBand($, e)
-        const lensBelow = await lensRow(
-          $,
-          e,
-          typeof e.props.bodyColumns === 'number' ? e.props.bodyColumns : 100,
-        ).catch(() => null)
-        return question || lensBelow ? (
+        return question ? (
           <Box key="dash-col" flexDirection="column">
             {question}
             {dash}
-            {lensBelow}
           </Box>
         ) : (
           dash

@@ -8,7 +8,6 @@ import { hotVisible, resetLabel } from '../hooks/logic/alerts'
 import { benchGrade, benchReport, stepsGrade } from '../hooks/logic/bench'
 import { cacheClock, cacheColor, cacheLabel, cacheTtlOf, mostlyCached } from '../hooks/logic/cache'
 import { compactTranscript } from '../hooks/logic/compact'
-import { hoverTips } from '../hooks/logic/effort'
 import {
   forkOutcome,
   HANDOFF_PROMPT,
@@ -1364,23 +1363,6 @@ describe('cache countdown', () => {
     await $.session.start({ cwd: '.', surface: 'desktop', isInteractive: true } as never)
   }
   const shows = (text: string) => `"children":["${text}"]`
-
-  test('the cache hover tip says there is no cache yet, not that it is cold, before the first reply', () => {
-    const before = {
-      auto: true,
-      current: null,
-      pausedNow: false,
-      modelNow: 'sonnet',
-      shownByApp: null,
-      cacheNow: null,
-    } as never
-    expect(hoverTips(before).cache).toContain('No prompt cache yet')
-    expect(hoverTips(before).cache).not.toContain('Cold')
-    expect(hoverTips({ ...(before as object), cacheNow: 0 } as never).cache).toContain('cold')
-    expect(hoverTips({ ...(before as object), cacheNow: 42 } as never).cache).toContain(
-      `warm for ${cacheLabel(42)} more`,
-    )
-  })
 
   test('cacheTtlOf and cacheLabel', () => {
     expect(cacheTtlOf({ cache_creation: { ephemeral_1h_input_tokens: 900, ephemeral_5m_input_tokens: 0 } })).toBe('1h')
@@ -3750,9 +3732,13 @@ describe('dashboard', () => {
       await closeSetup($, DESK_BAND)
       await mocked.advance(16_000)
       const band = await $.ui.mount(DESK_BAND)
-      // The context as a ring and a figure, as the swamp band shows it.
-      expect(await band.find({ key: 'dash-ring' })).toBeDefined()
-      expect(await drawn(band)).toContain('"children":["18%"]')
+      // The title with the controls, then the detail line. With no lens row yet, the title says
+      // the context in words.
+      expect(await band.find({ key: 'dash-title' })).toBeDefined()
+      expect(await band.find({ key: 'dash-detail' })).toBeDefined()
+      expect(await band.find({ key: 'dash-ring' })).toBeUndefined()
+      expect(await band.find({ key: 'dash-tail' })).toBeUndefined()
+      expect(await drawn(band)).toContain('18% context')
       expect(await band.find({ key: 'dash-auto' })).toBeDefined()
       expect(await band.find({ key: 'dash-settings' })).toBeDefined()
       // A drawn icon on desktop, not the word.

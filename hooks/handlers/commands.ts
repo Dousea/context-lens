@@ -57,6 +57,7 @@ const judgeDownHidden = atom({ plugin: 'context-lens', key: 'judgeDownHidden' } 
 const hot = atom({ plugin: 'context-lens', key: 'hot' } as const, null)
 const hotHidden = atom({ plugin: 'context-lens', key: 'hotHidden' } as const, null as HotClosed | null)
 const setupStep = atom({ plugin: 'context-lens', key: 'setupStep' } as const, null)
+const lensLimits = atom({ plugin: 'context-lens', key: 'lensLimits' } as const, [])
 
 export function registerCommandHooks(on: On) {
   // /context-lens is a command file in the plugin (commands/context-lens.md), so the app lists it before the session has
@@ -120,6 +121,10 @@ export function registerCommandHooks(on: On) {
       const ago = (t: number) => (t ? `${Math.round((Date.now() - t) / 1000)}s ago` : 'never')
       const debugNow = await $.clock.now().catch(() => Date.now())
       const lastFork = (await $.store.get('lastFork').catch(() => null)) as { at: number; outcome: string } | null
+      // Both sides, so missing usage windows show whether the app has none or the band never took them.
+      const limitsText = (limits: readonly { kind: string; percentUsed: number }[]) =>
+        limits.map(limit => `${limit.kind} ${Math.round(limit.percentUsed)}%`).join(', ') || 'none'
+      const appLimits = (await $.session.usage().catch(() => null))?.rateLimits
       return {
         text:
           [
@@ -128,6 +133,7 @@ export function registerCommandHooks(on: On) {
             `session.start ${ago(sessionStarted)}`,
             `app SessionStart: ${classicStart ? `${ago(classicStart.at)} (${classicStart.said})` : 'never'}`,
             `cache: ${cacheExpires === 0 ? 'not started' : `${await cacheMinutes($)} min left`}, shown ${await read($, cacheLeft)}, ttl ${cacheTtl}, last reply ${lastResponseAt ? ago(lastResponseAt) : 'none seen'}, replies seen ${repliesSeen}, forced ${coldForced}`,
+            `rate limits: app ${appLimits ? limitsText(appLimits) : 'unreadable'}, band ${limitsText(await read($, lensLimits))}`,
             `model caches: ${[...modelCaches].map(([k, c]) => `${k} ${kTokens(c.tokens)} ${Math.max(0, Math.ceil((c.expires - debugNow) / 60_000))} min`).join(', ') || 'none'}${sessionPick ? `, session on ${sessionPick}` : ''}`,
             `band asked for ${renderCalls} times, last ${ago(lastRenderAt)}`,
             `band error: ${lastRenderError || 'none'}`,

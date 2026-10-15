@@ -202,3 +202,36 @@ test('the lens row stays under an alert band on the terminal', async ($, on) => 
   expect(await line.find({ text: /^ctx$/ })).toBeDefined()
   expect(await line.find({ text: /^152k\/250k$/ })).toBeDefined()
 })
+
+/** The element keyed `key` in a drawn tree, with everything under it. */
+function keyed(node: unknown, key: string): unknown {
+  if (!node || typeof node !== 'object') return undefined
+  const element = node as { props?: { key?: string; children?: unknown } }
+  if (element.props?.key === key) return node
+  const children = element.props?.children
+  for (const child of Array.isArray(children) ? children : [children]) {
+    const hit = keyed(child, key)
+    if (hit) return hit
+  }
+  return undefined
+}
+
+test('desktop draws the lens row inside the dashboard, its bars as boxes', async ($, on) => {
+  mock.clock(on, { now: 0 })
+  engine(on)
+  answering(on, 140_000, 4_000)
+  await begin($)
+  await step($)
+
+  const line = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', component: 'AbovePrompt', props: band(140) })
+  const dashboard = JSON.stringify(keyed(await line.drawn(), 'dash'))
+  expect(dashboard).toContain('"lens-row"')
+  expect(dashboard).toContain('"ctx-bar"')
+  expect(dashboard).toContain('"u-5h-bar"')
+  // A run of block glyphs wraps and hatches in the desktop's proportional font.
+  expect(dashboard).not.toContain('█')
+  expect(dashboard).not.toContain('░')
+  // The lens row carries the cache and the context, so the title does not repeat them.
+  expect(await line.find({ key: 'dash-ring' })).toBeUndefined()
+  expect(dashboard).not.toContain('% context')
+})

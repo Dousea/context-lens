@@ -5,10 +5,10 @@ import { MARK_SVG } from '../svg/brand-mark'
 import { config } from '../core/config'
 import { EFFORT_LABELS, FROST_HEIGHT, FROST_WIDTH, MODELS } from '../core/constants'
 import { loadedSession, renderLog } from '../core/debug'
-import { ACCENT, DASH_BG, DASH_DIM, DASH_EDGE, DASH_TEXT, FLASH_COLOR, HOVER_BOX, ICE } from '../core/palette'
-import { cacheClock, cacheColor, cacheExpires, cacheLabel } from '../logic/cache'
+import { ACCENT, DASH_BG, DASH_DIM, DASH_EDGE, DASH_TEXT, FLASH_COLOR } from '../core/palette'
+import { cacheLabel } from '../logic/cache'
 import { openCompact } from '../logic/compact'
-import { effortOf, hoverTips, snap, toggleAutoEffort, toggleAutoModel } from '../logic/effort'
+import { effortOf, snap, toggleAutoEffort, toggleAutoModel } from '../logic/effort'
 import {
   adviceNow,
   COMPACT_BUTTON_MIN_COLUMNS,
@@ -22,7 +22,7 @@ import { judgeEndedAt, judgeStartedAt } from '../logic/judge'
 import { lastContext } from '../logic/lens'
 import { openPluginSettings } from '../logic/settings'
 import { subagentEffortOf } from '../logic/subagents'
-import { autoSwitchSvg, cacheClockSvg, handoffLook, handoffPillSvg, ringSvg, settingsSvg } from '../svg/controls'
+import { autoSwitchSvg, handoffLook, handoffPillSvg, settingsSvg } from '../svg/controls'
 import {
   AUTO_GLOW_H,
   AUTO_GLOW_MS,
@@ -41,7 +41,7 @@ import {
 import { DASH_MARK_OFF, DASH_SVG } from '../svg/scenes'
 import { themedEls } from '../theme'
 import { PILL_H, THINK_W, thinkingSvg } from '../svg/thinking'
-import { appHint, introFresh, introShows, setIntroFresh, terminalBand } from './band'
+import { appHint, hintLine, introFresh, introShows, setIntroFresh, terminalBand } from './band'
 import { lensRow } from './lens-row'
 
 const handoffAdvice = atom({ plugin: 'context-lens', key: 'handoffAdvice' } as const, null)
@@ -203,17 +203,16 @@ export async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePro
     : v.auto
       ? 'Auto picks the effort at the next prompt'
       : 'You pick the effort'
-  // Desktop draws the cache after the context ring, grey, with a hover that explains both; the terminal says it inline.
-  const drawn = e.surface !== 'terminal' && 'Svg' in els
   // A cold cache is the cold band's to say; the resting bar shows the countdown only while there is one.
   const cacheShown = config.hide.includes('timer') || (v.cacheNow !== null && v.cacheNow <= 0) ? null : v.cacheNow
   // The lens's row (cache timers, context bar, usage) sits under the detail line. Its width is the band's inside: the
-  // border and the padding take four columns. The resting terminal band draws no art beside it.
+  // border and the padding take four columns. The resting band draws no art beside it.
   const columns = typeof e.props.bodyColumns === 'number' ? e.props.bodyColumns : 100
   const lens = await lensRow($, e, Math.max(20, columns - 4)).catch(() => null)
   const judgingHere = !inAgent && Boolean(v.judging)
   const hint = inAgent ? '' : await appHint($, v)
   const modelName = MODELS.find(m => m.key === shownModel)?.long
+  // The lens row carries the cache and the context; the title says them in words until it has anything to show.
   const { head, what, pair, rest, detail } = dashboardLines({
     auto: v.auto,
     paused: Boolean(v.pausedNow),
@@ -221,19 +220,16 @@ export async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePro
     agent: inAgent,
     effort: effortNow,
     model: modelName,
-    cacheNow: drawn || lens ? null : cacheShown,
-    // Desktop draws the context as a ring and a figure (as the swamp band does); the terminal says it in words.
-    contextPercent: !lens && e.surface === 'terminal' && lastContext && lastContext.window ? lastContext.percent : null,
+    cacheNow: lens ? null : cacheShown,
+    contextPercent: !lens && lastContext && lastContext.window ? lastContext.percent : null,
     // The judge's reason and the handoff advice are about the chat's own prompt, not a subagent's work.
-    // The terminal gives the hint a place of its own on the detail line; desktop's one row has none, so it leads the reason.
     reason: inAgent
       ? ''
-      : [
-          e.surface === 'terminal' ? '' : hint,
-          adviceNow ? `Handoff would suit: ${adviceNow}` : config.hide.includes('reason') ? '' : reason,
-        ]
-          .filter(Boolean)
-          .join(' — '),
+      : adviceNow
+        ? `Handoff would suit: ${adviceNow}`
+        : config.hide.includes('reason')
+          ? ''
+          : reason,
   })
   const toggleSettings = async () => {
     if (await read($, settingsOpen)) {
@@ -427,8 +423,7 @@ export async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePro
     <Box
       key="dash"
       position="relative"
-      flexDirection="row"
-      alignItems="center"
+      flexDirection="column"
       paddingX={1}
       overflow="hidden"
       backgroundColor={DASH_BG}
@@ -459,211 +454,126 @@ export async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePro
           <Svg source={glowSource} alt="deciding glow" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
         </Box>
       ) : null}
-      {/* One row: the effort word, the context ring, the cache, then the reason and the last reply, dim. The word never shrinks;
-          when room runs out the reason goes first (it shrinks a hundred times faster), then the cache, and the row clips
-          rather than run under the buttons. Siblings, not nested: a shrunk parent let the word spill under the ring. */}
-      <Box
-        key="dash-words"
-        position="relative"
-        flexDirection="row"
-        flexGrow={1}
-        flexShrink={1}
-        minWidth={0}
-        overflow="hidden"
-      >
-        <Box flexShrink={0} flexDirection="row">
-          {Svg ? (
-            // The mark, as it is, where the ✦ stood; faded while Auto is off.
-            <Box key="dash-mark" flexShrink={0} marginRight={1} alignItems="center">
-              <Svg
-                source={v.auto ? MARK_SVG : DASH_MARK_OFF}
-                alt="context-lens"
-                width={DASH_MARK_SIZE}
-                height={DASH_MARK_SIZE}
-              />
-            </Box>
-          ) : (
-            <Text color={v.auto ? ACCENT : DASH_DIM} bold>
-              ✦{' '}
-            </Text>
-          )}
-          {/* A new effort shows in the accent, then white (effortFlash): plain text in the app's font. An animated image
+      {/* Three rows: the title with the controls, the hint and the reason, then the lens. */}
+      <Box key="dash-title" flexDirection="row" alignItems="center">
+        {/* The effort word never shrinks; the row clips rather than run under the buttons. */}
+        <Box
+          key="dash-words"
+          position="relative"
+          flexDirection="row"
+          flexGrow={1}
+          flexShrink={1}
+          minWidth={0}
+          overflow="hidden"
+        >
+          <Box flexShrink={0} flexDirection="row">
+            {Svg ? (
+              // The mark, as it is, where the ✦ stood; faded while Auto is off.
+              <Box key="dash-mark" flexShrink={0} marginRight={1} alignItems="center">
+                <Svg
+                  source={v.auto ? MARK_SVG : DASH_MARK_OFF}
+                  alt="context-lens"
+                  width={DASH_MARK_SIZE}
+                  height={DASH_MARK_SIZE}
+                />
+              </Box>
+            ) : (
+              <Text color={v.auto ? ACCENT : DASH_DIM} bold>
+                ✦{' '}
+              </Text>
+            )}
+            {/* A new effort shows in the accent, then white (effortFlash): plain text in the app's font. An animated image
               of the word looked cheap: another font, a late start and a jump back to the text. */}
-          <Text key="dash-level" color={wordColor} bold>
-            {judgingHere && Svg ? (modelName ? `${modelName} · Deciding` : 'Deciding') : pair}
-          </Text>
-          {/* While the judge decides: thinking dots, as a plain image (its CSS still runs, and a
+            <Text key="dash-level" color={wordColor} bold>
+              {judgingHere && Svg ? (modelName ? `${modelName} · Deciding` : 'Deciding') : pair}
+            </Text>
+            {/* While the judge decides: thinking dots, as a plain image (its CSS still runs, and a
               redraw does not restart it the way an interactive frame does). */}
-          {judgingHere && Svg ? (
-            <Box key="dash-thinking" flexShrink={0} marginLeft={1} alignItems="center">
-              <Svg source={thinkingSvg()} alt="deciding" width={THINK_W} height={PILL_H} />
+            {judgingHere && Svg ? (
+              <Box key="dash-thinking" flexShrink={0} marginLeft={1} alignItems="center">
+                <Svg source={thinkingSvg()} alt="deciding" width={THINK_W} height={PILL_H} />
+              </Box>
+            ) : null}
+          </Box>
+          {rest ? (
+            <Box flexShrink={1} minWidth={0}>
+              <Text color={DASH_TEXT} bold wrap="truncate">
+                {rest}
+              </Text>
             </Box>
           ) : null}
         </Box>
-        {rest ? (
-          <Box flexShrink={detail ? 0 : 1} minWidth={0}>
-            <Text color={DASH_TEXT} bold wrap="truncate">
-              {rest}
-            </Text>
-          </Box>
-        ) : null}
-        {/* What shows when room runs out, most needed first: the effort and the context never shrink; the cache shrinks
-            next and goes; the reason (dim, after it) goes first of all. Hovering the ring or the cache swaps the reason
-            for what they mean. */}
-        {Svg && lastContext && lastContext.window ? (
-          <Box
-            key="dash-ring"
-            flexShrink={0}
-            marginLeft={2}
-            flexDirection="row"
-            gap={1}
-            alignItems="center"
-            hover={{ scope: 'dash-cache', backgroundColor: HOVER_BOX }}
-          >
-            <Svg
-              source={ringSvg(lastContext.percent, DASH_TEXT)}
-              alt={`${Math.round(lastContext.percent)}% of context`}
-              width={16}
-              height={16}
-            />
-            <Text color={DASH_TEXT}>{`${Math.round(lastContext.percent)}%`}</Text>
-          </Box>
-        ) : null}
-        {/* The tail: the cache, then the judge's reason, on one wrapping row one line high. The reason has no width of
-            its own (it only takes what is left, truncated), so it always fits the first row and goes first; the cache
-            keeps its fixed width (the ticking seconds never shift the row) and, once it no longer fits, wraps to the
-            hidden second row whole, taking the reason with it. */}
-        {Svg && (cacheShown !== null || detail) ? (
-          <Box
-            key="dash-tail"
-            flexGrow={1}
-            flexShrink={1}
-            minWidth={0}
-            height={1}
-            overflow="hidden"
-            flexDirection="row"
-            flexWrap="wrap"
-            marginLeft={2}
-          >
-            <Box width={0} height={1} />
-            {cacheShown !== null ? (
-              <Box
-                key="dash-cache-time"
-                width={11}
-                flexShrink={0}
-                hover={{ scope: 'dash-cache', backgroundColor: HOVER_BOX }}
-              >
-                <Svg
-                  source={cacheClockSvg(
-                    cacheExpires - (await $.clock.now()),
-                    cacheShown === 0 ? ICE : (cacheColor(cacheShown) ?? DASH_DIM),
-                  )}
-                  alt={`cache ${cacheClock(cacheExpires - (await $.clock.now()))}`}
-                  width={84}
-                  height={17}
-                />
-              </Box>
-            ) : null}
-            {detail ? (
-              // Over the reason, shown only while the ring or cache is hovered, what they mean: a hover can only
-              // reveal, so the tip is a layer on the band's colour that covers the reason.
-              <Box
-                key="dash-detail"
-                position="relative"
-                width={0}
-                flexGrow={1}
-                flexShrink={1}
-                minWidth={10}
-                marginLeft={cacheShown !== null ? 2 : 0}
-              >
-                <Text dimColor wrap="truncate">
-                  {detail}
-                </Text>
-                <Box
-                  key="dash-cache-tip"
-                  position="absolute"
-                  top={0}
-                  left={0}
-                  right={0}
-                  bottom={0}
-                  backgroundColor={DASH_BG}
-                  display="none"
-                  hover={{ scope: 'dash-cache', display: 'flex' }}
-                >
-                  <Text dimColor wrap="truncate">
-                    {hoverTips(v).cache.replace(/^Prompt cache/, 'Cache')}
-                  </Text>
-                </Box>
-              </Box>
-            ) : null}
-          </Box>
-        ) : detail ? (
-          <Box key="dash-detail" flexShrink={1000} minWidth={0} marginLeft={2}>
-            <Text dimColor wrap="truncate">
-              {detail}
-            </Text>
-          </Box>
-        ) : null}
-      </Box>
-      {/* The buttons in the flow, their real width and no more, so the words get all the rest. An empty absolute child
+        {/* The buttons in the flow, their real width and no more, so the words get all the rest. An empty absolute child
           makes the box positioned, which paints it over the art (a plain flow box sits under it and loses clicks). */}
-      <Box minWidth={1} />
-      <Box key="dash-actions" flexShrink={0} flexDirection="row" gap={1} alignItems="center" marginLeft={1}>
-        <Box position="absolute" top={0} left={0} />
-        {Svg
-          ? // Each Auto as a switch, drawn, with a blank button laid over it to take the click (the cog's pattern).
-            [
-              {
-                key: 'dash-auto-model',
-                word: 'model',
-                on: v.autoModel,
-                flipAt: autoModelFlipAt,
-                toggle: () => toggleAutoModel($),
-              },
-              { key: 'dash-auto', word: 'effort', on: v.auto, flipAt: autoFlipAt, toggle: () => toggleAutoEffort($) },
-            ].map(autoSwitch => (
-              <Box
-                key={`${autoSwitch.key}-switch`}
-                position="relative"
-                flexDirection="row"
-                alignItems="center"
-                gap={1}
-                paddingX={1}
-              >
-                <Svg
-                  source={autoSwitchSvg(autoSwitch.on, nowMs - autoSwitch.flipAt)}
-                  alt={`Auto ${autoSwitch.word} ${autoSwitch.on ? 'on' : 'off'}`}
-                  width={26}
-                  height={15}
-                />
-                <Text color={autoSwitch.on ? DASH_TEXT : DASH_DIM}>{`Auto ${autoSwitch.word}`}</Text>
+        <Box minWidth={1} />
+        <Box key="dash-actions" flexShrink={0} flexDirection="row" gap={1} alignItems="center" marginLeft={1}>
+          <Box position="absolute" top={0} left={0} />
+          {Svg
+            ? // Each Auto as a switch, drawn, with a blank button laid over it to take the click (the cog's pattern).
+              [
+                {
+                  key: 'dash-auto-model',
+                  word: 'model',
+                  on: v.autoModel,
+                  flipAt: autoModelFlipAt,
+                  toggle: () => toggleAutoModel($),
+                },
+                { key: 'dash-auto', word: 'effort', on: v.auto, flipAt: autoFlipAt, toggle: () => toggleAutoEffort($) },
+              ].map(autoSwitch => (
                 <Box
-                  position="absolute"
-                  top={0}
-                  bottom={0}
-                  left={0}
-                  right={0}
+                  key={`${autoSwitch.key}-switch`}
+                  position="relative"
+                  flexDirection="row"
                   alignItems="center"
-                  justifyContent="center"
+                  gap={1}
+                  paddingX={1}
                 >
-                  <Button key={autoSwitch.key} plain label={' '.repeat(32)} onPress={autoSwitch.toggle} />
+                  <Svg
+                    source={autoSwitchSvg(autoSwitch.on, nowMs - autoSwitch.flipAt)}
+                    alt={`Auto ${autoSwitch.word} ${autoSwitch.on ? 'on' : 'off'}`}
+                    width={26}
+                    height={15}
+                  />
+                  <Text color={autoSwitch.on ? DASH_TEXT : DASH_DIM}>{`Auto ${autoSwitch.word}`}</Text>
+                  <Box
+                    position="absolute"
+                    top={0}
+                    bottom={0}
+                    left={0}
+                    right={0}
+                    alignItems="center"
+                    justifyContent="center"
+                  >
+                    <Button key={autoSwitch.key} plain label={' '.repeat(32)} onPress={autoSwitch.toggle} />
+                  </Box>
                 </Box>
+              ))
+            : autoButtons}
+          {Svg ? buttons.slice(0, -1) : buttons}
+          {Svg ? (
+            // The cog sits in the flow and the button in an absolute layer after it: an absolute layer paints over plain
+            // ones, and the desktop ignores position="relative" on a Box without absolute children. A Button is at most as
+            // wide as its box, so the box keeps a cell of padding each side of the cog for the hover box.
+            <Box key="dash-settings-icon" position="relative" alignItems="center" justifyContent="center" paddingX={1}>
+              <Svg source={settingsSvg(DASH_TEXT)} alt="Settings" width={14} height={14} />
+              <Box
+                position="absolute"
+                top={0}
+                bottom={0}
+                left={0}
+                right={0}
+                alignItems="center"
+                justifyContent="center"
+              >
+                {buttons[buttons.length - 1]}
               </Box>
-            ))
-          : autoButtons}
-        {Svg ? buttons.slice(0, -1) : buttons}
-        {Svg ? (
-          // The cog sits in the flow and the button in an absolute layer after it: an absolute layer paints over plain
-          // ones, and the desktop ignores position="relative" on a Box without absolute children. A Button is at most as
-          // wide as its box, so the box keeps a cell of padding each side of the cog for the hover box.
-          <Box key="dash-settings-icon" position="relative" alignItems="center" justifyContent="center" paddingX={1}>
-            <Svg source={settingsSvg(DASH_TEXT)} alt="Settings" width={14} height={14} />
-            <Box position="absolute" top={0} bottom={0} left={0} right={0} alignItems="center" justifyContent="center">
-              {buttons[buttons.length - 1]}
             </Box>
-          </Box>
-        ) : null}
+          ) : null}
+        </Box>
       </Box>
+      {/* An empty detail still takes its row, so the band keeps its height when a reason arrives. */}
+      {hintLine({ Box, Text }, hint, detail || ' ', 'dash-detail')}
+      {lens}
     </Box>
   )
 }
