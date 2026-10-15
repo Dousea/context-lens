@@ -54,7 +54,11 @@ export async function hotClosedNow($: EngineInterface): Promise<HotClosed | null
   if (!hotClosedLoaded) {
     hotClosedLoaded = true
     const kept = (await $.store.get('hotClosed').catch(() => null)) as HotClosed | null
-    if (kept && typeof kept.window === 'string') await update($, hotHidden, () => kept)
+    if (kept && typeof kept.window === 'string') {
+      // Read while the band is drawn, when a state write is denied: this draw uses the stored value, a timer saves it.
+      $.clock.after(0, () => void update($, hotHidden, () => kept))
+      return kept
+    }
   }
   return read($, hotHidden)
 }

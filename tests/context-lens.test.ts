@@ -3000,6 +3000,39 @@ describe('running hot and judge down', () => {
     await band.unmount()
   })
 
+  test('a running-hot band closed in an earlier chat stays closed, with no write while drawing', async ($, on) => {
+    const resetsAt = '2026-10-06T14:20:00Z'
+    // Closed in an earlier chat: the store has it, this chat's state does not.
+    engine(on, {}, undefined, [], {
+      hotClosed: { window: `five_hour ${Math.round(new Date(resetsAt).getTime() / 900_000)}`, percent: 84 },
+    })
+    const mocked = mock.clock(on)
+    on(
+      'session.usage',
+      () =>
+        ({
+          value: {
+            context: { tokens: 1000, window: 200_000, percent: 1 },
+            rateLimits: [
+              { kind: 'five_hour', percentUsed: 84, resetsAt },
+              { kind: 'seven_day', percentUsed: 40 },
+            ],
+          },
+        }) as never,
+    )
+    on('ui.toast', () => ({ value: undefined }) as never)
+    await start($, on)
+    const guide = await $.ui.mount(DESK_BAND)
+    await guide.press({ key: 'setup-close' })
+    await guide.unmount()
+    await mocked.advance(16_000)
+
+    await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
+
+    const debug = (await $.command.run({ command: 'context-lens', args: 'debug' } as never)) as { text?: string }
+    expect(debug.text).toContain('band error: none')
+  })
+
   test('a failing judge shows the judge-down band until it answers again', async ($, on) => {
     engine(on)
     mock.clock(on)

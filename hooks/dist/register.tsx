@@ -829,7 +829,10 @@ async function hotClosedNow($) {
   if (!hotClosedLoaded) {
     hotClosedLoaded = true;
     const kept = await $.store.get("hotClosed").catch(() => null);
-    if (kept && typeof kept.window === "string") await update2($, hotHidden, () => kept);
+    if (kept && typeof kept.window === "string") {
+      $.clock.after(0, () => void update2($, hotHidden, () => kept));
+      return kept;
+    }
   }
   return read2($, hotHidden);
 }
