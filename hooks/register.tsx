@@ -1,17 +1,7 @@
-import {
-  atom,
-  type EngineInterface,
-  type ModelForkResult,
-  type ModelUsage,
-  read,
-  type Register,
-  type RenderInput,
-  update,
-} from 'claude-code'
+import { atom, type EngineInterface, read, type Register, type RenderInput, update } from 'claude-code'
 
 import type {
   AgentCache,
-  CacheTtl,
   Effort,
   HandoffAfter,
   HandoffChoice,
@@ -19,15 +9,12 @@ import type {
   ModelKey,
   Pick,
   SettingsDraft,
-  Spent,
-  Steps,
 } from '../types'
 import { ART_COLUMNS, ART_FRAME_MS, ART_MIN_WIDTH, ART_ROWS, artFrame, type ArtKind, MOVING } from './art'
 import { MARK_SVG } from './brand-mark'
 import {
   config,
   type Hideable,
-  type JudgeConfig,
   pluginOptions,
   readConfig,
   setConfig,
@@ -45,9 +32,7 @@ import {
   FROST_HEIGHT,
   FROST_WIDTH,
   MODELS,
-  STEPS,
   takesEffort,
-  WEIGHT,
 } from './core/constants'
 import {
   drawsTimed,
@@ -75,21 +60,7 @@ import {
   setSessionStarted,
   writeRenderLog,
 } from './core/debug'
-import {
-  envAgentCacheTtl,
-  envCacheTtl,
-  envEnable1h,
-  envForce5m,
-  envHome,
-  envUserProfile,
-  homeDir,
-  noClaudeHint,
-  ownVersion,
-  pluginId,
-  proof,
-  readOwnVersion,
-  runClaude,
-} from './core/env'
+import { homeDir, noClaudeHint, ownVersion, pluginId, proof, readOwnVersion, runClaude } from './core/env'
 import {
   ACCENT,
   applyTheme,
@@ -117,32 +88,188 @@ import {
   ICE,
   ICE_BG,
   ICE_EDGE,
-  RED,
   refreshAppearance,
   SLATE,
   SLATE_BG,
   SLATE_EDGE,
   UNINSTALL_RED,
-  YELLOW,
 } from './core/palette'
 import {
   classicStart,
   engineEffort,
   lastRequest,
-  lastTyped,
   pickCarried,
   setClassicStart,
   setEngineEffort,
   setLastRequest,
-  setLastTyped,
   setPickCarried,
-  setToldAboutEnter,
   setTurnBusy,
-  toldAboutEnter,
   turnBusy,
 } from './core/session'
 import {
-  applyUsage,
+  checkSwamp,
+  closeHot,
+  hotClosedNow,
+  hotVisible,
+  resetLabel,
+  SWAMP_REGROW,
+  SWAMP_TOKENS,
+  toggleSave,
+} from './logic/alerts'
+import { type BenchCase, benchReport, runBench } from './logic/bench'
+import {
+  cacheClock,
+  cacheColor,
+  cacheExpires,
+  cacheLabel,
+  cacheMinutes,
+  cacheTouched,
+  cacheTtl,
+  coldForced,
+  coldWorth,
+  compactCold,
+  lastResponseAt,
+  rememberCache,
+  repliesSeen,
+  restoreCache,
+  setCacheExpires,
+  setColdForced,
+  setLastResponseAt,
+  showCache,
+} from './logic/cache'
+import {
+  compactCard,
+  compactNote,
+  compactOpenedAt,
+  haikuCompaction,
+  lastHaikuCompact,
+  openCompact,
+  setCompactNote,
+  setLastHaikuCompact,
+  SETTINGS_BODY_H,
+} from './logic/compact'
+import {
+  choose,
+  effortOf,
+  hoverTips,
+  pickEffort,
+  type Snap,
+  snap,
+  toggleAutoEffort,
+  toggleAutoModel,
+} from './logic/effort'
+import {
+  adviceNow,
+  cardLanded,
+  cardRunning,
+  checkHandoff,
+  closeHandoffBar,
+  COMPACT_BUTTON_MIN_COLUMNS,
+  goHandoff,
+  type HandoffCard,
+  handoffLevel,
+  handoffLoud,
+  handoffSlot,
+  handoffText,
+  handoffWhat,
+  lastHandoffChoice,
+  openHandoffBar,
+  setAdviceNow,
+  setHandoffText,
+  startHandoff,
+} from './logic/handoff'
+import {
+  bounded,
+  capped,
+  drawGlowSteps,
+  endJudgeGlow,
+  heldPick,
+  isFollowUp,
+  judge,
+  judgeEndedAt,
+  judgeStartedAt,
+  keepsEffort,
+  namedEffort,
+  recentContext,
+  setHeldPick,
+  setJudgeEndedAt,
+  setJudgeStartedAt,
+  tipped,
+  typedSkill,
+  withAttachments,
+  withMidTurn,
+} from './logic/judge'
+import { afterCompaction, lastContext, LENS_WARMTH_COLOR, lensStarted, recordRequest, refreshUsage } from './logic/lens'
+import { carryRenamedSettings, openPluginSettings, SAVED_CARD_MS, saveDraft, saveSetting } from './logic/settings'
+import {
+  closeSetup,
+  drainSetupSave,
+  goSetup,
+  LEAN_STOPS,
+  setupBack,
+  setupCounter,
+  setupNext,
+  setupShown,
+  type SetupStep,
+} from './logic/setup'
+import {
+  asSpent,
+  countPrompt,
+  kTokens,
+  ranThisTurn,
+  savedText,
+  setRanThisTurn,
+  setTurnCost,
+  storedLinesOf,
+  storeTurnLine,
+  tally,
+  tokens,
+  turnCost,
+  type TurnLine,
+  turnLineFor,
+  weighted,
+  withTurnLine,
+} from './logic/spend'
+import {
+  callEfforts,
+  setSubagentWaiting,
+  type SpawnCall,
+  SUBAGENT_MODEL_SURE,
+  subagentEffort,
+  subagentEffortOf,
+  subagentFloor,
+  subagentModelFor,
+  type SubagentPick,
+  subagentSpawnOf,
+  subagentSpawns,
+  subagentSteerable,
+  subagentTally,
+  subagentWaiting,
+} from './logic/subagents'
+import {
+  declined,
+  holdForOffer,
+  keyOf,
+  modelCaches,
+  modelIs,
+  offer,
+  sessionModel,
+  sessionModelId,
+  sessionPick,
+  setDeclined,
+  setSessionPick,
+  setSuggestedAs,
+  settleOffer,
+  subagentNote,
+  subagentPays,
+  suggestedAs,
+  switchModel,
+  switchWorth,
+  typeCommand,
+  warmTokens,
+} from './logic/switching'
+import { redrawSoon, setTimersFrom, setTimersScheduled, startTimers, timersFrom, timersScheduled } from './logic/timers'
+import {
   bar,
   type BarSegment,
   clockTokens,
@@ -151,13 +278,10 @@ import {
   fillColor,
   formatRemaining,
   formatTokens,
-  isRecache,
   layoutLine,
   remainingMs,
-  resolveTtl,
   segmentGlyph,
   stackedBar,
-  toContextView,
   usageWindow,
   type Warmth,
   warmth,
@@ -192,15 +316,12 @@ import {
   compactFadeSvg,
   GLOW_H,
   GLOW_W,
-  HANDOFF_BOX_AT,
   HANDOFF_PILL_H,
   HANDOFF_PILL_W,
   handoffGlowStep,
   handoffGlowSvg,
   inPhase,
-  JUDGE_FADE_MS,
   JUDGE_RISE_MS,
-  JUDGE_STEP_MS,
   judgeGlowAt,
 } from './svg/glows'
 import {
@@ -224,6 +345,40 @@ import { PILL_H, THINK_W, thinkingSvg } from './thinking'
 export { HIDEABLE, type Hideable, type JudgeConfig, readConfig, SWAMP_STEPS } from './core/config'
 export { cacheSafe, EFFORTS, MODELS, takesEffort } from './core/constants'
 export { claudeCandidates, noClaudeHint } from './core/env'
+export { HOT_FINAL, hotVisible, resetLabel } from './logic/alerts'
+export { type BenchAnswer, type BenchCase, benchGrade, benchReport, stepsGrade } from './logic/bench'
+export { cacheClock, cacheColor, cacheLabel, cacheTtlOf, mostlyCached } from './logic/cache'
+export { COMPACT_TAIL, compactTranscript } from './logic/compact'
+export { hoverTips } from './logic/effort'
+export {
+  finishHandoff,
+  forkOutcome,
+  HANDOFF_FULL_PROMPT,
+  HANDOFF_PROMPT,
+  handoffEvidence,
+  handoffMessage,
+  handoffWhat,
+  parseHandoffAnswer,
+} from './logic/handoff'
+export {
+  bounded,
+  capped,
+  contextFrom,
+  endsOnQuestion,
+  isFollowUp,
+  judgeFailure,
+  keepsEffort,
+  namedEffort,
+  parseVerdict,
+  tipped,
+  withAttachments,
+  withMidTurn,
+} from './logic/judge'
+export { renamedSettings } from './logic/settings'
+export { LEAN_STOPS, setupBack, setupCounter, setupNext, setupShown, type SetupStep } from './logic/setup'
+export { asSpent, savedText, turnLineFor, weighted } from './logic/spend'
+export { subagentFloor, subagentModelFor, subagentQuestion, subagentSteerable } from './logic/subagents'
+export { priceOf, subagentNote, subagentPays, switchWorth } from './logic/switching'
 export {
   autoSwitchSvg,
   cacheClockSvg,
@@ -252,35 +407,19 @@ export {
 } from './svg/glows'
 export { INTRO_SVG } from './svg/scenes'
 
-// Auto is two switches. `isAuto` is effort (the name stays: it is what the store and state hold);
-// `isAutoModel` lets the judge suggest another model and starts off.
 const isAuto = atom({ plugin: 'context-lens', key: 'isAuto' } as const, true)
 const isAutoModel = atom({ plugin: 'context-lens', key: 'isAutoModel' } as const, false)
 const pick = atom({ plugin: 'context-lens', key: 'pick' } as const, null)
 const isJudging = atom({ plugin: 'context-lens', key: 'isJudging' } as const, false)
 const suggestion = atom({ plugin: 'context-lens', key: 'suggestion' } as const, null)
 const appEffort = atom({ plugin: 'context-lens', key: 'appEffort' } as const, null)
-const model = atom({ plugin: 'context-lens', key: 'model' } as const, null)
-// The last change Auto made to the effort, shown for a moment as "Low → High" and then cleared.
-const switched = atom({ plugin: 'context-lens', key: 'switched' } as const, null)
-// What the prompts Auto steered cost this session, measured, and what judging them took.
 const saved = atom({ plugin: 'context-lens', key: 'saved' } as const, EMPTY_SPENT)
-// True while the session runs a model where Auto must not change effort (see cacheSafe).
-const paused = atom({ plugin: 'context-lens', key: 'paused' } as const, false)
-// How long the main conversation's prompt cache stays warm, in whole minutes left: null before the first response,
-// 0 once it has gone cold. Updated only when the minute changes, so the footer redraws once a minute at most.
 const cacheLeft = atom({ plugin: 'context-lens', key: 'cacheLeft' } as const, null)
-const cacheMemo = atom({ plugin: 'context-lens', key: 'cacheMemo' } as const, null)
 const isCompacting = atom({ plugin: 'context-lens', key: 'isCompacting' } as const, false)
-// The compact bar: open after Compact is pressed, with a field for what the summary should keep.
 const compactAsk = atom({ plugin: 'context-lens', key: 'compactAsk' } as const, false)
-// Where a handoff is: null idle, writing (the handoff turn runs), clearing (clear and resend).
 const handoffStage = atom({ plugin: 'context-lens', key: 'handoffStage' } as const, null)
-// The handoff bar above the prompt, open with the choice shown in it, or null.
 const handoffPick = atom({ plugin: 'context-lens', key: 'handoffPick' } as const, null)
-// The context is swamped: tokens read per request, or null below the line. Drives the swamp band.
 const swamped = atom({ plugin: 'context-lens', key: 'swamped' } as const, null)
-// Why Haiku thinks a handoff would suit now, or null. It lights Handoff and says why; there is no percent threshold.
 const handoffAdvice = atom({ plugin: 'context-lens', key: 'handoffAdvice' } as const, null)
 const handoffCard = atom({ plugin: 'context-lens', key: 'handoffCard' } as const, null)
 
@@ -291,33 +430,20 @@ const lastAnswer = atom({ plugin: 'context-lens', key: 'lastAnswer' } as const, 
 const turnLines = atom({ plugin: 'context-lens', key: 'turnLines' } as const, {})
 // The swamp band was closed at this many tokens; it comes back once the context has grown well past it.
 const swampHiddenAt = atom({ plugin: 'context-lens', key: 'swampHiddenAt' } as const, null)
-// The first-run setup is not done: the footer offers "Setup".
 const setupPending = atom({ plugin: 'context-lens', key: 'setupPending' } as const, false)
-// The context-lens settings panel is open above the prompt.
 const settingsOpen = atom({ plugin: 'context-lens', key: 'settingsOpen' } as const, false)
-// The user and plugin skills, read when the settings panel opens.
 const installedSkills = atom({ plugin: 'context-lens', key: 'installedSkills' } as const, [])
-// What was changed in the panel and not saved yet, by field; Save applies it all, the cross drops it.
 const settingsDraft = atom({ plugin: 'context-lens', key: 'settingsDraft' } as const, {})
-// Why the judge is failing, or null when it works.
 const judgeDown = atom({ plugin: 'context-lens', key: 'judgeDown' } as const, null)
 const settingsCard = atom({ plugin: 'context-lens', key: 'settingsCard' } as const, null)
 // The judge-down band was closed for this reason; a new reason shows it again.
 const judgeDownHidden = atom({ plugin: 'context-lens', key: 'judgeDownHidden' } as const, null)
-// A usage limit is close: which window, how much is used, when it resets. Null below the line.
 const hot = atom({ plugin: 'context-lens', key: 'hot' } as const, null)
-// The running-hot band closed with its cross: in which window and how full. Kept in the store too, so a new chat keeps it closed.
 const hotHidden = atom({ plugin: 'context-lens', key: 'hotHidden' } as const, null as HotClosed | null)
-// Save mode: Auto picks at most medium until this time (ms), when the limit resets.
 const saveUntil = atom({ plugin: 'context-lens', key: 'saveUntil' } as const, null)
-// The person closed the cold band; it comes back the next time the cache goes cold.
 const isColdHidden = atom({ plugin: 'context-lens', key: 'isColdHidden' } as const, false)
-// The setup guide above the prompt: which step it shows, or null when it is closed.
 const setupStep = atom({ plugin: 'context-lens', key: 'setupStep' } as const, null)
-// What was picked in the setup guide and not saved yet: it is saved in one go at Done or ✕. Each saved setting reloads
-// the plugin, and the app says so in the chat, so a save per click filled the chat with notices.
 const setupDraft = atom({ plugin: 'context-lens', key: 'setupDraft' } as const, {})
-
 const lensMain = atom({ plugin: 'context-lens', key: 'lensMain' } as const, emptyClock('1h'))
 const lensAgents = atom({ plugin: 'context-lens', key: 'lensAgents' } as const, [])
 const lensContext = atom({ plugin: 'context-lens', key: 'lensContext' } as const, null)
@@ -325,84 +451,7 @@ const lensLiveTokens = atom({ plugin: 'context-lens', key: 'lensLive' } as const
 const lensRewritten = atom({ plugin: 'context-lens', key: 'lensRewritten' } as const, false)
 const lensLimits = atom({ plugin: 'context-lens', key: 'lensLimits' } as const, [])
 const lensNow = atom({ plugin: 'context-lens', key: 'lensNow' } as const, 0)
-const SWITCHED_MS = 2500
-const CACHE_TICK_MS = 15_000
-// Shown minutes at or under these turn the countdown yellow, then red: grey while there is time, yellow at 20, red at 5.
-const CACHE_YELLOW_MIN = 20
-const CACHE_RED_MIN = 5
-// What is typed in that field. Kept here, not in state: a write per key would redraw the bar under the cursor.
-let compactNote = ''
-// When the compact bar opened: its first half second fades the swamped band's colours out (see compactFadeSvg).
-let compactOpenedAt = 0
-// The handoff card above the prompt: shown from the start of a handoff, and once it lands ('done' in the
-// cleared chat, 'copied'). It goes with the next message, its ✕, or HANDOFF_CARD_MS after it was set.
-type HandoffCard = {
-  kind: 'writing' | 'done' | 'copied' | 'compacting' | 'compacted'
-  full: boolean
-  at: number
-  seen: boolean
-}
-// Kinds still under way: they stay until they land, with moving art. Compacting shares the card with the handoff.
-const cardRunning = (kind: HandoffCard['kind']) => kind === 'writing' || kind === 'compacting'
-// Kinds that landed well: the card turns green with a checkmark.
-const cardLanded = (kind: HandoffCard['kind']) => kind === 'done' || kind === 'compacted'
-const HANDOFF_CARD_MS = 2 * 60_000
 
-async function setHandoffCard($: EngineInterface, kind: HandoffCard['kind'], full: boolean, seen = false) {
-  const at = await $.clock.now()
-  await update($, handoffAdvice, () => null)
-  await update($, handoffCard, () => ({ kind, full, at, seen }))
-  // Gone after a while even with no reply; a timer that dies with its request leaves the next reply to clear it.
-  if (!cardRunning(kind)) {
-    try {
-      $.clock.after(HANDOFF_CARD_MS, () => void update($, handoffCard, card => (card && card.at === at ? null : card)))
-    } catch {}
-  }
-}
-const TURN_LINES_KEPT = 200
-type TurnLine = { effort?: Effort; model?: ModelKey; cost?: number }
-// The session's state ends with the process: the lines are kept in the store too, by session id (the transcript's name, which
-// a --resume keeps), so a restarted or resumed chat still draws what each reply ran on. The newest sessions are kept.
-const TURN_LINES_SESSIONS = 30
-let storedTurnLines: { session: string; lines: Record<string, TurnLine> } | null = null
-
-const withTurnLine = (lines: Record<string, TurnLine>, key: string, line: TurnLine) =>
-  Object.fromEntries([
-    ...Object.entries(lines)
-      .filter(([k]) => k !== key)
-      .slice(1 - TURN_LINES_KEPT),
-    [key, line],
-  ])
-
-async function storedLinesOf($: EngineInterface): Promise<Record<string, TurnLine>> {
-  const session = await $.session.id().catch(() => '')
-  if (!session) return {}
-
-  if (storedTurnLines?.session !== session) {
-    const all = await $.store.get('turnLines').catch(() => undefined)
-    const lines = all && typeof all === 'object' ? (all as Record<string, unknown>)[session] : undefined
-    storedTurnLines = { session, lines: lines && typeof lines === 'object' ? (lines as Record<string, TurnLine>) : {} }
-  }
-  return storedTurnLines.lines
-}
-
-async function storeTurnLine($: EngineInterface, key: string, line: TurnLine) {
-  const session = await $.session.id().catch(() => '')
-  if (!session) return
-
-  const lines = withTurnLine(await storedLinesOf($), key, line)
-  const all = await $.store.get('turnLines').catch(() => undefined)
-  const others = Object.entries(all && typeof all === 'object' ? all : {})
-    .filter(([k]) => k !== session)
-    .slice(1 - TURN_LINES_SESSIONS)
-
-  await $.store.set('turnLines', Object.fromEntries([...others, [session, lines]]))
-  storedTurnLines = { session, lines }
-}
-// The weighted tokens of the requests (the chat's and its subagents') since the prompt; kept in turnLines when the turn ends.
-let turnCost = 0
-// What the reply's last main-thread request ran on: the footer's model and effort.
-let ranThisTurn: { model?: ModelKey; effort?: Effort } | null = null
 /** The settings panel's parts: a card each on the overview, and what the part is for, said once it is open. */
 const CARDS: readonly { id: SettingsCard; title: string; about: string }[] = [
   {
@@ -506,1486 +555,6 @@ function introLayer(
     </B>
   )
 }
-
-const JUDGE_SYSTEM = `You choose which Claude model and reasoning effort an agentic assistant (it reads files, runs tools and edits things, not only code) should use for the user's next message. Pick the cheapest pair that will still do the job well.
-
-Models, cheapest first:
-- haiku: quick questions, lookups, renames, small edits in one or two files, summaries, chit-chat. It can read files and run tools; pick it for any small, well-defined job.
-- sonnet: normal coding, edits across a few files, explanations, writing.
-- opus: hard debugging, architecture, large refactors, careful reviews.
-- fable: the hardest long-horizon or research-level work.
-
-Effort: low for quick answers, medium for normal work, high for hard problems, xhigh or max only for very hard ones.
-
-Effort is relative to the model in use ("Current" names it): a stronger model needs less effort for the same job. Opus at medium does about what Sonnet does at high, and Fable is stronger again. So for one and the same task pick one step lower on Opus than on Sonnet, and lower still on Fable; on Sonnet, go one step higher for hard work than you would on Opus.
-
-Judge the SCOPE and the amount of work, not whether it is code. A short message can ask for a lot: "go through my whole drive and clean it up", "review the entire repo", "migrate everything" are big, multi-step, tool-heavy jobs where mistakes are costly: never low, usually high. Low is only for answers that need no tools and no planning.
-
-If the message answers a question in the assistant's last reply (picks an option, says which one, confirms a plan), judge only the work that answer starts, as the reply describes it, not the length of the answer and not the work done before the question: "B" can mean "build the complicated section B" (high), while "yes" or "no" to one small action ("should I archive this?", "delete the old ones too?") is low, and picking a value for one setting (a log level, a colour, a font) is low. But picking which way to build something ("option 1", "the same shapes", "B") starts that build: judge the build. Approving a whole plan or several steps takes the effort of that plan. A plain "yes", "ok" or "do it" after "Is that OK? Then I'll build X" or "Should I build X?" approves building X: judge X, not the word.
-
-A message that pushes back on, corrects or adds to a plan or claim under discussion continues that work: keep at least the effort that work had, never drop to low for it. Thanks, praise or a closing remark with no new request is low. A question about how to do something, or about effort itself, that needs no tools is low.
-
-If the person asks for deep thought ("think hard", "ultrathink", "be thorough"), pick at least high; if they ask for a quick answer, pick low.
-
-If the message is a short follow-up to ongoing work ("yes", "go", "ok", "continue", or the same in any language), keep the current pair. Thanks or praise with no new request ("ok perfect, thanks") is not a follow-up: it is low and one step.
-
-Steps: how many tool calls and replies the task takes. one: a single command, lookup or plain answer, even when the command acts on several items ("delete those branches", "rename it in this file"). few: a handful of reads or edits. many: a broad search, many files or long multi-step work.
-
-Reply with JSON only: {"model":"haiku|sonnet|opus|fable","effort":"low|medium|high|xhigh|max","steps":"one|few|many","sure":0.0-1.0 how sure you are of the effort,"why":"at most 6 words, in the user's language"}`
-
-/** Reads `{ model, effort, why }` out of a reply, or nothing when it doesn't hold one. */
-export function parseVerdict(
-  text: string,
-): { model: ModelKey; effort: Effort; why: string; sure?: number; steps?: Steps; handoff?: string } | undefined {
-  const match = text.match(/\{[\s\S]*\}/)
-  if (!match) return undefined
-  let raw: unknown
-  try {
-    raw = JSON.parse(match[0])
-  } catch {
-    return undefined
-  }
-  if (typeof raw !== 'object' || raw === null) return undefined
-  const { model, effort, why, sure, steps, handoff } = raw as Record<string, unknown>
-  const key = typeof model === 'string' ? model.toLowerCase() : ''
-  const found = MODELS.find(m => key === m.key || key === m.id || key.includes(m.key))
-  if (!found || !EFFORTS.includes(effort as Effort)) return undefined
-  const how = typeof sure === 'number' && sure >= 0 && sure <= 1 ? { sure } : {}
-  // Only a reason counts: "handoff":"" or false is no advice.
-  const advice = typeof handoff === 'string' && handoff.trim() ? { handoff: handoff.trim().slice(0, 70) } : {}
-  return {
-    model: found.key,
-    effort: effort as Effort,
-    why: typeof why === 'string' ? why.slice(0, 60) : '',
-    ...how,
-    ...(STEPS.includes(steps as Steps) ? { steps: steps as Steps } : {}),
-    ...advice,
-  }
-}
-
-/**
- * What the judge reads besides the new message: the person's previous message and the assistant's last reply. The
- * reply is kept long and from its end, where a question with options ("A, B or C?") sits: "B" alone looks like a
- * small job, the reply says what B sets off.
- */
-async function recentContext($: EngineInterface): Promise<string> {
-  return contextFrom(await $.session.messages())
-}
-
-/** The context text from the conversation so far: the last user message, short, and the assistant's last reply's end. */
-export function contextFrom(messages: readonly { role: string; text: string }[]): string {
-  const lastUser = [...messages].reverse().find(m => m.role === 'user')
-  const lastAssistant = lastAssistantText(messages)
-  return [
-    lastUser ? `user: ${lastUser.text.slice(0, 400)}` : '',
-    lastAssistant ? `assistant: ${lastAssistant.slice(-2000)}` : '',
-  ]
-    .filter(Boolean)
-    .join('\n')
-}
-
-/** The assistant's last reply, or nothing. */
-function lastAssistantText(messages: readonly { role: string; text: string }[]): string {
-  return [...messages].reverse().find(m => m.role === 'assistant' && m.text.trim())?.text ?? ''
-}
-
-/** The skill or custom command a typed "/name args" runs, or nothing for the app's own commands and context-lens's. */
-async function typedSkill(
-  $: EngineInterface,
-  text: string,
-): Promise<{ name: string; description: string } | undefined> {
-  const name = text.trim().slice(1).split(/\s+/)[0]
-  if (!name) return undefined
-  const found = (await $.command.list().catch(() => [])).find(c => c.name === name)
-  if (!found || !['user', 'plugin', 'mcp'].includes(found.source) || found.plugin === 'context-lens') return undefined
-  return { name, description: found.description ?? '' }
-}
-
-const LEVEL_WORD = '(low|medium|high|xhigh|x-high|extra[- ]high|max|maximum)'
-const NAMED_LEVEL = new RegExp(
-  `\\b${LEVEL_WORD}\\s+effort\\b|\\beffort(?:\\s+level)?\\s*(?:[:=]|to|at|of|on)?\\s*${LEVEL_WORD}\\b|\\bxhigh\\b`,
-  'gi',
-)
-const LEVEL_OF: Record<string, Effort> = {
-  low: 'low',
-  medium: 'medium',
-  high: 'high',
-  xhigh: 'xhigh',
-  'x-high': 'xhigh',
-  'extra high': 'xhigh',
-  'extra-high': 'xhigh',
-  max: 'max',
-  maximum: 'max',
-}
-
-/**
- * The level a prompt asks for by name ("max effort", "effort: high", "xhigh"), or nothing. The word effort must sit
- * beside the level, so "a medium sized image" names nothing, and "don't use max effort" is a no. A named level runs
- * without the judge, which would also call prompts that only describe hard work "named".
- */
-export function namedEffort(text: string): Effort | undefined {
-  for (const m of text.matchAll(NAMED_LEVEL)) {
-    const before = text.slice(Math.max(0, m.index - 20), m.index).toLowerCase()
-    if (/\b(not|no|don'?t|never|without|instead of)\b/.test(before)) continue
-    return LEVEL_OF[(m[1] ?? m[2] ?? 'xhigh').toLowerCase().replace(/\s+/, ' ')]
-  }
-  return undefined
-}
-
-/** A short follow-up such as "go", "ok", "yes", "continue": two words and a dozen characters at most. */
-export function isFollowUp(text: string): boolean {
-  const t = text.trim()
-  return t.length > 0 && t.length <= 12 && t.split(/\s+/).length <= 2
-}
-
-/**
- * Whether the assistant's last reply ended on a question ("Should I archive it?", "A, B or C?"). A short message
- * after one answers it, and the answer can start a small or a big job, so it goes to the judge instead of keeping
- * the effort.
- */
-export function endsOnQuestion(context: string): boolean {
-  const reply = context.split('\nassistant: ').pop() ?? ''
-  return context.includes('assistant: ') && reply.slice(-400).includes('?')
-}
-
-/** The message as the judge reads it: images and files it carries are named, since the judge sees only text. */
-export function withAttachments(text: string, attachments?: readonly { type: string }[]): string {
-  if (!attachments?.length) return text
-  const counts = new Map<string, number>()
-  for (const a of attachments) counts.set(a.type, (counts.get(a.type) ?? 0) + 1)
-  const said = [...counts].map(([type, n]) => `${n} ${type}${n > 1 ? 's' : ''}`).join(', ')
-  return `${text}
-
-[The message comes with ${said} to look at.]`
-}
-
-/** The message as the judge reads it when it was typed while a task was still running. */
-export function withMidTurn(text: string, effort: Effort): string {
-  return `${text}
-
-[Sent while the assistant was still working on the last task at ${effort} effort. If it adds to, corrects or steers that task, keep ${effort}; judge it on its own only if it is a separate new request.]`
-}
-// A lower verdict for a message typed mid-turn, applied when that turn ends (see prompt.submit).
-let heldPick: Pick | null = null
-
-/** A short follow-up that keeps the current effort: "go" between two steps, not an answer to a question. */
-export function keepsEffort(message: string, context: string): boolean {
-  return isFollowUp(message) && !endsOnQuestion(context)
-}
-
-type Judged = { verdict?: Pick; tokens: number }
-
-/** Why a judge the person picked could not answer, in words: what a status code means for them. */
-export function judgeFailure(name: string, status: number | 'timeout'): string {
-  if (status === 'timeout') return `${name} did not answer in time`
-  if (status === 401 || status === 403) return `${name} was refused (${status}): check your Claude login`
-  if (status === 402) return `${name} is out of credits (${status})`
-  if (status === 429) return `${name} is rate limited (${status})`
-  return `${name} failed (${status})`
-}
-const warned = new Set<string>()
-/** Tells the person once per session and reason that the judge failed; the effort stays as it is. */
-function warnJudge($: EngineInterface, reason: string) {
-  void proof($, `judge fallback: ${reason}`)
-  void update($, judgeDown, () => reason).then(() => $.ui.invalidate('ui.render'))
-  if (warned.has(reason)) return
-  warned.add(reason)
-  $.ui.toast(`context-lens: ${reason}. The effort stays as it is.`)
-}
-
-/** The text the judge reads: the current pair, the last turns and the next message. */
-function judgeQuestion(prompt: string, current: Pick | null, context: string): string {
-  return [
-    current ? `Current: ${current.model} / ${current.effort}` : 'Current: none',
-    context ? `Recent conversation:\n${context}` : '',
-    `Next message:\n${prompt.slice(0, 2000)}`,
-  ]
-    .filter(Boolean)
-    .join('\n\n')
-}
-
-/** Haiku judges, through the session's own login: no key, nothing else to set up. Never throws. */
-async function judge($: EngineInterface, prompt: string, current: Pick | null): Promise<Judged> {
-  const context = await recentContext($).catch(() => '')
-  return askHaiku($, prompt, current, context)
-}
-
-/**
- * Haiku 5.5 by name: Claude Code builds that predate it map the plain alias to Haiku 4.5, at ten times the price.
- * Where 5.5 does not answer, the alias stands in.
- */
-async function completeWithHaiku(
-  $: EngineInterface,
-  request: Omit<Parameters<EngineInterface['model']['complete']>[0], 'model'>,
-) {
-  const named = await $.model.complete({ ...request, model: COMPACT_MODEL })
-  return named.isAnswered ? named : $.model.complete({ ...request, model: 'haiku' })
-}
-
-/** Haiku through the session's own login: the judge, and it needs no key. */
-async function askHaiku($: EngineInterface, prompt: string, current: Pick | null, context: string): Promise<Judged> {
-  const used =
-    lastContext && lastContext.window ? `Context used: ${Math.round(lastContext.percent)}% of the window` : ''
-  const asked = [judgeQuestion(prompt, current, context), used].filter(Boolean).join('\n\n')
-  const r = await completeWithHaiku($, {
-    system: JUDGE_SYSTEM,
-    prompt: asked,
-    maxTokens: 160,
-    effort: 'low',
-    timeoutMs: 6000,
-  })
-  const verdict = r.isAnswered ? parseVerdict(r.text) : undefined
-  const tokens = r.isAnswered && r.usage ? r.usage.input_tokens + r.usage.output_tokens : 0
-  // The API refused or could not be reached (a login problem, no credits, a rate limit): say so once, in the
-  // judge-down band. An abort (Esc, the timeout) or an empty reply is no failure of the judge. An answer takes the band away.
-  if (!r.isAnswered && r.reason === 'api-error')
-    warnJudge($, r.status === null ? 'Haiku could not be reached' : judgeFailure('Haiku', r.status))
-  else if (r.isAnswered && verdict && (await read($, judgeDown))) await update($, judgeDown, () => null)
-  return { verdict: verdict && { ...verdict, by: 'haiku' }, tokens }
-}
-
-// Whether a fresh chat would now serve better than carrying on: Haiku's call, whatever judge picks the effort. It runs
-// from HANDOFF_CHECK_FROM percent of context, every HANDOFF_CHECK_EVERY messages, so it costs a cent now and then. It
-// reads more than the effort judge: what the chat was for, the trail of topics, the last turns, the context and the cache.
-const HANDOFF_CHECK_FROM = 30
-const HANDOFF_CHECK_EVERY = 2
-const HANDOFF_SYSTEM = `You decide whether the person should hand off now: start a fresh chat that carries over a short summary, instead of carrying on in this one. You are shown what the chat was for, the trail of what the person asked, the last turns, the next message, how full the context is and whether the cache is cold.
-
-Say yes only for a clear reason: the task just finished and the next message is something else, the topic has changed so the old context is dead weight, the chat keeps going in circles on the same problem, or a long chat now holds so much unrelated history that a clean start would be sharper. A normal next step of the same work is never a reason, a long chat by itself is not one, and neither is a high context share when the work is going well. When unsure, say no: a wrong yes costs the person more than a missed one.
-
-Reply with JSON only: {"handoff":"reason of at most 8 words, in the person's language"} for yes, or {"handoff":null} for no.`
-
-/** What the handoff check reads: the chat's purpose, a trail of the person's messages, the last reply's end. */
-export function handoffEvidence(
-  messages: readonly { role: string; text: string }[],
-  next: string,
-  percent: number,
-  cold: boolean,
-): string {
-  const asked = messages.filter(m => m.role === 'user' && m.text.trim())
-  const first = asked[0]?.text.slice(0, 500) ?? ''
-  const trail = asked.slice(-8, -1).map(m => `- ${m.text.slice(0, 160).replace(/\s+/g, ' ')}`)
-  const reply = lastAssistantText(messages).slice(-700)
-  return [
-    first ? `What the chat was for (first message):\n${first}` : '',
-    trail.length ? `Trail of earlier messages:\n${trail.join('\n')}` : '',
-    reply ? `The assistant's last reply (its end):\n${reply}` : '',
-    `Next message:\n${next.slice(0, 600)}`,
-    `Context used: ${Math.round(percent)}% of the window; ${asked.length} messages so far; the cache is ${cold ? 'cold' : 'warm'}.`,
-  ]
-    .filter(Boolean)
-    .join('\n\n')
-}
-
-/** Reads Haiku's answer: a reason, or null for no (anything unreadable is no). */
-export function parseHandoffAnswer(text: string): string | null {
-  const match = text.match(/\{[\s\S]*\}/)
-  if (!match) return null
-  try {
-    const { handoff } = JSON.parse(match[0]) as { handoff?: unknown }
-    return typeof handoff === 'string' && handoff.trim() ? handoff.trim().slice(0, 70) : null
-  } catch {
-    return null
-  }
-}
-
-let promptsSinceHandoffCheck = 0
-/** Called with each message the person sends. Sets or clears the advice; never throws, never holds the message. */
-async function checkHandoff($: EngineInterface, next: string) {
-  const percent = lastContext?.percent ?? 0
-  if (percent < HANDOFF_CHECK_FROM) {
-    promptsSinceHandoffCheck = 0
-    if ((await read($, handoffAdvice)) !== null) {
-      await update($, handoffAdvice, () => null)
-      $.ui.invalidate('ui.render')
-    }
-    return
-  }
-  promptsSinceHandoffCheck++
-  if (promptsSinceHandoffCheck < HANDOFF_CHECK_EVERY) return
-  promptsSinceHandoffCheck = 0
-  try {
-    const evidence = handoffEvidence(
-      await $.session.messages(),
-      next,
-      percent,
-      (await cacheMinutes($)) === 0 && cacheExpires > 0,
-    )
-    const r = await completeWithHaiku($, {
-      system: HANDOFF_SYSTEM,
-      prompt: evidence,
-      maxTokens: 60,
-      effort: 'low',
-      timeoutMs: 8000,
-    })
-    if (!r.isAnswered) return
-    const reason = parseHandoffAnswer(r.text)
-    void proof($, `handoff check at ${Math.round(percent)}%: ${reason ?? 'no'}`)
-    if (reason !== (await read($, handoffAdvice))) {
-      await update($, handoffAdvice, () => reason)
-      $.ui.invalidate('ui.render')
-    }
-  } catch {
-    // A failed check changes nothing.
-  }
-}
-
-// The judge benchmark (/context-lens bench): labelled prompts in bench/judge-cases.json, each run through the same
-// pipeline a real prompt takes (a short follow-up keeps the current effort, anything else goes to a judge).
-export type BenchCase = {
-  id: string
-  kind: string
-  holdout?: boolean
-  current: Pick
-  context?: string
-  message: string
-  ok: Effort[]
-  /** Every task size a careful person would accept, for the cases labelled with one. */
-  steps?: Steps[]
-}
-export type BenchAnswer = {
-  id: string
-  judge: string
-  effort?: Effort
-  by?: string
-  why?: string
-  sure?: number
-  model?: ModelKey
-  steps?: Steps
-  ms: number
-  tokens: number
-}
-
-/** Where an answer lands against the labels: right, too low (risks quality), too high (wastes), or no answer. */
-export function benchGrade(c: BenchCase, effort: Effort | undefined): 'hit' | 'under' | 'over' | 'none' {
-  if (!effort) return 'none'
-  if (c.ok.includes(effort)) return 'hit'
-  const rank = EFFORTS.indexOf(effort)
-  return rank < Math.min(...c.ok.map(e => EFFORTS.indexOf(e))) ? 'under' : 'over'
-}
-
-/** Where a task size lands against the labels: right, too few (keeps work in the chat), too many (hands off a small task). */
-export function stepsGrade(c: BenchCase, steps: Steps | undefined): 'hit' | 'under' | 'over' | 'none' {
-  if (!steps || !c.steps) return 'none'
-  if (c.steps.includes(steps)) return 'hit'
-  return STEPS.indexOf(steps) < Math.min(...c.steps.map(s => STEPS.indexOf(s))) ? 'under' : 'over'
-}
-
-/** The benchmark's table: per judge the share it got right, how it missed, and how fast it was; then per kind. */
-export function benchReport(cases: BenchCase[], answers: BenchAnswer[]): string {
-  const byId = new Map(cases.map(c => [c.id, c]))
-  const judges = [...new Set(answers.map(a => a.judge))]
-  const kinds = [...new Set(cases.map(c => c.kind))]
-  const pct = (n: number, of: number) => (of ? `${Math.round((n / of) * 100)}%` : '-')
-  const median = (xs: number[]) => {
-    const s = [...xs].sort((a, b) => a - b)
-    return s.length ? s[Math.floor(s.length / 2)] : 0
-  }
-  const lines = [
-    '| Judge | Right | Too low | Too high | No answer | Median ms |',
-    '| --- | --- | --- | --- | --- | --- |',
-  ]
-  for (const j of judges) {
-    const mine = answers.filter(a => a.judge === j)
-    const g = mine.map(a => benchGrade(byId.get(a.id)!, a.effort))
-    const n = (k: string) => g.filter(x => x === k).length
-    const asked = mine.filter(a => a.ms > 0).map(a => a.ms)
-    lines.push(
-      `| ${j} | ${pct(n('hit'), g.length)} | ${n('under')} | ${n('over')} | ${n('none')} | ${asked.length ? median(asked) : '-'} |`,
-    )
-  }
-  // The held-out cases were never tuned against: the honest score. The rest shaped the judge prompts.
-  const sets = [
-    ['tuned on', cases.filter(c => !c.holdout)],
-    ['held out', cases.filter(c => c.holdout)],
-  ] as const
-  lines.push('', `| Set (cases) | ${judges.join(' | ')} |`, `| --- | ${judges.map(() => '---').join(' | ')} |`)
-  for (const [name, set] of sets) {
-    if (!set.length) continue
-    const ids = set.map(c => c.id)
-    const cells = judges.map(j => {
-      const mine = answers.filter(a => a.judge === j && ids.includes(a.id))
-      return pct(mine.filter(a => benchGrade(byId.get(a.id)!, a.effort) === 'hit').length, mine.length)
-    })
-    lines.push(`| ${name} (${set.length}) | ${cells.join(' | ')} |`)
-  }
-  lines.push('', `| Kind (cases) | ${judges.join(' | ')} |`, `| --- | ${judges.map(() => '---').join(' | ')} |`)
-  for (const k of kinds) {
-    const ids = cases.filter(c => c.kind === k).map(c => c.id)
-    const cells = judges.map(j => {
-      const mine = answers.filter(a => a.judge === j && ids.includes(a.id))
-      return pct(mine.filter(a => benchGrade(byId.get(a.id)!, a.effort) === 'hit').length, mine.length)
-    })
-    lines.push(`| ${k} (${ids.length}) | ${cells.join(' | ')} |`)
-  }
-  // Does "unsure" predict a miss? The Smarter lean acts on it, so it is measured here.
-  const judged = judges.filter(j => !j.startsWith('always'))
-  const sureLines = [
-    '',
-    '| Judge | Sure when right | Sure when wrong | Misses under 65% sure | Misses under 85% sure | Answers under 65% | Answers under 85% |',
-    '| --- | --- | --- | --- | --- | --- | --- |',
-  ]
-  for (const j of judged) {
-    const mine = answers.filter(a => a.judge === j && a.effort && typeof a.sure === 'number')
-    if (!mine.length) continue
-    const wrong = mine.filter(a => benchGrade(byId.get(a.id)!, a.effort) !== 'hit')
-    const right = mine.filter(a => benchGrade(byId.get(a.id)!, a.effort) === 'hit')
-    const avg = (xs: BenchAnswer[]) =>
-      xs.length ? `${Math.round((xs.reduce((t, a) => t + a.sure!, 0) / xs.length) * 100)}%` : '-'
-    const under = (xs: BenchAnswer[], t: number) => xs.filter(a => a.sure! < t).length
-    sureLines.push(
-      `| ${j} (${mine.length} with a score) | ${avg(right)} | ${avg(wrong)} | ${under(wrong, 0.65)} of ${wrong.length} | ${under(wrong, 0.85)} of ${wrong.length} | ${under(mine, 0.65)} | ${under(mine, 0.85)} |`,
-    )
-  }
-  const pickLines = ['', '| Judge | Haiku | Sonnet | Opus | Other |', '| --- | --- | --- | --- | --- |']
-  for (const j of judged) {
-    const mine = answers.filter(a => a.judge === j && a.model)
-    if (!mine.length) continue
-    const n = (k: string) => mine.filter(a => a.model === k).length
-    pickLines.push(
-      `| ${j} | ${n('haiku')} | ${n('sonnet')} | ${n('opus')} | ${mine.length - n('haiku') - n('sonnet') - n('opus')} |`,
-    )
-  }
-  // Too many steps is what hands a small task to a subagent that costs more than it spares.
-  const stepLines = ['', '| Judge | Steps right | Too few | Too many | No answer |', '| --- | --- | --- | --- | --- |']
-  for (const j of judged) {
-    const mine = answers.filter(a => a.judge === j && byId.get(a.id)!.steps)
-    if (!mine.length) continue
-    const g = mine.map(a => stepsGrade(byId.get(a.id)!, a.steps))
-    const n = (k: string) => g.filter(x => x === k).length
-    stepLines.push(`| ${j} | ${pct(n('hit'), g.length)} | ${n('under')} | ${n('over')} | ${n('none')} |`)
-  }
-  lines.push(
-    ...(sureLines.length > 3 ? sureLines : []),
-    ...(pickLines.length > 3 ? pickLines : []),
-    ...(stepLines.length > 3 ? stepLines : []),
-  )
-  const stepMisses = answers
-    .filter(
-      a => !a.judge.startsWith('always') && a.steps && ['under', 'over'].includes(stepsGrade(byId.get(a.id)!, a.steps)),
-    )
-    .map(
-      a =>
-        `- ${a.judge} ${a.id}: said ${a.steps} steps, wanted ${byId.get(a.id)!.steps!.join('/')}: "${byId.get(a.id)!.message.slice(0, 60)}"`,
-    )
-  const misses = answers
-    .filter(a => !a.judge.startsWith('always') && benchGrade(byId.get(a.id)!, a.effort) !== 'hit')
-    .map(
-      a =>
-        `- ${a.judge}${a.by && a.by !== a.judge ? ` (via ${a.by})` : ''} ${a.id}: said ${a.effort ?? 'nothing'}${a.why ? ` (${a.why})` : ''}, wanted ${byId.get(a.id)!.ok.join('/')}: "${byId.get(a.id)!.message.slice(0, 60)}"`,
-    )
-  return [
-    ...lines,
-    '',
-    'Misses:',
-    ...(misses.length ? misses : ['- none']),
-    ...(stepMisses.length ? ['', 'Steps misses:', ...stepMisses] : []),
-  ].join('\n')
-}
-
-/** Runs every case through each available judge, a few at a time, and returns the answers. */
-async function runBench($: EngineInterface, cases: BenchCase[]): Promise<BenchAnswer[]> {
-  const judges: [string, (c: BenchCase) => Promise<Judged | undefined>][] = [
-    ['haiku', c => askHaiku($, c.message, c.current, c.context ?? '')],
-  ]
-  const answers: BenchAnswer[] = []
-  // Baselines: what a fixed effort would score on the same labels.
-  for (const fixed of ['medium', 'high'] as Effort[])
-    for (const c of cases) answers.push({ id: c.id, judge: `always ${fixed}`, effort: fixed, ms: 0, tokens: 0 })
-  const jobs = judges.flatMap(([name, ask]) => cases.map(c => ({ name, ask, c })))
-  let next = 0
-  const worker = async () => {
-    while (next < jobs.length) {
-      const { name, ask, c } = jobs[next++]
-      // The mod never asks a judge about a short follow-up: it keeps the current effort.
-      if (keepsEffort(c.message, c.context ?? '')) {
-        answers.push({ id: c.id, judge: name, effort: c.current.effort, ms: 0, tokens: 0 })
-        continue
-      }
-      const started = await $.clock.now()
-      const got = await ask(c).catch(() => undefined)
-      answers.push({
-        id: c.id,
-        judge: name,
-        effort: got?.verdict?.effort,
-        by: got?.verdict?.by,
-        why: got?.verdict?.why,
-        sure: got?.verdict?.sure,
-        model: got?.verdict?.model,
-        steps: got?.verdict?.steps,
-        ms: (await $.clock.now()) - started,
-        tokens: got?.tokens ?? 0,
-      })
-    }
-  }
-  await Promise.all([worker(), worker(), worker(), worker()])
-  return answers
-}
-
-function keyOf(id: string): ModelKey | undefined {
-  return MODELS.find(m => id.includes(m.key))?.key
-}
-
-/** Records the model the session now runs; the pick follows it, so the band never shows a stale one. */
-async function modelIs($: EngineInterface, id: string) {
-  const pause = !cacheSafe(id) && takesEffort(id)
-  if (pause !== (await read($, paused))) await update($, paused, () => pause)
-  const key = keyOf(id)
-  if (!key || key === (await read($, model))) return
-  await update($, model, () => key)
-  // The engine's effort can differ per model, so a change across a switch is not the person's doing;
-  // and a model turned down earlier may be suggested again.
-  setEngineEffort(undefined)
-  declined = null
-  settleOffer(false)
-  const current = await read($, pick)
-  if (current && current.model !== key) await choose($, { ...current, model: key })
-  if ((await read($, suggestion)) === key) await update($, suggestion, () => null)
-}
-
-async function sessionModel($: EngineInterface): Promise<ModelKey> {
-  return keyOf(await sessionModelId($)) ?? 'sonnet'
-}
-
-/** The model this session's requests go out on: a taken offer's, else the app's own. */
-async function sessionModelId($: EngineInterface): Promise<string> {
-  return sessionPick ? MODELS.find(m => m.key === sessionPick)!.id : $.session.model()
-}
-// A model the person turned down; not suggested again until they pick something else.
-let declined: ModelKey | null = null
-// The model a taken offer moved this session to. Only the requests carry it: /model would also make it the app's
-// default for every later session. Any /model, the band's Model row or the app's picker moving to another model ends it;
-// the app's picker on the model it already runs sends nothing to hear.
-let sessionPick: ModelKey | null = null
-// Each model's own prompt cache for this chat: when it lapses and how many tokens it holds. Going back to a model whose cache
-// is still warm only writes what was added since. A compaction or /clear starts a new prefix, so they are forgotten.
-const modelCaches = new Map<ModelKey, { expires: number; tokens: number }>()
-// How the model in `suggestion` is offered: the session switches to it, or the prompt is handed to a subagent on it.
-let suggestedAs: 'switch' | 'subagent' = 'switch'
-
-/** The tokens a model still has in its cache for this chat, or undefined when it has none warm. */
-function warmTokens(key: ModelKey, now: number): number | undefined {
-  const cache = modelCaches.get(key)
-  return cache && cache.expires > now ? cache.tokens : undefined
-}
-
-/** The note a handed-off prompt carries: the chat's model stays, and a subagent on `model` does the task. */
-export function subagentNote(model: ModelKey): string {
-  return `\n\n[context-lens, on my behalf: I want a subagent on ${model} to do this task (Agent tool, model: "${model}") to save my usage on the chat's model. Delegate it with a complete brief, even if it looks small, then use its result.]`
-}
-
-/**
- * Types a slash command into the prompt box for the person to send with Enter. A command the person
- * sends is read by the app itself, so its own Model and Effort controls follow; one the mod runs
- * inside the engine is not. Never overwrites a draft: returns false when the box is not empty.
- */
-async function typeCommand($: EngineInterface, text: string): Promise<boolean> {
-  try {
-    const draft = (await $.prompt.read()).text.trim()
-    // A draft of your own is never overwritten; the mod's own earlier command is replaced.
-    if (draft !== '' && draft !== lastTyped) return false
-    const filled = await $.prompt.fill({ text })
-    if (filled.isFilled) setLastTyped(text)
-    if (filled.isFilled && !toldAboutEnter) {
-      setToldAboutEnter(true)
-      $.ui.toast(`Press Enter to send ${text} so the app's own control follows`)
-    }
-    return filled.isFilled
-  } catch {
-    return false
-  }
-}
-
-// A prompt waiting for the answer to a model offer: who to tell, the model offered, and when the wait ends.
-let offer: { model: ModelKey; until: number; done: (accepted: boolean) => void } | null = null
-// The wait counts against the host's 10-second budget for the prompt.submit hook, which sends the prompt on its own
-// once it runs out; the hold ends well before that, so the prompt and the question end together.
-const OFFER_HOLD_MS = 8_000
-
-/** Ends the wait: true when the person took the offer, false for Keep, a timeout or anything else. */
-function settleOffer(accepted: boolean) {
-  const open = offer
-  offer = null
-  open?.done(accepted)
-}
-
-/** Holds the prompt until the offer is answered; true when it was taken. Only one offer waits at a time. */
-async function holdForOffer($: EngineInterface, model: ModelKey): Promise<boolean> {
-  settleOffer(false)
-  const until = (await $.clock.now()) + OFFER_HOLD_MS
-  $.ui.invalidate('ui.render')
-  return new Promise<boolean>(resolve => {
-    const timer = $.clock.after(OFFER_HOLD_MS, () => settleOffer(false))
-    // A redraw a second, for the countdown in the question.
-    const tick = $.clock.every(1000, () => $.ui.invalidate('ui.render'))
-    offer = {
-      model,
-      until,
-      done: accepted => {
-        timer?.cancel?.()
-        tick?.cancel?.()
-        resolve(accepted)
-      },
-    }
-  })
-}
-
-/**
- * A model change reloads the context, so it only happens when the person says yes. It holds for this session only:
- * the app's own model ends it, and the requests go out as the app sends them again.
- */
-async function switchModel($: EngineInterface, model: ModelKey) {
-  try {
-    sessionPick = keyOf(await $.session.model()) === model ? null : model
-    await modelIs($, await sessionModelId($))
-    $.ui.invalidate('ui.render')
-    declined = null
-    await update($, suggestion, () => null)
-    const current = await read($, pick)
-    if (current) await choose($, { ...current, model })
-  } catch {
-    $.ui.toast('Could not switch the model right now')
-  }
-}
-
-/**
- * The tally in its current shape. A hot reload keeps the state an older version wrote ({ requests, actual,
- * baseline } before 0.2.0), so every read goes through this.
- */
-export function asSpent(t: unknown): Spent {
-  const v = (t ?? {}) as Partial<Spent>
-  const num = (x: unknown) => (typeof x === 'number' && Number.isFinite(x) ? x : 0)
-  const judged = (v.judge ?? {}) as Partial<Spent['judge']>
-  // Stats from 0.3.0 and earlier hold the subagents' counts under helpers.
-  const ran = (v.subagents ?? (v as { helpers?: Spent['subagents'] }).helpers) as
-    Partial<Spent['subagents']> | undefined
-  return {
-    prompts: num(v.prompts),
-    requests: num(v.requests),
-    input: num(v.input),
-    write: num(v.write),
-    writeHour: num(v.writeHour),
-    read: num(v.read),
-    out: num(v.out),
-    byEffort: v.byEffort && typeof v.byEffort === 'object' ? v.byEffort : {},
-    judge: { haiku: num(judged.haiku), ms: num(judged.ms), tokens: num(judged.tokens) },
-    subagents: {
-      runs: ran?.runs && typeof ran.runs === 'object' ? ran.runs : {},
-      requests: num(ran?.requests),
-      cost: num(ran?.cost),
-    },
-  }
-}
-
-/** The saved footer line of a reply: the one written at its end. The footer's duration is the turn's own, but the saved one is
- * matched within a second in case the two are read at slightly different moments. */
-export function turnLineFor<T>(lines: Record<string, T>, ms: number): T | undefined {
-  const exact = lines[String(ms)]
-  if (exact) return exact
-  let best: T | undefined
-  let gap = 1000
-  for (const [k, v] of Object.entries(lines)) {
-    const d = Math.abs(Number(k) - ms)
-    if (d < gap) {
-      gap = d
-      best = v
-    }
-  }
-  return best
-}
-
-/** A request's tokens weighted by price, in input-token terms (see WEIGHT). The cache writes are priced by the lifetime the
- * request says it wrote (1 hour or 5 minutes); one that does not say is counted as 5 minutes. */
-export function weighted(usage: {
-  input_tokens?: number
-  output_tokens?: number
-  cache_read_input_tokens?: number | null
-  cache_creation_input_tokens?: number | null
-  cache_creation?: { ephemeral_1h_input_tokens?: number | null } | null
-}): number {
-  const written = usage.cache_creation_input_tokens ?? 0
-  const hour = Math.min(written, usage.cache_creation?.ephemeral_1h_input_tokens ?? 0)
-  return (
-    (usage.input_tokens ?? 0) * WEIGHT.input +
-    hour * WEIGHT.write1h +
-    (written - hour) * WEIGHT.write +
-    (usage.cache_read_input_tokens ?? 0) * WEIGHT.read +
-    (usage.output_tokens ?? 0) * WEIGHT.out
-  )
-}
-
-/** Adds one request Auto steered: every kind of token it used, under the effort it ran at. */
-async function tally(
-  $: EngineInterface,
-  effort: Effort,
-  usage: Parameters<typeof weighted>[0] & { input_tokens: number; output_tokens: number },
-) {
-  const cached = usage.cache_read_input_tokens ?? 0
-  const write = usage.cache_creation_input_tokens ?? 0
-  const cost = weighted(usage)
-  await update($, saved, old => {
-    const t = asSpent(old)
-    const bucket = t.byEffort[effort] ?? { prompts: 0, cost: 0 }
-    return {
-      ...t,
-      requests: t.requests + 1,
-      input: t.input + usage.input_tokens,
-      write: t.write + write,
-      writeHour: t.writeHour + Math.min(write, usage.cache_creation?.ephemeral_1h_input_tokens ?? 0),
-      read: t.read + cached,
-      out: t.out + usage.output_tokens,
-      byEffort: { ...t.byEffort, [effort]: { ...bucket, cost: bucket.cost + cost } },
-    }
-  })
-}
-
-/** Counts one prompt Auto judged: under its effort, and what the judge took. */
-async function countPrompt(
-  $: EngineInterface,
-  effort: Effort | undefined,
-  by: Pick['by'] | undefined,
-  ms: number,
-  judgeTokens: number,
-) {
-  await update($, saved, old => {
-    const t = asSpent(old)
-    const judged = {
-      haiku: t.judge.haiku + (by === 'haiku' ? 1 : 0),
-      ms: t.judge.ms + ms,
-      tokens: t.judge.tokens + judgeTokens,
-    }
-    if (!effort) return { ...t, judge: judged }
-    const bucket = t.byEffort[effort] ?? { prompts: 0, cost: 0 }
-    return {
-      ...t,
-      judge: judged,
-      prompts: t.prompts + 1,
-      byEffort: { ...t.byEffort, [effort]: { ...bucket, prompts: bucket.prompts + 1 } },
-    }
-  })
-}
-
-/** The cache lifetime a response's writes got, when it says; nothing when it wrote nothing or does not say. */
-export function cacheTtlOf(usage: unknown): keyof typeof CACHE_TTL | undefined {
-  const c = (
-    usage as { cache_creation?: { ephemeral_1h_input_tokens?: number; ephemeral_5m_input_tokens?: number } } | null
-  )?.cache_creation
-  if ((c?.ephemeral_1h_input_tokens ?? 0) > 0) return '1h'
-  if ((c?.ephemeral_5m_input_tokens ?? 0) > 0) return '5m'
-  return undefined
-}
-
-/** Most of the prompt came from the cache: it was still warm. */
-export function mostlyCached(usage: unknown): boolean {
-  const u = (usage ?? {}) as {
-    input_tokens?: number
-    cache_read_input_tokens?: number
-    cache_creation_input_tokens?: number
-  }
-  const read_ = u.cache_read_input_tokens ?? 0
-  const all = read_ + (u.input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0)
-  return all > 0 && read_ / all > 0.5
-}
-
-/** Save mode on or off: Auto stays at medium or below until the limit resets. The hot band's button and
- *  /context-lens save. Says what it did. */
-async function toggleSave($: EngineInterface): Promise<string> {
-  const saving = (await read($, saveUntil)) !== null
-  const heat = await read($, hot)
-  const until = heat?.resetsAt ? new Date(heat.resetsAt).getTime() : (await $.clock.now()) + 5 * 3600_000
-  await update($, saveUntil, () => (saving ? null : until))
-  return saving ? 'save mode off' : 'save mode on, Auto stays at medium or below until the limit resets'
-}
-
-/** Below this a cold cache costs too little to warn about: the next message rereads the chat at full price once. */
-const COLD_MIN_TOKENS = 150_000
-
-/** A switch that writes at most this many tokens more to the cache than staying would costs next to nothing. */
-const SMALL_CHAT_TOKENS = 20_000
-
-/** Dollars per million uncached input tokens. Haiku costs five times as much past 100k tokens of context. */
-const INPUT_PRICE: Record<ModelKey, number> = { haiku: 0.1, sonnet: 2, opus: 4, fable: 10 }
-export const priceOf = (key: ModelKey, tokens: number) => (key === 'haiku' && tokens > 100_000 ? 0.5 : INPUT_PRICE[key])
-
-/** Above this many tokens Haiku is offered as a hand-off to a subagent, never as a switch, warm cache or cold. The judge rates one prompt,
- * but a switch hands Haiku every prompt after it, and a chat this long is ongoing work. Haiku's price pays back its cache
- * write within a few requests at any size, so the price alone would always switch; the quality is what it risks. Sonnet
- * is left to the price: it holds up in long work, and in a warm chat its write does not pay back anyway. */
-const HAIKU_SWITCH_MAX_TOKENS = 100_000
-
-/** The requests a cheaper model has to make before its first, dearer cache write pays back. A turn of work makes several;
- * what output saves is left out, so the estimate errs on staying. */
-const PAYBACK_REQUESTS = 8
-
-/**
- * How the judge's model is worth offering: 'switch' the session to it, hand the prompt to a 'subagent' on it,
- * or null for nothing (Fable, or the model already in use). Each model has a prompt cache of its own, so a switch writes
- * the chat again at the new model's write price, less what that model still has warm (`warm`, its cached tokens).
- * A cheaper model is a switch when that write pays back within PAYBACK_REQUESTS reads; a stronger one is a quality call
- * that never pays in tokens, so it is a switch only when it writes little more than staying would (a cold, small or
- * still-warm chat). Otherwise the task goes to a subagent, which starts with a small context and leaves the chat's cache
- * warm. Haiku in a chat past HAIKU_SWITCH_MAX_TOKENS is a subagent whatever the cache. A size not known yet counts as a
- * new chat.
- */
-export function switchWorth(
-  verdict: ModelKey,
-  inUse: ModelKey,
-  chat: { cold: boolean; tokens?: number; ttl?: '5m' | '1h'; warm?: number },
-): 'switch' | 'subagent' | null {
-  if (verdict === 'fable' || verdict === inUse) return null
-  const tokens = chat.tokens
-  if (tokens === undefined) return 'switch'
-  if (verdict === 'haiku' && tokens > HAIKU_SWITCH_MAX_TOKENS) return 'subagent'
-  const write = chat.ttl === '5m' ? WEIGHT.write : WEIGHT.write1h
-  const writtenStay = chat.cold ? tokens : 0
-  const writtenGo = Math.max(0, tokens - Math.min(tokens, chat.warm ?? 0))
-  // Little more to write than staying would: any switch is near free.
-  if (writtenGo - writtenStay <= SMALL_CHAT_TOKENS) return 'switch'
-  const rank = (k: ModelKey) => MODELS.findIndex(m => m.key === k)
-  if (rank(verdict) > rank(inUse)) return 'subagent'
-  const stay = (writtenStay * write + (tokens - writtenStay) * WEIGHT.read) * priceOf(inUse, tokens)
-  const go = (writtenGo * write + (tokens - writtenGo) * WEIGHT.read) * priceOf(verdict, tokens)
-  const gain = tokens * WEIGHT.read * (priceOf(inUse, tokens) - priceOf(verdict, tokens))
-  return go - stay <= PAYBACK_REQUESTS * gain ? 'switch' : 'subagent'
-}
-
-/** The requests a task of each size makes, as the judge guesses it. */
-const STEP_REQUESTS: Record<Steps, number> = { one: 1, few: 4, many: 12 }
-/** What a subagent writes to its cache before it starts: its system prompt, tools and brief. */
-const SUBAGENT_START_TOKENS = 15_000
-
-/**
- * Whether handing the prompt to a subagent on `verdict` pays, once switchWorth has turned the switch down. The chat
- * still makes the request that calls the subagent and the one that reads its result, so a task of n requests spares
- * the chat n - 1 reads of its context, against the subagent's own cold start and reads. A one-step task spares
- * nothing. A stronger model is a quality call: it goes to a subagent for any task bigger than one step.
- *
- * The task's size is the smaller of the judge's steps and the size its effort implies: the judge counts one command
- * on several items ("delete those branches") as a few steps, but it rates the effort of such a task low.
- */
-export function subagentPays(
-  verdict: ModelKey,
-  inUse: ModelKey,
-  task: { tokens: number; effort: Effort; steps?: Steps },
-): boolean {
-  const byEffort: Steps = task.effort === 'low' ? 'one' : task.effort === 'medium' ? 'few' : 'many'
-  const steps = STEPS[Math.min(STEPS.indexOf(task.steps ?? byEffort), STEPS.indexOf(byEffort))]
-  if (steps === 'one') return false
-
-  const rank = (k: ModelKey) => MODELS.findIndex(m => m.key === k)
-  if (rank(verdict) > rank(inUse)) return true
-
-  const requests = STEP_REQUESTS[steps]
-  const spared = (requests - 1) * task.tokens * WEIGHT.read * priceOf(inUse, task.tokens)
-  const started =
-    (SUBAGENT_START_TOKENS * WEIGHT.write + requests * SUBAGENT_START_TOKENS * WEIGHT.read) *
-    priceOf(verdict, SUBAGENT_START_TOKENS)
-  return spared > started
-}
-
-/** The context's tokens when the cold band is worth showing: the cache is cold, the band not closed, and the chat big
- * enough that rereading it matters. Null otherwise, and while the size is not known yet. */
-async function coldWorth($: EngineInterface): Promise<number | null> {
-  if ((await read($, cacheLeft)) !== 0 || config.hide.includes('cold') || (await read($, isColdHidden))) return null
-  const tokens = lastContext?.tokens
-  if (coldForced) return tokens ?? 0
-  return tokens !== undefined && tokens >= COLD_MIN_TOKENS ? tokens : null
-}
-
-/** The countdown's colour for whole minutes left (rounded up, as cacheMinutes gives): none (grey), yellow or red. */
-export function cacheColor(minutesLeft: number): string | undefined {
-  const shown = minutesLeft - 1
-  if (minutesLeft <= 0) return ICE
-  if (shown > CACHE_YELLOW_MIN) return undefined
-  return shown <= CACHE_RED_MIN ? RED : YELLOW
-}
-
-/** The footer's words for the time left: "58m", "<1m", or "Cold". */
-export function cacheLabel(minutesLeft: number): string {
-  if (minutesLeft <= 0) return '❄ Cold'
-  if (minutesLeft === 1) return '<1m'
-  return `${minutesLeft - 1}m`
-}
-
-/** The dashboard's countdown to the second: "58:41", or "Cold" once it ran out. */
-export function cacheClock(msLeft: number): string {
-  if (msLeft <= 0) return '❄ Cold'
-  const s = Math.ceil(msLeft / 1000)
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
-}
-
-let cacheTtl: keyof typeof CACHE_TTL = '1h'
-let cacheExpires = 0
-/** The countdown's variables live in the module, and a reload starts the module over: the chat's cache did not go cold
- * for that, so the countdown is read back from the session's state before the band draws. */
-let cacheRestored = false
-async function restoreCache($: EngineInterface) {
-  if (cacheRestored) return
-  cacheRestored = true
-  const memo = await read($, cacheMemo)
-  if (!memo || cacheExpires !== 0 || memo.expires <= 0) {
-    // Nothing to go on: a "Cold" left in the shared state by the copy before is not this chat's cache.
-    // restoreCache runs inside the band's draw, where a state write is denied: the clear waits for a timer, and checks again then.
-    if (cacheExpires === 0 && !coldForced)
-      $.clock.after(0, () => void update($, cacheLeft, l => (l === 0 && cacheExpires === 0 && !coldForced ? null : l)))
-    return
-  }
-  cacheExpires = memo.expires
-  cacheTtl = memo.ttl
-  lastResponseAt = memo.last
-}
-const rememberCache = ($: EngineInterface) =>
-  update($, cacheMemo, () => ({ expires: cacheExpires, ttl: cacheTtl, last: lastResponseAt }))
-// What /context-lens swamp shows as a test: a swamped chat's context.
-const SWAMP_TOKENS = 150_000
-// Closed, the band stays away until the context has grown this much more.
-const SWAMP_REGROW = 50_000
-
-// A usage window this full shows the running-hot band.
-const HOT_PERCENT = 80
-// Closed, the running-hot band stays away for the rest of its window, and comes back once at this many percent.
-export const HOT_FINAL = 95
-
-/** The usage window as the closed band records it: its kind and reset time. */
-const hotWindow = (heat: { kind: string; resetsAt: string | null }) =>
-  // To the quarter hour: the reset time the app reports can shift by seconds between checks.
-  `${heat.kind} ${heat.resetsAt ? Math.round(new Date(heat.resetsAt).getTime() / 900_000) : ''}`
-
-/** Whether the running-hot band shows: always until closed; closed, not again in that window unless it passes HOT_FINAL. */
-export function hotVisible(
-  heat: { kind: string; percent: number; resetsAt: string | null },
-  closed: HotClosed | null,
-): boolean {
-  if (!closed || closed.window !== hotWindow(heat)) return true
-  return heat.percent >= HOT_FINAL && closed.percent < HOT_FINAL
-}
-
-let hotClosedLoaded = false
-/** The closed band as the store keeps it, read once per session (a new chat starts with the atom empty). */
-async function hotClosedNow($: EngineInterface): Promise<HotClosed | null> {
-  if (!hotClosedLoaded) {
-    hotClosedLoaded = true
-    const kept = (await $.store.get('hotClosed').catch(() => null)) as HotClosed | null
-    if (kept && typeof kept.window === 'string') await update($, hotHidden, () => kept)
-  }
-  return read($, hotHidden)
-}
-
-async function closeHot($: EngineInterface, heat: { kind: string; percent: number; resetsAt: string | null }) {
-  const closed: HotClosed = { window: hotWindow(heat), percent: heat.percent }
-  await update($, hotHidden, () => closed)
-  await $.store.set('hotClosed', closed).catch(() => undefined)
-}
-
-/** The fullest of the 5-hour and weekly windows, once one passes HOT_PERCENT. Save mode ends with its window. */
-async function checkHot(
-  $: EngineInterface,
-  limits: readonly { kind: string; percentUsed: number; resetsAt?: string }[],
-) {
-  const windows = limits.filter(l => l.kind === 'five_hour' || l.kind === 'seven_day')
-  const top = windows.sort((a, b) => b.percentUsed - a.percentUsed)[0]
-  const next =
-    top && top.percentUsed >= HOT_PERCENT
-      ? { kind: top.kind, percent: top.percentUsed, resetsAt: top.resetsAt ?? null }
-      : null
-  const was = await read($, hot)
-  if (JSON.stringify(next) !== JSON.stringify(was)) {
-    await update($, hot, () => next)
-    $.ui.invalidate('ui.render')
-  }
-  const until = await read($, saveUntil)
-  if (until !== null && (await $.clock.now()) >= until) await update($, saveUntil, () => null)
-}
-
-/** "14:20" for a reset time today, "Mon 14:20" further out. */
-export function resetLabel(iso: string | null, now: number): string {
-  if (!iso) return ''
-  const at = new Date(iso)
-  const hm = `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`
-  return at.getTime() - now < 20 * 3600_000
-    ? hm
-    : `${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][at.getDay()]} ${hm}`
-}
-
-/**
- * The effort slider tips close calls only: a verdict the judge was unsure of moves one step toward cheaper or smarter.
- * The outer stops count more calls as close. A sure verdict, or one without a confidence, stays as it is.
- */
-export function tipped(effort: Effort, sure: number | undefined, bias: number): Effort {
-  if (!bias || sure === undefined || sure >= (Math.abs(bias) === 1 ? 0.65 : 0.85)) return effort
-  const i = Math.max(0, Math.min(EFFORTS.length - 1, EFFORTS.indexOf(effort) + Math.sign(bias)))
-  return EFFORTS[i]
-}
-
-/** Floor and ceiling from the settings: what Auto picks stays between them. */
-export function bounded(effort: Effort, floor: Effort, ceiling: Effort): Effort {
-  const lo = EFFORTS.indexOf(floor)
-  const hi = Math.max(lo, EFFORTS.indexOf(ceiling))
-  return EFFORTS[Math.max(lo, Math.min(hi, EFFORTS.indexOf(effort)))]
-}
-
-/** Save mode caps what Auto picks at medium; a higher pick comes down to it. */
-export function capped(effort: Effort, saving: boolean): Effort {
-  return saving && EFFORTS.indexOf(effort) > EFFORTS.indexOf('medium') ? 'medium' : effort
-}
-
-/** A context share to draw the bars with instead of the real one, from ~/.claude/context-lens-preview.json
- * ({"contextPercent": 45}), so how a level looks can be checked on screen without filling a chat. No file, no change. */
-async function previewPercent($: EngineInterface): Promise<number | undefined> {
-  const home = (await envUserProfile($)) ?? (await envHome($))
-  if (!home) return undefined
-  const text = await $.fs.read(`${home}/.claude/context-lens-preview.json`).catch(() => '')
-  if (!text) return undefined
-  try {
-    const n = Number((JSON.parse(text) as { contextPercent?: unknown }).contextPercent)
-    return Number.isFinite(n) && n >= 0 && n <= 100 ? n : undefined
-  } catch {
-    return undefined
-  }
-}
-
-/** Whether the context is swamped, from the status line's figures. Cheap: no counting, no model call. */
-async function checkSwamp($: EngineInterface) {
-  const { context, rateLimits } = await $.session.usage()
-  const preview = await previewPercent($)
-  const tokens =
-    preview === undefined ? (context.tokens ?? 0) : Math.round(((context.window || 200_000) * preview) / 100)
-  // The app may leave the percent out (or give 0) while it has the tokens and the window: work it out then.
-  const percent = preview ?? (context.percent || (context.window ? (tokens / context.window) * 100 : 0))
-  if (preview !== undefined && !context.window) context.window = 200_000
-  const wasStep = handoffGlowStep(lastContext?.percent ?? 0)
-  lastContext = { tokens, window: context.window ?? 0, percent }
-  // The Handoff button turns white and glows harder with the context: redraw the band when it crosses a step.
-  if (handoffGlowStep(percent) !== wasStep) $.ui.invalidate('ui.render')
-  await checkHot($, rateLimits ?? [])
-  const over = percent >= config.swampAt
-  const next = over ? tokens : null
-  if (next !== (await read($, swamped))) {
-    await update($, swamped, () => next)
-    $.ui.invalidate('ui.render')
-  }
-}
-
-// Redraws still owed after a chat was opened again: the app may draw the band before it is ready for one, so the
-// session's 1 s timer asks again a few times (see redrawSoon).
-let redrawsOwed = 0
-// The countdown's minute the band was last redrawn for (see cacheClockSvg).
-let clockMinute = -1
-// When the redraws were asked for: once the band has been drawn after that, none are owed any more, since each redraw
-// rebuilds the band and restarts its animations.
-let redrawAskedAt = 0
-// A draw this soon after the ask may come before the app has the band up, so it does not count.
-const REDRAW_SETTLE_MS = 500
-function redrawSoon(times = 5) {
-  redrawsOwed = Math.max(redrawsOwed, times)
-  redrawAskedAt = Date.now()
-}
-
-/** Writes the minutes left when they changed; the cache tick calls it. */
-async function showCache($: EngineInterface) {
-  // No response seen by this copy yet (it loaded mid-chat, after a plugin switch or reload): a 0 left in the shared
-  // state by an earlier copy is not this chat's cache, so the countdown goes blank until the next response.
-  if (cacheExpires === 0) {
-    if (!coldForced && (await read($, cacheLeft)) !== null) {
-      await update($, cacheLeft, () => null)
-      $.ui.invalidate('ui.render')
-    }
-    return
-  }
-  const minutes = await cacheMinutes($)
-  const was = await read($, cacheLeft)
-  if (minutes === was) return
-  await update($, cacheLeft, () => minutes)
-  // Going cold or warm adds or removes the band above the prompt; the desktop app redraws that site only when asked.
-  if ((minutes === 0) !== (was === 0)) $.ui.invalidate('ui.render')
-}
-
-/** Minutes left, rounded up, so "1" means under a minute and 0 means cold. */
-async function cacheMinutes($: EngineInterface): Promise<number> {
-  const left = cacheExpires - (await $.clock.now())
-  return left <= 0 ? 0 : Math.ceil(left / 60_000)
-}
-
-let usageLogged = false
-let lastResponseAt: number | undefined
-// Main-conversation replies this copy has seen, for /context-lens debug.
-let repliesSeen = 0
-/** A response came back: the cache is warm again for its whole lifetime, and the countdown restarts. */
-async function cacheTouched($: EngineInterface, usage: unknown) {
-  const now = await $.clock.now()
-  repliesSeen++
-  if (!usageLogged) {
-    usageLogged = true
-    void proof($, `first response usage: ${JSON.stringify(usage)}`)
-  }
-  // When the response does not say, the cache tells by itself: read back after more than 5 minutes means 1 hour.
-  const ttl =
-    cacheTtlOf(usage) ??
-    (lastResponseAt !== undefined && now - lastResponseAt > CACHE_TTL['5m'] && mostlyCached(usage) ? '1h' : undefined)
-  lastResponseAt = now
-  coldForced = false
-  // A reply that wrote only a short 5-minute tail still reads the rest from the 1-hour cache: once 1h is seen, a
-  // 5m reading never pulls the countdown back down.
-  if (ttl && ttl !== cacheTtl && !(ttl === '5m' && cacheTtl === '1h' && mostlyCached(usage))) {
-    cacheTtl = ttl
-    void proof($, `cache lifetime ${ttl}`)
-  }
-  cacheExpires = now + CACHE_TTL[cacheTtl]
-  await rememberCache($)
-  if (await read($, isColdHidden)) await update($, isColdHidden, () => false)
-  await showCache($)
-}
-
-/**
- * Compacts the conversation from the footer once the cache has gone cold: the next message would write the whole
- * context to the cache again, so a summary makes it small first. The countdown hides until the next response.
- */
-async function compactCold($: EngineInterface, note = '') {
-  if (await read($, isCompacting)) return
-  await update($, compactAsk, () => false)
-  await update($, isCompacting, () => true)
-  await setHandoffCard($, 'compacting', false)
-  let compacted = false
-  try {
-    // The app's own /compact, run as if typed: nothing lands in the prompt box, nothing to send. It waits for the
-    // session to be idle, where a direct $.session.compact() is refused whenever the app counts a turn as running.
-    // A note goes after /compact as the app's own instructions for the summary.
-    await $.command.run({ command: 'compact', args: note.trim() })
-    cacheExpires = 0
-    modelCaches.clear()
-    await rememberCache($)
-    await update($, cacheLeft, () => null)
-    compacted = true
-  } catch (error) {
-    const why = error instanceof Error ? error.message : String(error)
-    void proof($, `compact failed: ${why}`)
-    $.ui.toast(`context-lens: compact failed: ${why.slice(0, 140)}`)
-  } finally {
-    await update($, isCompacting, () => false)
-    // Complete, or gone when it failed (the toast says why).
-    if (compacted) {
-      await setHandoffCard($, 'compacted', false)
-      $.clock.after(COMPACT_CARD_MS + 100, () => $.ui.invalidate('ui.render'))
-    } else await update($, handoffCard, card => (card?.kind === 'compacting' ? null : card))
-  }
-}
-
-// The handoff: one click writes a handoff, clears the chat and sends the handoff into it as the first message.
-// The quick handoff is written by a fork, which has no tools: it says what the chat last saw and marks what it cannot
-// check. The full handoff (the person's own skill) is the one that inspects git and saves files.
-export const HANDOFF_PROMPT = [
-  'Write a handoff so this work can continue in a fresh chat that has no other context.',
-  '',
-  'Start with the project, its folder and the branch. Then:',
-  '- Goal: one or two lines.',
-  '- Done: what changed, with file paths, and how each change was checked. Never present something planned, skipped or untested as done.',
-  '- Not done: what is half done, and the concrete blocker (a failed check, a missing approval, an open question).',
-  '- Git: local changes, local commits, pushed commits and open PRs, as last seen in this chat. You cannot check now, so say "as of last check".',
-  '- Next steps in priority order. Make the first one runnable: a file path, a command or a specific decision. Mark every step that needs the user with "needs user".',
-  "- To resume: the start command, the preview URL, and the limits on what is allowed (what needs the user's approval, test vs production).",
-  '- Do not redo: decisions made and why, approaches that failed.',
-  '',
-  'Give only the final state of anything that changed during the chat. Point to specs, plans and files instead of ' +
-    'copying them. Leave out what is finished and no longer matters. Never include secrets, environment values or raw ' +
-    'logs. Write in the language the user writes in. Short bullets, at most about 40 lines. Do not use tools. Reply ' +
-    'with the handoff only, no preamble or farewell.',
-].join('\n')
-
-/** The full handoff when no skill of the person's is picked: a turn that may check git and save the handoff, then
- * replies with it. Slower than the quick fork, and it leaves HANDOFF.md in the project for the next chat to read. */
-export const HANDOFF_FULL_PROMPT = [
-  'Write a handoff so this work can continue in a fresh chat that has no other context. You may use tools for this.',
-  '',
-  '1. Check the real state: git status, the last few commits, whether the branch is pushed, open PRs if gh is set up.',
-  '2. Rewrite HANDOFF.md in the project root from scratch (keep it under 80 lines): branch and open PRs, what is half done,',
-  '   next steps with the first one runnable, what only the user can do, and pointers to specs, plans and files.',
-  '   Never put secrets or environment values in it.',
-  '3. Reply with the handoff itself, in the same shape:',
-  '',
-  HANDOFF_PROMPT.split('\n').slice(2).join('\n').replace('Do not use tools. ', ''),
-].join('\n')
-
-/** The first message of the fresh chat: the handoff, then what to do with it. */
-export function handoffMessage(handoff: string, after: HandoffAfter, skill?: string): string {
-  const ask =
-    after === 'confirm'
-      ? 'Read this, say in two lines where things stand and what is next, then wait for me.'
-      : 'Continue with the next step. If it is marked "needs user", say what you need and wait.'
-  // A full handoff is the person's own skill: it saves the handoff (a file, memories), and its last words in the chat
-  // are often only a note that it did. The new chat is told to read what the skill saved before anything else.
-  if (skill)
-    return (
-      `Handoff from the previous chat: it ran /${skill}, which saved the handoff. Its last words there:\n\n${handoff.trim()}\n\n` +
-      `First read the handoff /${skill} saved: the files named above, or HANDOFF.md in the project if none is named. ${ask}`
-    )
-  return `Handoff from the previous chat:\n\n${handoff.trim()}\n\n${ask}`
-}
-
-// The handoff's text once its turn has ended, waiting for the chat to go idle so it can be cleared and resent.
-let handoffText: string | undefined
-let handoffDriving = false
-
-// A handoff asked for and not begun: begun from the session's timer, where a prompt may be sent (a command or a press
-// may hold the turn, and the app refuses a prompt sent from there).
-let handoffQueued = false
-// Quick: a fork with the built-in prompt, seconds. Full: the person's own skill as a turn, which may check and save.
-let handoffFull = false
-// What follows this handoff once it is written (HandoffAfter).
-let handoffThen: HandoffAfter = 'continue'
-
-/** Starts a handoff: asks for it (built-in prompt or the person's own skill); the rest follows when it is written. */
-async function startHandoff($: EngineInterface, full = false, after: HandoffAfter = config.handoffAfter) {
-  if ((await read($, handoffStage)) !== null) return
-  await update($, handoffStage, () => 'writing')
-  handoffFull = full
-  handoffThen = after
-  handoffQueued = true
-  await setHandoffCard($, 'writing', handoffFull)
-}
-
-/** The choice the handoff bar opens on: the one made last, else quick and the configured after. */
-async function lastHandoffChoice($: EngineInterface): Promise<HandoffChoice> {
-  const kept = (await $.store.get('handoffChoice').catch(() => null)) as Partial<HandoffChoice> | null
-  const kind = kept?.kind === 'full' ? 'full' : 'quick'
-  const after = (['continue', 'confirm', 'copy'] as const).find(a => a === kept?.after) ?? config.handoffAfter
-  return { kind, after }
-}
-
-/** Opens the handoff bar above the prompt: the footer's ⇥ and the swamp band's Handoff. */
-async function openHandoffBar($: EngineInterface) {
-  if ((await read($, handoffStage)) !== null) return
-  const choice = await lastHandoffChoice($)
-  await update($, handoffPick, () => choice)
-  $.ui.invalidate('ui.render')
-}
-// The narrowest bar (in cells) that still has room for a Compact button beside Auto and Handoff.
-const COMPACT_BUTTON_MIN_COLUMNS = 80
-/** Compact pressed: on desktop a bar asks for an optional note first; the terminal compacts at once. */
-async function openCompact($: EngineInterface, e: { surface: string }) {
-  if (e.surface === 'terminal') return compactCold($)
-  compactNote = ''
-  compactOpenedAt = await $.clock.now()
-  await update($, compactAsk, () => true)
-}
-async function closeHandoffBar($: EngineInterface) {
-  await update($, handoffPick, () => null)
-  $.ui.invalidate('ui.render')
-}
-
-/** Go in the handoff bar: keeps the choice for next time and starts the handoff. */
-async function goHandoff($: EngineInterface, choice: HandoffChoice) {
-  await $.store.set('handoffChoice', choice).catch(() => undefined)
-  await closeHandoffBar($)
-  await startHandoff($, choice.kind === 'full', choice.after)
-}
-
-/** What the handoff does, by the choice: who writes it, then what follows. */
-export function handoffWhat(choice: HandoffChoice, skill: string): { by: string; then: string } {
-  const by =
-    choice.kind === 'full'
-      ? skill
-        ? `/${skill}, slower`
-        : 'Checks git and saves HANDOFF.md, slower'
-      : 'Done in seconds'
-  const then =
-    choice.after === 'copy'
-      ? 'Copied, chat stays.'
-      : choice.after === 'confirm'
-        ? 'Clears chat, then waits.'
-        : 'Clears chat, carries on.'
-  return { by, then }
-}
-
-/** What a handoff fork came to, in a few words for /context-lens debug: its reason when it wrote nothing. */
-export function forkOutcome(result: unknown, ms: number): string {
-  const took = `${(ms / 1000).toFixed(1)}s`
-  if (result instanceof Error) return `threw: ${result.message.slice(0, 120)} (${took})`
-  const r = result as ModelForkResult | undefined
-  if (!r || typeof r !== 'object' || !('isAnswered' in r)) return `threw: ${String(result).slice(0, 120)} (${took})`
-  if (r.isAnswered) {
-    const u = r.usage
-    const input = u.input_tokens + u.cache_read_input_tokens + u.cache_creation_input_tokens
-    const cached = input ? Math.round((u.cache_read_input_tokens / input) * 100) : 0
-    return r.text.trim()
-      ? `answered, ${u.output_tokens} out, ${cached}% cached (${took})`
-      : `answered with blank text (${took})`
-  }
-  if (r.reason === 'api-error') return `api-error ${r.status ?? 'no response'} ${r.error} (${took})`
-  return `${r.reason} (${took})`
-}
-
-/** Writes the handoff: quick by a fork with the built-in prompt, full by the person's own skill as a turn. Runs from the timer. */
-async function writeHandoff($: EngineInterface) {
-  if (!handoffQueued) return
-  handoffQueued = false
-  try {
-    if (handoffFull) {
-      // The person's skill, or the built-in full prompt as a turn: either way its reply is the handoff.
-      if (config.handoffSkill) await $.command.run({ command: config.handoffSkill, args: '' })
-      else await $.prompt.submit({ text: HANDOFF_FULL_PROMPT })
-      return
-    }
-    // A cold cache: a fork would reread the whole chat at full price and write it to the cache again (one handoff took
-    // 8% of a person's 5-hour limit). Haiku writes it from the transcript instead, at a fraction of the price.
-    const now = await $.clock.now().catch(() => Date.now())
-    if ((await read($, cacheLeft)) === 0 || (cacheExpires > 0 && now >= cacheExpires)) {
-      const messages = await $.session.messages().catch(() => [])
-      const got = messages.length ? await haikuHandoff($, messages).catch(() => null) : null
-      await $.store
-        .set('lastFork', {
-          at: Date.now(),
-          outcome: got ? 'cold cache: written by Haiku' : 'cold cache: Haiku failed, forked',
-        })
-        .catch(() => undefined)
-      if (got) {
-        handoffText = got
-        return
-      }
-    }
-    // The built-in handoff is written by a fork: the same model over this chat as it stands, its start read from the
-    // prompt cache, no tools and no turn in the chat. Much quicker than a turn that may go exploring first.
-    const startedAt = Date.now()
-    const forked = await $.model.fork({ prompt: HANDOFF_PROMPT }).catch((error: unknown) => error)
-    const outcome = forkOutcome(forked, Date.now() - startedAt)
-    // Kept in the store: before a chat's first message the mod's session may start afresh, and its variables with it.
-    await $.store.set('lastFork', { at: Date.now(), outcome }).catch(() => undefined)
-    const answered = forked as ModelForkResult
-    if (answered?.isAnswered && answered.text.trim()) {
-      handoffText = answered.text
-      return
-    }
-    // Nothing to fork (no reply yet) or the fork failed: write it as a turn instead, and say why.
-    if (!outcome.startsWith('nothing-to-fork'))
-      $.ui.toast(`context-lens: the fork wrote no handoff (${outcome}); writing it as a turn`)
-    await $.prompt.submit({ text: HANDOFF_PROMPT })
-  } catch (error) {
-    await update($, handoffStage, () => null)
-    $.ui.toast(
-      `context-lens: handoff failed: ${(error instanceof Error ? error.message : String(error)).slice(0, 140)}`,
-    )
-  }
-}
-
-/** Clears the chat and sends the written handoff into it. Runs from the session's timer, when nothing waits on it. */
-export async function finishHandoff($: EngineInterface) {
-  await writeHandoff($)
-  if (handoffText === undefined || handoffDriving) return
-  handoffDriving = true
-  const text = handoffText
-  handoffText = undefined
-  try {
-    if (handoffThen === 'copy') {
-      // The chat stays: the handoff goes to the clipboard, ready to paste into another chat. Should the clipboard
-      // refuse, it goes in the prompt box instead, to cut from there.
-      const message = handoffMessage(text, 'continue', handoffFull ? config.handoffSkill : undefined)
-      const copied = await $.ui.copy({ text: message }).catch(() => ({ isCopied: false as const }))
-      // Under the reply already there, so the next reply takes it away.
-      await setHandoffCard($, 'copied', handoffFull, true)
-      if (copied.isCopied) $.ui.toast('context-lens: handoff copied. Paste it into a new chat.')
-      else {
-        await $.prompt.fill({ text: message, mode: 'replace' })
-        $.ui.toast('context-lens: the clipboard refused, so the handoff is in the prompt box')
-      }
-      return
-    }
-    await update($, handoffStage, () => 'clearing')
-    await $.command.run({ command: 'clear', args: '' })
-    // Under the first reply of the cleared chat, gone with the one after it.
-    await setHandoffCard($, 'done', handoffFull)
-    await $.prompt.submit({ text: handoffMessage(text, handoffThen, handoffFull ? config.handoffSkill : undefined) })
-  } catch (error) {
-    await update($, handoffCard, () => null)
-    $.ui.toast(
-      `context-lens: handoff failed: ${(error instanceof Error ? error.message : String(error)).slice(0, 140)}`,
-    )
-  } finally {
-    handoffDriving = false
-    await update($, handoffStage, () => null)
-  }
-}
-
-/** The user and plugin skills, for the handoff picker in the settings and the setup guide. */
-async function loadInstalledSkills($: EngineInterface) {
-  // Read here, once, not while drawing: a slow or refused lookup must not cost the panel.
-  const installed = await $.command.list().catch(() => [])
-  // At most 25, handoff-like ones first: a picker with hundreds of options is more than the slot takes.
-  const names = [...new Set(installed.filter(c => c.source === 'user' || c.source === 'plugin').map(c => c.name))]
-    .filter(name => !name.startsWith('context-lens'))
-    .sort((a, b) => Number(!/handoff/i.test(a)) - Number(!/handoff/i.test(b)) || a.localeCompare(b))
-    .slice(0, 25)
-  await update($, installedSkills, () => names)
-}
-
-/** Opens the context-lens settings panel above the prompt: the app does not let a plugin open its /plugin dialog. */
-async function openPluginSettings($: EngineInterface) {
-  await loadInstalledSkills($)
-  await update($, settingsOpen, () => true)
-  // Before a chat's first message the app may start the mod's session afresh for each command, and the state with
-  // it: the request also goes to the store, which outlives that, and the next drawing picks it up.
-  // The store is shared by every chat, so the request names this one: another chat must not open its panel too.
-  await $.store.set('openSettingsAt', { at: Date.now(), session: await $.session.id().catch(() => '') })
-  $.ui.invalidate('ui.render')
-}
-
-/** The settings rows the panel changes, by field: saved as the plugin's own setting and used at once. */
-const SETTING_FIELDS = {
-  bias: 'effortBias',
-  floor: 'effortFloor',
-  ceiling: 'effortCeiling',
-  handoffAfter: 'handoffAfter',
-  handoffSkill: 'handoffSkill',
-  hide: 'hide',
-  swampAt: 'swampAt',
-  layout: 'layout',
-  compactWith: 'compactWith',
-  handoffButton: 'handoffButton',
-  subagents: 'subagents',
-  subagentModel: 'subagentModel',
-  overrideDefinitions: 'overrideDefinitions',
-  holdOffer: 'holdOffer',
-  theme: 'theme',
-  appearance: 'appearance',
-} as const
-
-async function saveSetting($: EngineInterface, field: keyof typeof SETTING_FIELDS, value: string) {
-  const { deny } = await $.config
-    .set({ key: `context-lens.${SETTING_FIELDS[field]}`, value })
-    .catch((error: unknown) => ({ deny: error instanceof Error ? error.message : String(error) }))
-  // Some Claude Code builds have no /config row for a plugin's settings and refuse the write: the choice is kept in
-  // the mod's own store then, and read back at the next session start. A write that lands clears that copy.
-  const kept = ((await $.store.get('savedSettings').catch(() => null)) ?? {}) as Record<string, string>
-  const { [SETTING_FIELDS[field]]: _old, ...others } = kept
-  const stored = await $.store
-    .set('savedSettings', deny ? { ...kept, [SETTING_FIELDS[field]]: value } : others)
-    .then(() => true)
-    .catch(() => false)
-  if (deny && !stored) $.ui.toast(`context-lens: could not save ${field}: ${String(deny).slice(0, 120)}`)
-  const raw: Record<string, unknown> = {
-    effortBias: String(config.bias),
-    effortFloor: config.floor,
-    effortCeiling: config.ceiling,
-    handoffAfter: config.handoffAfter,
-    handoffSkill: config.handoffSkill,
-    hide: config.hide.join(','),
-    swampAt: String(config.swampAt),
-    layout: config.layout,
-    compactWith: config.compactWith,
-    handoffButton: config.handoffButton,
-    subagents: config.subagents,
-    subagentModel: config.subagentModel,
-    overrideDefinitions: config.overrideDefinitions,
-    holdOffer: config.holdOffer,
-    theme: config.theme,
-    appearance: config.appearance,
-    [SETTING_FIELDS[field]]: value,
-  }
-  setConfig(readConfig(raw))
-  applyTheme()
-  $.ui.invalidate('ui.render')
-}
-
-/** How long the "Settings saved" card stays above the prompt. */
-const SAVED_CARD_MS = 2500
 /** The card after Save: the bar's own colours, one line, nothing moving. */
 function savedCardTree($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
   const { Box, Text } = themedEls($.ui.resolve(e))
@@ -2004,357 +573,6 @@ function savedCardTree($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
       <Text bold>Settings saved</Text>
     </Box>
   )
-}
-
-/** The settings by their old names, and the names they have now. */
-const RENAMED_SETTINGS = { helpers: 'subagents', helperModel: 'subagentModel' } as const
-
-/** The settings in `saved` under an old name, keyed by the new one, for each that is not saved under its new name too. */
-export function renamedSettings(saved: Record<string, unknown>): Record<string, string> {
-  const carried: Record<string, string> = {}
-  for (const [old, now] of Object.entries(RENAMED_SETTINGS))
-    if (typeof saved[old] === 'string' && saved[now] === undefined) carried[now] = saved[old] as string
-  return carried
-}
-
-/**
- * Carries settings saved under an old name to the new one: used at once, and queued to be saved under it. They are read
- * from the mod's own store copy and from settings.json directly, since the app passes the mod only the fields its
- * manifest declares.
- */
-async function carryRenamedSettings(
-  $: EngineInterface,
-  kept: Record<string, unknown>,
-): Promise<Record<string, string>> {
-  const configs =
-    (
-      (await $.settings.read().catch(() => ({}))) as {
-        pluginConfigs?: Record<string, { options?: Record<string, unknown> }>
-      }
-    ).pluginConfigs ?? {}
-  // A --plugin-dir copy keeps its settings under context-lens@inline, an install under its marketplace's name.
-  const stored =
-    configs[pluginId($)]?.options ??
-    Object.entries(configs).find(([id]) => id.startsWith('context-lens@'))?.[1]?.options ??
-    {}
-  // A new name saved in either place wins over an old one in the other, so a later change is never carried back.
-  const carried = renamedSettings({ ...stored, ...kept })
-  const oldInStore = Object.keys(RENAMED_SETTINGS).filter(old => old in kept)
-  if (oldInStore.length)
-    await $.store.set(
-      'savedSettings',
-      Object.fromEntries(Object.entries(kept).filter(([key]) => !oldInStore.includes(key))),
-    )
-  if (!Object.keys(carried).length) return carried
-
-  const fields = Object.fromEntries(Object.entries(SETTING_FIELDS).map(([field, option]) => [option, field])) as Record<
-    string,
-    string
-  >
-  const queue = ((await $.store.get('setupSave').catch(() => null)) ?? {}) as Record<string, string>
-  const queued = Object.fromEntries(Object.entries(carried).map(([option, value]) => [fields[option], value]))
-  await $.store.set('setupSave', { ...queued, ...queue })
-  void proof($, `settings renamed: ${Object.keys(carried).join(', ')} carried from their old names`)
-  return carried
-}
-
-/** Saves every change in the panel's draft, then closes the panel. Nothing changed applies before this. */
-async function saveDraft($: EngineInterface) {
-  const draft = await read($, settingsDraft)
-  // The settings go through the store queue, since each one reloads the plugin.
-  const changes: Record<string, string> = {}
-  for (const field of Object.keys(SETTING_FIELDS) as (keyof typeof SETTING_FIELDS)[]) {
-    const value = draft[field]
-    if (value !== undefined) changes[field] = value
-  }
-  await update($, settingsDraft, () => ({}))
-  await update($, settingsOpen, () => false)
-  // Said by a card above the prompt, not a toast. Kept in the store: each setting written reloads the plugin.
-  await $.store.set('settingsSavedAt', await $.clock.now().catch(() => Date.now()))
-  $.ui.invalidate('ui.render')
-  await $.store.set('setupSave', changes)
-  await drainSetupSave($)
-}
-
-export type SetupStep = 'lean' | 'handoff' | 'look' | 'done'
-
-/** The lean's five stops, cheaper to smarter: a name, and what it does to the judge's pick (see tipped). */
-export const LEAN_STOPS = [
-  ['Cheapest', 'more picks go lower'],
-  ['Cheaper', 'unsure picks go lower'],
-  ['Balanced', 'the judge decides'],
-  ['Smarter', 'unsure picks go higher'],
-  ['Smartest', 'more picks go higher'],
-] as const
-
-/** The guide's step after this one: the lean, the handoff, the look, then done. */
-export function setupNext(step: SetupStep): SetupStep | null {
-  if (step === 'lean') return 'handoff'
-  if (step === 'handoff') return 'look'
-  if (step === 'look') return 'done'
-  return null
-}
-
-/** The step Back goes to; the lean is the first. */
-export function setupBack(step: SetupStep): SetupStep | null {
-  if (step === 'handoff') return 'lean'
-  if (step === 'look') return 'handoff'
-  if (step === 'done') return 'look'
-  return null
-}
-
-/** "2/3" for the step shown; the closing step has no number. */
-export function setupCounter(step: SetupStep): string {
-  const n = { lean: 1, handoff: 2, look: 3, done: 0 }[step]
-  return n ? `${n}/3` : ''
-}
-
-/** Shows a step of the guide; the handoff step needs the installed skills to pick from. */
-async function goSetup($: EngineInterface, step: SetupStep | null) {
-  if (step === 'handoff') await loadInstalledSkills($)
-  await update($, setupStep, () => step)
-}
-
-/** The guide's choices over the saved settings: what each step shows. */
-export function setupShown(draft: SettingsDraft, saved: JudgeConfig) {
-  return {
-    bias: draft.bias !== undefined ? Number(draft.bias) : saved.bias,
-    handoffSkill: draft.handoffSkill ?? saved.handoffSkill,
-    hide: (draft.hide ?? saved.hide.join(',')).split(',').filter(Boolean) as Hideable[],
-    appearance: (draft.appearance ?? saved.appearance) as JudgeConfig['appearance'],
-  }
-}
-
-/** Saves what the guide changed, only the fields that differ, then empties its draft. */
-async function flushSetup($: EngineInterface) {
-  const draft = await read($, setupDraft)
-  await update($, setupDraft, () => ({}))
-  const saved: Record<string, string> = {
-    bias: String(config.bias),
-    handoffSkill: config.handoffSkill,
-    hide: config.hide.join(','),
-    appearance: config.appearance,
-  }
-  const changes: Record<string, string> = {}
-  for (const field of ['hide', 'bias', 'handoffSkill', 'appearance'] as const) {
-    const value = draft[field]
-    if (value !== undefined && value.trim() !== saved[field]) changes[field] = value.trim()
-  }
-  await $.store.set('setupSave', changes)
-  await drainSetupSave($)
-}
-
-let drainingSetup = false
-
-/**
- * Saves the setup's changes one at a time from the store. Each saved setting reloads the plugin, which cuts off a loop
- * here, so a field leaves the store before it is saved and the reloaded plugin carries on with the rest.
- */
-async function drainSetupSave($: EngineInterface) {
-  if (drainingSetup) return
-  drainingSetup = true
-  try {
-    for (;;) {
-      const queue = ((await $.store.get('setupSave').catch(() => null)) ?? {}) as Record<string, string>
-      const [field] = Object.keys(queue)
-      if (!field) return
-      const { [field]: value, ...rest } = queue
-      await $.store.set('setupSave', Object.keys(rest).length ? rest : null)
-      if (field in SETTING_FIELDS) await saveSetting($, field as keyof typeof SETTING_FIELDS, value)
-    }
-  } finally {
-    drainingSetup = false
-  }
-}
-
-/** The guide is settled (finished or closed): it does not open by itself again, and the footer shows ⚙. */
-async function markSetupDone($: EngineInterface) {
-  await Promise.all([update($, setupPending, () => false), $.store.set('setupDone', true)])
-}
-
-/** Closes the guide, at its last step or with the ✕, saving what was picked so far. */
-async function closeSetup($: EngineInterface) {
-  await markSetupDone($)
-  await goSetup($, null)
-  await flushSetup($)
-}
-
-/** 1234 -> "1.2k", 87 -> "87". */
-function tokens(n: number): string {
-  const v = Math.abs(n)
-  const text = v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(v)
-  return n < 0 ? `-${text}` : text
-}
-
-const share = (part: number, whole: number) => `${Math.round((part / whole) * 100)} %`
-
-/**
- * What /context-lens stats answers: what the prompts Auto steered cost, measured, split by kind and by effort,
- * and what the judge took. No "saved" figure: what a prompt would have cost at another effort is not known,
- * since effort mostly changes how many tool calls it makes. Cost is in tokens weighted as priced (WEIGHT).
- */
-export function savedText(raw: Spent): string {
-  const t = asSpent(raw)
-  const judged = t.judge.haiku
-  const subagentRuns = EFFORTS.reduce((n, e) => n + (t.subagents.runs[e] ?? 0), 0)
-  if (t.prompts === 0 && judged === 0 && subagentRuns === 0) return 'nothing measured yet'
-  const input = t.input * WEIGHT.input
-  const write = t.writeHour * WEIGHT.write1h + (t.write - t.writeHour) * WEIGHT.write
-  const cached = t.read * WEIGHT.read
-  const out = t.out * WEIGHT.out
-  const total = input + write + cached + out
-  const lines = [
-    `${t.prompts} prompts, ${t.requests} requests, cost about ${tokens(Math.round(total))} tokens weighted by price` +
-      (total > 0
-        ? ` (cache reads ${share(cached, total)}, cache writes ${share(write, total)}, output ${share(out, total)})`
-        : ''),
-  ]
-  const per = EFFORTS.filter(e => t.byEffort[e]?.prompts).map(e => {
-    const b = t.byEffort[e]!
-    return `${EFFORT_LABELS[e]} ${b.prompts}, average ${tokens(Math.round(b.cost / b.prompts))}`
-  })
-  if (per.length) lines.push(`Per prompt: ${per.join('; ')}`)
-  if (subagentRuns) {
-    const per = EFFORTS.filter(e => t.subagents.runs[e]).map(e => `${EFFORT_LABELS[e]} ${t.subagents.runs[e]}`)
-    lines.push(
-      `Subagents: ${subagentRuns} (${per.join(', ')}), ${t.subagents.requests} requests, cost about ${tokens(Math.round(t.subagents.cost))} tokens`,
-    )
-  }
-  if (judged) {
-    lines.push(
-      `Judge: Haiku ${t.judge.haiku}, average ${Math.round(t.judge.ms / judged)} ms, ${tokens(t.judge.tokens)} tokens in all`,
-    )
-  }
-  return lines.join('\n')
-}
-
-/**
- * You picked an effort (terminal rows): Auto for effort goes off and the requests carry the level for this session
- * only. The app's own effort control keeps its level, so a new chat starts from that one.
- */
-async function pickEffort($: EngineInterface, level: Effort) {
-  const t0 = Date.now()
-  const inUse = (await read($, model)) ?? (await sessionModel($))
-  const t1 = Date.now()
-  // Together, so the app redraws once for the click and not once per write.
-  await Promise.all([
-    update($, isAuto, () => false),
-    $.store.set('isAuto', false),
-    choose($, { model: inUse, effort: level, why: 'your pick', by: 'manual' }),
-  ])
-  void proof($, `click ${level}: ${Date.now() - t0} ms (read ${t1 - t0}, state ${Date.now() - t1})`)
-}
-
-async function toggleAutoEffort($: EngineInterface) {
-  const turnOn = !(await read($, isAuto))
-  await update($, isAuto, () => turnOn)
-  await $.store.set('isAuto', turnOn)
-}
-
-async function toggleAutoModel($: EngineInterface) {
-  const turnOn = !(await read($, isAutoModel))
-  await update($, isAutoModel, () => turnOn)
-  await $.store.set('isAutoModel', turnOn)
-  if (!turnOn) await update($, suggestion, () => null)
-}
-
-async function choose($: EngineInterface, next: Pick | null) {
-  setPickCarried(false)
-  const before = await read($, pick)
-  await Promise.all([update($, pick, () => next), $.store.set('pick', next)])
-  // A change Auto made is shown as "Low → High" for a moment, so the switch is seen.
-  if (next && next.by !== 'manual' && before && before.effort !== next.effort) {
-    const change = { from: before.effort, to: next.effort }
-    await update($, switched, () => change)
-    $.clock.after(SWITCHED_MS, () => void update($, switched, () => null))
-  }
-}
-
-// The context figures from the last usage check, for the cache tooltip.
-let lastContext: { tokens: number; window: number; percent: number } | null = null
-
-/** k/M for token counts: 420000 -> "420k", 1000000 -> "1.0M". */
-function kTokens(n: number): string {
-  return n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : `${Math.round(n / 1000)}k`
-}
-
-/** Everything a redraw needs, read together: the reads go out at once instead of one after the other. */
-async function snap($: EngineInterface) {
-  const [
-    auto,
-    autoModel,
-    current,
-    judging,
-    wanted,
-    shownByApp,
-    modelNow,
-    switchedNow,
-    pausedNow,
-    cacheNow,
-    compacting,
-  ] = await Promise.all([
-    read($, isAuto),
-    read($, isAutoModel),
-    read($, pick),
-    read($, isJudging),
-    read($, suggestion),
-    read($, appEffort),
-    read($, model),
-    read($, switched),
-    read($, paused),
-    read($, cacheLeft),
-    read($, isCompacting),
-  ])
-  return {
-    auto,
-    autoModel,
-    current,
-    judging,
-    wanted,
-    shownByApp,
-    modelNow,
-    switchedNow,
-    pausedNow,
-    cacheNow,
-    compacting,
-  }
-}
-type Snap = Awaited<ReturnType<typeof snap>>
-
-/** The hover cards' text: what Auto did and why, and what the cache countdown means with the context it guards. */
-export function hoverTips(v: Snap): { effort: string; cache: string } {
-  const effortTip = !v.auto
-    ? 'Auto is off: the effort stays as you set it. The power button turns Auto on.'
-    : v.pausedNow
-      ? 'Auto waits on this model: an effort change would rewrite its prompt cache.'
-      : !effortOf(v)
-        ? 'This model runs without an effort level, so Auto has nothing to set.'
-        : [
-            v.current
-              ? `Auto picked ${EFFORT_LABELS[v.current.effort]}${v.current.by !== 'manual' ? ` (${v.current.by})` : ''}`
-              : 'Auto picks the effort for each message',
-            v.current?.why ? `Why: ${v.current.why}` : '',
-            `Lean: ${['much cheaper', 'cheaper', 'as the judge says', 'smarter', 'much smarter'][config.bias + 2]} · range ${config.floor} to ${config.ceiling}`,
-          ]
-            .filter(Boolean)
-            .join(' · ')
-  const ctx =
-    lastContext && lastContext.window
-      ? ` · Context ${Math.round(lastContext.percent)}% · ${kTokens(lastContext.tokens)}/${kTokens(lastContext.window)}`
-      : ''
-  const cacheTip =
-    v.cacheNow === null
-      ? `No prompt cache yet: the first message writes it.${ctx}`
-      : v.cacheNow === 0
-        ? `Prompt cache cold: the next message reads the whole chat again at full price. Compact first to save.${ctx}`
-        : `Prompt cache warm for ${cacheLabel(v.cacheNow)} more: the next message reads the chat from cache, cheap and fast.${ctx}`
-  return { effort: effortTip, cache: cacheTip }
-}
-
-/** The effort to show: yours or the judge's, else what the app itself runs with. */
-function effortOf(v: Snap): Effort | undefined {
-  if (v.current) return v.current.effort
-  return EFFORTS.includes(v.shownByApp as Effort) ? (v.shownByApp as Effort) : undefined
 }
 
 /** "App: Opus 5.5 · Medium", the app's own model and effort, while either differs from what the band sends; else empty.
@@ -2402,12 +620,6 @@ async function appHint($: EngineInterface, v: Snap): Promise<string> {
     { model: await sessionModel($), effort: pickGoesOut ? v.current!.effort : undefined },
   )
 }
-// /context-lens cold shows the band whatever the chat's size, until the next response (a test of the band itself).
-let coldForced = false
-let handoffTimer: { cancel: () => void } | undefined
-const HANDOFF_POLL_MS = 1000
-// When Haiku last wrote a compaction (for /context-lens debug).
-let lastHaikuCompact = 0
 
 // The moving art's timer: one at a time, blitting the next frame to the band that drew it. A blit the surface refuses
 // (the band went away, another drew instead) ends it, so nothing has to stop it from outside.
@@ -2860,103 +1072,11 @@ function handoffCardTree(
     </Box>
   )
 }
-
-/** The session's timers. A reload loads the module again with no session start, so the band's first draw starts them
- * too; a session start restarts them, cancelling the ones the draw started. */
-let timersFrom: 'start' | 'draw' | null = null
-let tickers: { cancel: () => void }[] = []
-let timersScheduled = false
-function startTimers($: EngineInterface, from: 'start' | 'draw') {
-  if (timersFrom === 'start' || (timersFrom === 'draw' && from === 'draw')) return
-  timersFrom = from
-  // A timer started inside a request ends with that request, so the clocks live here.
-  tickers.forEach(ticker => ticker.cancel())
-  tickers = [
-    $.clock.every(CACHE_TICK_MS, () => void showCache($).catch(() => undefined)),
-    $.clock.every(CACHE_TICK_MS, () => void checkSwamp($).catch(() => undefined)),
-    $.clock.every(LENS_TICK_MS, () => void lensTick($).catch(() => undefined)),
-  ]
-  // Read the usage at once too, so the context ring is there from the start rather than a tick later.
-  void checkSwamp($)
-    .then(() => $.ui.invalidate('ui.render'))
-    .catch(() => undefined)
-  // A written handoff is cleared and resent from here: a hook the turn waits on may not run commands.
-  handoffTimer?.cancel()
-  handoffTimer = $.clock.every(HANDOFF_POLL_MS, () => {
-    if (redrawsOwed > 0) {
-      // Drawn since the ask: the band is up to date, so a redraw would only restart its animations.
-      if (lastRenderAt > redrawAskedAt + REDRAW_SETTLE_MS) redrawsOwed = 0
-      else {
-        redrawsOwed--
-        $.ui.invalidate('ui.render')
-      }
-    }
-    // Right after a start the app may not have the usage yet: ask each second until it has, so the ring shows.
-    if (!lastContext || !lastContext.window)
-      void checkSwamp($)
-        .then(() => lastContext?.window && $.ui.invalidate('ui.render'))
-        .catch(() => undefined)
-    // The dashboard's countdown ticks inside its own image; the band is redrawn once a minute to start the next one.
-    if (cacheExpires > 0 && !config.hide.includes('timer'))
-      void $.clock.now().then(now => {
-        const minute = Math.floor((cacheExpires - now) / 60_000)
-        if (now < cacheExpires + HANDOFF_POLL_MS && minute !== clockMinute) {
-          clockMinute = minute
-          $.ui.invalidate('ui.render')
-        }
-      })
-    void writeRenderLog($).catch(() => undefined)
-    void finishHandoff($).catch(() => undefined)
-  })
-}
-/** How long "Compact complete" stays above the prompt when nothing else clears it. */
-const COMPACT_CARD_MS = 20_000
-/** A settings part's body on desktop is as tall as the overview's row of cards, so the panel keeps its height going in
- * and out of a part. In lines (a Box height is a number of lines or a percentage) at the app's 19 px line: 56 px makes
- * the band 121.5 px tall in every part, as with the cards. */
-const SETTINGS_BODY_H = 56 / 19
-/** A handoff's or compact's card for the band above the prompt: while it runs, and once landed until the next message
- * is sent, the ✕ is pressed or its time has passed (COMPACT_CARD_MS, HANDOFF_CARD_MS). */
-async function compactCard($: EngineInterface, working = false) {
-  const card = await read($, handoffCard)
-  if (!card || cardRunning(card.kind)) return card
-  const keep = card.kind === 'compacted' ? COMPACT_CARD_MS : HANDOFF_CARD_MS
-  if (working || (card.kind === 'compacted' && card.seen) || (await $.clock.now()) - card.at >= keep) return null
-  return card
-}
-// Handoff is calm until Haiku says a fresh chat would suit now (handoffAdvice); then it is the white box with a glow.
-// What the band last read from handoffAdvice, so the drawing helpers need no await.
-let adviceNow: string | null = null
-const HANDOFF_ADVICE_LEVEL = 50
-// "Always" (the Handoff button setting) keeps the slot as Handoff, calm in a grey box, and loud only once advised.
-const handoffLevel = () => (adviceNow ? HANDOFF_ADVICE_LEVEL : config.handoffButton === 'always' ? HANDOFF_BOX_AT : 0)
-const handoffLoud = () => adviceNow !== null
-const handoffSlot = () => handoffLoud() || config.handoffButton === 'always'
-/** Redraws the band every JUDGE_STEP_MS from `from` ms over `span` ms, so each piece of the rise or fade is drawn in turn. */
-function drawGlowSteps($: EngineInterface, from: number, span: number) {
-  for (let at = Math.max(0, from); at <= from + span + JUDGE_STEP_MS; at += JUDGE_STEP_MS)
-    $.clock.after(at + 5, () => $.ui.invalidate('ui.render'))
-}
 // The glow's clock is read as late as the draw allows, and set ahead by how long the rest of a draw takes (measured,
 // smoothed): a fade placed where it was when the draw began showed up that much behind, a little brighter at every
 // redraw, which read as lag and as a second glow.
 let glowReadAt: number | null = null
 let drawLead = 20
-// When the judge started, and when it gave its verdict (null while it decides).
-let judgeStartedAt = 0
-let judgeEndedAt: number | null = 0
-/** The verdict is in: the rim starts fading now, together with the effort word's flash, not after the effort and model
- * are applied. Redraws when the fade swaps in and once it is over. */
-async function endJudgeGlow($: EngineInterface, why: string) {
-  if (judgeEndedAt !== null) return
-  judgeEndedAt = await $.clock.now().catch(() => Date.now())
-  const fadeAt = Math.max(judgeEndedAt, judgeStartedAt + JUDGE_RISE_MS) - judgeEndedAt
-  renderLog.push(
-    `${new Date().toISOString()} ${loadedSession} glow: ${why} ${judgeEndedAt - judgeStartedAt} ms after start, fade in ${fadeAt} ms`,
-  )
-  drawGlowSteps($, fadeAt, JUDGE_FADE_MS)
-  $.ui.invalidate('ui.render')
-}
 // Auto as the bar last saw it, and when it last flipped, either way (for the edge glow and the switch's slide).
 let autoSeen: boolean | undefined
 let autoOnAt = -Infinity
@@ -2971,7 +1091,7 @@ async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePrompt'>) 
   const els = themedEls($.ui.resolve(e))
   const { Box, Text, Button } = els
   const v = await snap($)
-  adviceNow = (await read($, handoffAdvice)) ?? null
+  setAdviceNow((await read($, handoffAdvice)) ?? null)
   await introShows($, 'dash')
   // The first draw since another band stood here.
   const entering = introFresh
@@ -3496,7 +1616,7 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
     else await switchModel($, model)
   }
   const dismiss = async () => {
-    declined = wanted
+    setDeclined(wanted)
     await update($, suggestion, () => null)
     settleOffer(false)
   }
@@ -3629,311 +1749,6 @@ async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
   return { question, rows, height, noteLine }
 }
 
-// Effort for subagents: the effort the judge picked for each subagent, by its id. A subagent's first request can come
-// before its spawn resolves with the id (seen 2026-10-10), so a pick waits under the spawn's description and type
-// until a request from an unknown subagent claims it through $.agent.list().
-// With Cheaper model for subagents on it also holds the model the judge named, when it was sure; the step clamps it to the model the
-// subagent was given (see subagentModelFor).
-// Every spawn also leaves what its Agent call named (a model, an effort) and its parent's model, so its requests can
-// tell what the subagent inherits from what was set for it (see subagentSteerable).
-type SubagentPick = { effort: Effort; model?: ModelKey }
-type SpawnCall = { model: boolean; effort: boolean; parentModel?: ModelKey }
-type SubagentSpawn = { pick?: SubagentPick; call: SpawnCall }
-const subagentSpawns = new Map<string, SubagentSpawn>()
-let subagentWaiting: ({ description: string; type: string; parentId?: string } & SubagentSpawn)[] = []
-// The Agent calls that named an effort, by tool_use_id, until their spawn reads them.
-const callEfforts = new Set<string>()
-
-/** How sure the judge must be of a task to give its subagent another model: the Smarter lean's own line for a close call. */
-const SUBAGENT_MODEL_SURE = 0.65
-
-/**
- * The model a subagent runs on when the judge named one: only a cheaper model than the one it was given (never Fable,
- * never a dearer one), else null and it keeps its own. A subagent starts with a small context and a cache of its own,
- * so the switch costs next to nothing there, unlike in the chat.
- */
-export function subagentModelFor(wanted: ModelKey | undefined, given: ModelKey | undefined): ModelKey | null {
-  if (!wanted || !given || wanted === 'fable') return null
-  const rank = (k: ModelKey) => MODELS.findIndex(m => m.key === k)
-  return rank(wanted) < rank(given) ? wanted : null
-}
-
-/** What the judge reads for a subagent: its task, said to be one, so it judges the subagent's work. */
-export function subagentQuestion(prompt: string, type: string): string {
-  return `${prompt.slice(0, 4000)}
-
-[This is the task Claude gave a ${type} subagent, not a message from the person. Judge the effort that subagent needs to do it well.]`
-}
-
-/** The lowest effort a subagent gets: medium, or the person's Min when higher, never above their Max. A subagent's answer
- * goes back to the chat unchecked, and at low it miscounted where medium did not (bench/results/helpers-2026-10-10.md). */
-export function subagentFloor(floor: Effort, ceiling: Effort): Effort {
-  const i = Math.min(Math.max(EFFORTS.indexOf(floor), EFFORTS.indexOf('medium')), EFFORTS.indexOf(ceiling))
-  return EFFORTS[i]
-}
-
-/** The judge's effort for a subagent's task, within the person's slider, Min and Max and save mode; null without a verdict. */
-async function subagentEffort($: EngineInterface, prompt: string, type: string): Promise<Pick | null> {
-  const { verdict } = await judge($, subagentQuestion(prompt, type), null)
-  if (!verdict) return null
-  const saving = (await read($, saveUntil)) !== null
-  const leaned = tipped(verdict.effort, verdict.sure, config.bias)
-  const effort = capped(bounded(leaned, subagentFloor(config.floor, config.ceiling), config.ceiling), saving)
-  return {
-    ...verdict,
-    effort,
-    why:
-      effort !== leaned && EFFORTS.indexOf(leaned) < EFFORTS.indexOf(effort)
-        ? `${verdict.why} (subagents start at medium)`
-        : verdict.why,
-  }
-}
-
-/** The effort (and model) picked for this subagent, claiming a waiting pick the first time its id is seen. */
-async function subagentSpawnOf($: EngineInterface, id: string): Promise<SubagentSpawn | undefined> {
-  const known = subagentSpawns.get(id)
-  if (known || subagentWaiting.length === 0) return known
-  const info = (await $.agent.list().catch(() => [])).find(a => a.id === id)
-  if (!info) return undefined
-  const match = subagentWaiting.find(
-    w => w.description === info.description && w.type === info.type && w.parentId === info.parentId,
-  )
-  if (!match) return undefined
-  subagentWaiting = subagentWaiting.filter(w => w !== match)
-  const spawn: SubagentSpawn = { pick: match.pick, call: match.call }
-  subagentSpawns.set(id, spawn)
-  return spawn
-}
-
-const subagentPickOf = async ($: EngineInterface, id: string): Promise<SubagentPick | undefined> =>
-  (await subagentSpawnOf($, id))?.pick
-
-/**
- * What of a subagent's request the mod may change: the model and the effort it inherits from its parent, and with
- * Override definitions on also those its definition sets; never one its Agent call named. The definition is not
- * readable, so a model other than the parent's or an effort other than the chat's is taken as the definition's. A
- * definition that sets the parent's own looks inherited, which changes nothing it asked for.
- */
-export function subagentSteerable(
-  request: { model?: ModelKey; effort?: unknown },
-  parent: { model?: ModelKey; effort?: unknown },
-  call: SpawnCall | undefined,
-  override: boolean,
-): { model: boolean; effort: boolean } {
-  const modelInherited = !parent.model || !request.model || request.model === parent.model
-  const effortInherited = typeof parent.effort !== 'string' || request.effort === parent.effort
-  return {
-    model: !call?.model && (modelInherited || override),
-    effort: !call?.effort && (effortInherited || override),
-  }
-}
-
-/** The effort picked for this subagent. */
-const subagentEffortOf = async ($: EngineInterface, id: string): Promise<Effort | undefined> =>
-  (await subagentPickOf($, id))?.effort
-
-/** Counts one request of a subagent the judge steered, for /context-lens stats. */
-async function subagentTally($: EngineInterface, usage: Parameters<typeof weighted>[0]) {
-  await update($, saved, old => {
-    const t = asSpent(old)
-    return {
-      ...t,
-      subagents: { ...t.subagents, requests: t.subagents.requests + 1, cost: t.subagents.cost + weighted(usage) },
-    }
-  })
-}
-
-// A compaction written by Haiku 5.5: Anthropic names compaction among the jobs it is built for, at a fraction of the
-// chat model's price. Claude Code compacts with the chat's own model and has no setting for another, and the
-// summarizer's request does not pass through turn.step, so the mod answers session.compact itself: the transcript as
-// text, Haiku's summary back as the conversation. Anything that fails falls through to Claude Code's own compaction.
-const COMPACT_MODEL = 'claude-haiku-5-5'
-/** The transcript's most text sent to Haiku: about 600k tokens, inside its window with room for the summary. */
-const COMPACT_MAX_CHARS = 2_400_000
-const COMPACT_SYSTEM = `You compact a conversation between a user and Claude Code, an AI coding agent, so the work can continue
-in a fresh context that holds only your summary. Whoever reads it next knows nothing else about the conversation.
-
-Write a detailed summary with these sections:
-1. Primary request and intent: everything the user asked for, in detail, including changes of mind.
-2. Key technical concepts: technologies, frameworks, constraints and decisions.
-3. Files and code: every file read, created or edited, why it matters, and the important snippets or signatures.
-4. Errors and fixes: what went wrong, how it was fixed, and any feedback the user gave about it.
-5. Problem solving: what was solved and what is still being worked out.
-6. All user messages: every message the user wrote that is not a tool result, briefly and in order.
-7. Pending tasks: what the user asked for that is not done.
-8. Current work: exactly what was being done right before this summary, with file names and code. The last few
-messages come nearly uncut: carry the code and errors from them over in full, since the next step builds on them.
-9. Next step: the next step, only if it follows directly from the user's latest request, quoting that request.
-
-Be precise: keep names, paths, numbers, commands and error messages exact. Leave out pleasantries.
-Reply with the summary only.`
-
-// The last messages go to Haiku nearly whole: the work in progress (the code just written, the error just seen) lives
-// in their tool calls and results, which a short cut would lose mid-task.
-export const COMPACT_TAIL = 6
-const COMPACT_TAIL_CHARS = 20_000
-/** The transcript as plain text for the summarizer: each message, its tool calls and their results, the long ones cut. */
-export function compactTranscript(
-  messages: readonly {
-    role: string
-    text: string
-    toolUses?: readonly { tool: string; input: unknown; text?: string }[]
-    toolResults?: readonly { text?: string }[]
-  }[],
-  toolChars = 2000,
-  tailChars = COMPACT_TAIL_CHARS,
-): string {
-  const cut = (s: string, n: number) => (s.length > n ? `${s.slice(0, n)} …[${s.length - n} more characters]` : s)
-  const tailFrom = messages.length - COMPACT_TAIL
-  return messages
-    .map((m, i) => {
-      const inTail = i >= tailFrom
-      const inputChars = inTail ? tailChars : 400
-      const resultChars = inTail ? tailChars : toolChars
-      const lines = [`${m.role === 'user' ? 'USER' : 'CLAUDE'}: ${m.text}`.trimEnd()]
-      for (const t of m.toolUses ?? []) {
-        lines.push(`  [${t.tool} ${cut(JSON.stringify(t.input ?? {}), inputChars)}]`)
-        if (t.text) lines.push(`  → ${cut(t.text, resultChars)}`)
-      }
-      if (!m.toolUses?.length)
-        for (const r of m.toolResults ?? []) if (r.text) lines.push(`  → ${cut(r.text, resultChars)}`)
-      return lines.join('\n')
-    })
-    .join('\n\n')
-}
-
-/** The transcript cut harder when it does not fit Haiku's window; null when it still does not. */
-function fittingTranscript(messages: Parameters<typeof compactTranscript>[0]): string | null {
-  const full = compactTranscript(messages)
-  if (full.length <= COMPACT_MAX_CHARS) return full
-  const shorter = compactTranscript(messages, 300, 4000)
-  return shorter.length <= COMPACT_MAX_CHARS ? shorter : null
-}
-
-/** Haiku's summary of the transcript, or why there is none. */
-async function haikuCompaction(
-  $: EngineInterface,
-  messages: Parameters<typeof compactTranscript>[0],
-  instructions?: string,
-): Promise<{ text: string } | { fail: string }> {
-  const transcript = fittingTranscript(messages)
-  if (transcript === null) return { fail: 'the chat is too long for Haiku' }
-  const r = await $.model.complete({
-    model: COMPACT_MODEL,
-    system: COMPACT_SYSTEM,
-    prompt: `${transcript}\n\n---\nWrite the summary now.${instructions?.trim() ? `\nThe user asked the summary to keep or stress: ${instructions.trim()}` : ''}`,
-    maxTokens: 16000,
-    effort: 'medium',
-    timeoutMs: 240_000,
-  })
-  if (!r.isAnswered) return { fail: 'reason' in r ? String(r.reason) : 'no answer' }
-  return r.text.trim().length > 200 ? { text: r.text.trim() } : { fail: 'the summary came back empty' }
-}
-
-/** The quick handoff written by Haiku from the transcript, for a chat whose cache went cold; null when it fails. */
-async function haikuHandoff(
-  $: EngineInterface,
-  messages: Parameters<typeof compactTranscript>[0],
-): Promise<string | null> {
-  const transcript = fittingTranscript(messages)
-  if (transcript === null) return null
-  const r = await $.model.complete({
-    model: COMPACT_MODEL,
-    system:
-      'You read a conversation between a user and Claude Code, an AI coding agent, and write the handoff the user asks for.',
-    prompt: `${transcript}\n\n---\n${HANDOFF_PROMPT}`,
-    maxTokens: 4000,
-    effort: 'medium',
-    timeoutMs: 120_000,
-  })
-  return r.isAnswered && r.text.trim().length > 100 ? r.text.trim() : null
-}
-
-// --- The lens: prompt-cache timers, the context window and rate-limit usage, one row in the band --------------------
-
-const LENS_TICK_MS = 5_000
-
-const LENS_WARMTH_COLOR: Record<Warmth, string> = {
-  uncached: 'inactive',
-  warm: 'success',
-  expiring: 'warning',
-  cold: 'error',
-}
-
-/** The TTLs the engine picks, in the order the promptCacheTtl and subagentPromptCacheTtl settings document. */
-async function cacheTtls($: EngineInterface): Promise<{ main: CacheTtl; agent: CacheTtl }> {
-  const [settings, usage, mainEnv, agentEnv, force5m, enable1h] = await Promise.all([
-    $.settings.read(),
-    $.session.usage(),
-    envCacheTtl($),
-    envAgentCacheTtl($),
-    envForce5m($),
-    envEnable1h($),
-  ])
-  if (force5m) return { main: '5m', agent: '5m' }
-  const isSubscription = usage.rateLimits.length > 0
-  return {
-    main: resolveTtl(mainEnv ?? settings.promptCacheTtl, isSubscription ? '1h' : '5m'),
-    agent: resolveTtl(agentEnv ?? settings.subagentPromptCacheTtl, enable1h ? '1h' : '5m'),
-  }
-}
-
-async function refreshUsage($: EngineInterface): Promise<void> {
-  const usage = await $.session.usage({ breakdown: 'summary' })
-  await update($, lensLiveTokens, () => usage.context.tokens ?? null)
-  await update($, lensLimits, () => usage.rateLimits)
-  const breakdown = usage.context.breakdown
-  if (breakdown) await update($, lensContext, () => toContextView(breakdown))
-}
-
-async function recordRequest(
-  $: EngineInterface,
-  agentId: string | undefined,
-  usage: ModelUsage,
-  ran?: { model?: ModelKey; effort?: Effort },
-): Promise<void> {
-  const [at, ttls] = await Promise.all([$.clock.now(), cacheTtls($)])
-  if (agentId === undefined) {
-    const previous = await read($, lensMain)
-    await update($, lensRewritten, () => isRecache(previous, usage) && warmth(previous, at) !== 'cold')
-    await update($, lensMain, () => applyUsage(usage, at, ttls.main))
-    return
-  }
-  const known = (await read($, lensAgents)).find(a => a.id === agentId)
-  const info = known ? undefined : (await $.agent.list()).find(a => a.id === agentId)
-  await update($, lensAgents, list => {
-    const type = list.find(a => a.id === agentId)?.type ?? info?.type ?? 'agent'
-    const next: AgentCache = {
-      ...applyUsage(usage, at, ttls.agent),
-      id: agentId,
-      type,
-      ...(ran?.model ? { model: ran.model } : {}),
-      ...(ran?.effort ? { effort: ran.effort } : {}),
-    }
-    return [...list.filter(a => a.id !== agentId), next]
-  })
-}
-
-/** A main-thread compaction's summary starts a new cache entry. */
-async function afterCompaction($: EngineInterface): Promise<void> {
-  await update($, lensMain, clock => emptyClock(clock.ttl))
-  await update($, lensRewritten, () => false)
-  await refreshUsage($)
-}
-
-async function lensTick($: EngineInterface): Promise<void> {
-  const at = await $.clock.now()
-  await update($, lensNow, () => at)
-}
-
-/** The session started: the first read of the usage. Called from the dashboard's own session.start hook: one plugin
- * may hook an event once. */
-async function lensStarted($: EngineInterface): Promise<void> {
-  const at = await $.clock.now()
-  await update($, lensNow, () => at)
-  void refreshUsage($).catch(() => undefined)
-}
-
 function lensCacheTime(state: Warmth, left: number | null): string {
   if (state === 'uncached') return '—'
   if (state === 'cold') return 'cold'
@@ -4033,8 +1848,8 @@ export const register: Register = (on, options) => {
     return next(e)
   })
   setLoadedAt(Date.now())
-  timersFrom = null
-  timersScheduled = false
+  setTimersFrom(null)
+  setTimersScheduled(false)
   setFirstDrawLogged(false)
   setDrawsTimed(0)
   setConfig(readConfig(options))
@@ -4056,7 +1871,7 @@ export const register: Register = (on, options) => {
         $.ui.toast(`context-lens: Haiku could not compact (${got.fail}). The chat's own model does it.`)
         return next(e)
       }
-      lastHaikuCompact = Date.now()
+      setLastHaikuCompact(Date.now())
       return {
         messages: [
           {
@@ -4146,9 +1961,9 @@ export const register: Register = (on, options) => {
       cacheExpires === 0
     ) {
       const now = await $.clock.now()
-      lastResponseAt = now - r.seconds_since_last_response * 1000
-      const left = lastResponseAt + CACHE_TTL[cacheTtl]
-      cacheExpires = r.prompt_cache_likely_expired || left <= now ? now - 1 : left
+      setLastResponseAt(now - r.seconds_since_last_response * 1000)
+      const left = lastResponseAt! + CACHE_TTL[cacheTtl]
+      setCacheExpires(r.prompt_cache_likely_expired || left <= now ? now - 1 : left)
       await rememberCache($)
       await checkSwamp($).catch(() => undefined)
       await showCache($).catch(() => undefined)
@@ -4167,7 +1982,7 @@ export const register: Register = (on, options) => {
     // A lower verdict for a message typed during the turn takes over now, if Auto is still on.
     if (!e.agentId && heldPick) {
       const held = heldPick
-      heldPick = null
+      setHeldPick(null)
       if (await read($, isAuto)) await choose($, held)
     }
     // The newest reply's text: its last block carries the warning card (see AssistantMessage).
@@ -4183,7 +1998,7 @@ export const register: Register = (on, options) => {
       await storeTurnLine($, key, line).catch(() => undefined)
 
       // Saved: an older reply's footer drawn during the next turn must not take that turn's model.
-      ranThisTurn = null
+      setRanThisTurn(null)
     }
     // A landed handoff card stays under the first reply after it, and goes with the next.
     if (!e.agentId) {
@@ -4192,7 +2007,7 @@ export const register: Register = (on, options) => {
       )
     }
     if (!e.agentId && (await read($, handoffStage)) === 'writing') {
-      if (e.reason === 'answer' && e.answer.trim()) handoffText = e.answer
+      if (e.reason === 'answer' && e.answer.trim()) setHandoffText(e.answer)
       else {
         await update($, handoffStage, () => null)
         $.ui.toast('context-lens: the handoff was not written, nothing was cleared')
@@ -4316,8 +2131,8 @@ Saved to ${out}.md and .json`,
     }
     // A test aid: marks the cache cold now, so the Compact button can be tried without waiting out the hour.
     if (arg === 'cold') {
-      coldForced = true
-      cacheExpires = await $.clock.now()
+      setColdForced(true)
+      setCacheExpires(await $.clock.now())
       await update($, cacheLeft, () => 0)
       $.ui.invalidate('ui.render')
       return {
@@ -4335,7 +2150,7 @@ Saved to ${out}.md and .json`,
       else await switchModel($, wanted)
       return { text: `Switching to ${wanted} for this session. The context reloads.` }
     }
-    declined = wanted
+    setDeclined(wanted)
     await update($, suggestion, () => null)
     settleOffer(false)
     return { text: `Keeping the current model.` }
@@ -4345,8 +2160,8 @@ Saved to ${out}.md and .json`,
     await setTurnBusy($, true)
     // A message typed while a reply runs belongs to that reply: its cost goes on.
     if (e.turnId === undefined) {
-      turnCost = 0
-      ranThisTurn = null
+      setTurnCost(0)
+      setRanThisTurn(null)
     }
     // A landed handoff's card goes once the next message is sent.
     const card = await read($, handoffCard)
@@ -4414,9 +2229,9 @@ Saved to ${out}.md and .json`,
       const inUse = await sessionModel($)
       const applied: Pick = { model: inUse, effort: named, why: 'you asked for it', by: 'named' }
       const running = await read($, pick)
-      if (midTurn && running && EFFORTS.indexOf(named) < EFFORTS.indexOf(running.effort)) heldPick = applied
+      if (midTurn && running && EFFORTS.indexOf(named) < EFFORTS.indexOf(running.effort)) setHeldPick(applied)
       else {
-        heldPick = null
+        setHeldPick(null)
         await choose($, applied)
       }
       await countPrompt($, takesEffort(modelId) ? named : undefined, 'named', 0, 0)
@@ -4425,8 +2240,8 @@ Saved to ${out}.md and .json`,
       return next(e)
     }
 
-    judgeStartedAt = await $.clock.now().catch(() => Date.now())
-    judgeEndedAt = null
+    setJudgeStartedAt(await $.clock.now().catch(() => Date.now()))
+    setJudgeEndedAt(null)
     renderLog.push(`${new Date().toISOString()} ${loadedSession} glow: start`)
     drawGlowSteps($, 0, JUDGE_RISE_MS)
     // The band is drawn again as the judge starts, so the rise is placed by the clock from the first frame.
@@ -4473,10 +2288,10 @@ Saved to ${out}.md and .json`,
           // turn to end (the queued message may run as a turn of its own). A higher one helps the task, so it applies.
           const running = await read($, pick)
           if (midTurn && running && EFFORTS.indexOf(effort) < EFFORTS.indexOf(running.effort)) {
-            heldPick = applied
+            setHeldPick(applied)
             void proof($, `typed mid-turn: ${effort} waits, the running turn keeps ${running.effort}`)
           } else {
-            heldPick = null
+            setHeldPick(null)
             await choose($, applied)
           }
         }
@@ -4513,11 +2328,11 @@ Saved to ${out}.md and .json`,
               : `Switched to ${label} for this session: ${verdict.why}`,
           )
         } else if (worth && offerable && typedNow && config.holdOffer === 'on') {
-          suggestedAs = worth
+          setSuggestedAs(worth)
           await update($, suggestion, () => verdict.model)
           held = verdict.model
         } else if (worth === 'switch') {
-          suggestedAs = worth
+          setSuggestedAs(worth)
           await update($, suggestion, () => verdict.model)
           $.ui.toast(`Suggestion: switch to ${label}? /context-lens switch or /context-lens keep`)
         } else {
@@ -4559,7 +2374,7 @@ Saved to ${out}.md and .json`,
     const result = await next(e)
     if (!sessionPick) return result
 
-    sessionPick = null
+    setSessionPick(null)
     await modelIs($, await $.session.model())
     $.ui.invalidate('ui.render')
     return result
@@ -4568,7 +2383,7 @@ Saved to ${out}.md and .json`,
   // A switch from anywhere (the app's picker, /model, a fallback) moves the pick at once.
   on('classic.PostModelSwitch', async ($, e, next) => {
     const result = await next(e)
-    sessionPick = null
+    setSessionPick(null)
     await modelIs($, e.to_model)
     return result
   })
@@ -4582,10 +2397,10 @@ Saved to ${out}.md and .json`,
     // Every main-conversation response, whatever its effort, keeps the cache warm for its lifetime from now.
     const send = async function* (request: typeof e) {
       if (e.agentId === undefined)
-        ranThisTurn = {
+        setRanThisTurn({
           model: typeof request.model === 'string' ? keyOf(request.model) : undefined,
           effort: EFFORTS.find(x => x === request.effort),
-        }
+        })
       if (e.agentId === undefined)
         setLastRequest({
           index: e.index,
@@ -4610,7 +2425,7 @@ Saved to ${out}.md and .json`,
         // cacheTouched has just set the chat's expiry from this response.
         modelCaches.set(sentModel, { expires: cacheExpires, tokens: held })
       }
-      if (answer?.usage) turnCost += weighted(answer.usage)
+      if (answer?.usage) setTurnCost(turnCost + weighted(answer.usage))
       return answer
     }
     if (e.agentId === undefined) await setTurnBusy($, true)
@@ -4842,9 +2657,9 @@ Saved to ${out}.md and .json`,
       parentModel: e.parentModel ? keyOf(e.parentModel) : undefined,
     }
     const waiting = { description: e.description, type: e.subagentType, parentId: e.parentAgentId, pick, call }
-    subagentWaiting = [...subagentWaiting, waiting].slice(-20)
+    setSubagentWaiting([...subagentWaiting, waiting].slice(-20))
     const result = await next(e)
-    subagentWaiting = subagentWaiting.filter(w => w !== waiting)
+    setSubagentWaiting(subagentWaiting.filter(w => w !== waiting))
     const agentId = 'agentId' in result ? result.agentId : undefined
     if (agentId && !subagentSpawns.has(agentId)) subagentSpawns.set(agentId, { pick, call })
     if (agentId && pick) {
@@ -4926,11 +2741,13 @@ Saved to ${out}.md and .json`,
       // of draws schedules it once; a host that refuses the timer is asked again by the next draw.
       if (timersFrom === null && !timersScheduled) {
         try {
-          timersScheduled = Boolean(
-            $.clock.after(0, () => {
-              readOwnVersion($)
-              startTimers($, 'draw')
-            }),
+          setTimersScheduled(
+            Boolean(
+              $.clock.after(0, () => {
+                readOwnVersion($)
+                startTimers($, 'draw')
+              }),
+            ),
           )
         } catch {}
       }
@@ -5671,10 +3488,10 @@ Saved to ${out}.md and .json`,
                       placeholder="Summary (optional)"
                       submitLabel={'​'}
                       onInput={v => {
-                        compactNote = v
+                        setCompactNote(v)
                       }}
                       onSubmit={v => {
-                        compactNote = v
+                        setCompactNote(v)
                         void go()
                       }}
                     />
