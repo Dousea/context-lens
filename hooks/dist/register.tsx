@@ -2626,9 +2626,28 @@ async function effortRows($, e) {
   ) : null)) : null;
   if (e.surface !== "terminal") return { question, rows: null };
   const reasonNote = judging ? "Deciding…" : current2 ? `${current2.by === "manual" || current2.by === "named" ? "You" : "Why"}: ${current2.why}` : auto ? "Picks the effort at the next prompt" : "Pick an effort";
-  const hint = inAgent ? "" : await appHint($, v);
+  const appModel = inAgent ? void 0 : keyOf(await $.session.model());
+  const appEffort3 = inAgent || !EFFORTS.includes(v.shownByApp) ? void 0 : v.shownByApp;
+  const marked = (label, isApp) => isApp ? `( ${label} )` : label;
   const modelPicker = /* @__PURE__ */ h(Box, { key: "model-picker", flexDirection: "row", alignItems: "center", gap: 1, flexShrink: 0 }, /* @__PURE__ */ h(Text, { dimColor: true }, "Model"), MODELS.map(
-    (m) => m.key === inUse ? /* @__PURE__ */ h(Button, { key: `m-${m.key}`, variant: "primary", label: m.label, onPress: setModel(m.key) }) : /* @__PURE__ */ h(Button, { key: `m-${m.key}`, plain: true, dimColor: true, label: m.label, onPress: setModel(m.key) })
+    (m) => m.key === inUse ? /* @__PURE__ */ h(
+      Button,
+      {
+        key: `m-${m.key}`,
+        variant: "primary",
+        label: marked(m.label, m.key === appModel),
+        onPress: setModel(m.key)
+      }
+    ) : /* @__PURE__ */ h(
+      Button,
+      {
+        key: `m-${m.key}`,
+        plain: true,
+        dimColor: true,
+        label: marked(m.label, m.key === appModel),
+        onPress: setModel(m.key)
+      }
+    )
   ), /* @__PURE__ */ h(
     Button,
     {
@@ -2640,7 +2659,24 @@ async function effortRows($, e) {
     }
   ));
   const effortPicker = /* @__PURE__ */ h(Box, { key: "effort-picker", flexDirection: "row", alignItems: "center", gap: 1, flexShrink: 0 }, /* @__PURE__ */ h(Text, { dimColor: true }, "Effort"), EFFORTS.map(
-    (level) => level === effortNow ? /* @__PURE__ */ h(Button, { key: `e-${level}`, variant: "primary", label: level, onPress: setEffort(level) }) : /* @__PURE__ */ h(Button, { key: `e-${level}`, plain: true, dimColor: true, label: level, onPress: setEffort(level) })
+    (level) => level === effortNow ? /* @__PURE__ */ h(
+      Button,
+      {
+        key: `e-${level}`,
+        variant: "primary",
+        label: marked(level, level === appEffort3),
+        onPress: setEffort(level)
+      }
+    ) : /* @__PURE__ */ h(
+      Button,
+      {
+        key: `e-${level}`,
+        plain: true,
+        dimColor: true,
+        label: marked(level, level === appEffort3),
+        onPress: setEffort(level)
+      }
+    )
   ), /* @__PURE__ */ h(
     Button,
     {
@@ -2652,14 +2688,14 @@ async function effortRows($, e) {
     }
   ));
   const rows = /* @__PURE__ */ h(Box, { flexDirection: "column" }, question, /* @__PURE__ */ h(Box, { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", columnGap: 2 }, modelPicker, effortPicker));
-  const pickerWidth = (word, labels) => word.length + [...labels, "Manual"].reduce((sum, label) => sum + label.length + 4, 0);
+  const pickerWidth = (word, labels) => word.length + 4 + [...labels, "Manual"].reduce((sum, label) => sum + label.length + 4, 0);
   const bothWidth = pickerWidth(
     "Model",
     MODELS.map((m) => m.label)
   ) + 2 + pickerWidth("Effort", EFFORTS);
   const columns = typeof e.props.bodyColumns === "number" ? e.props.bodyColumns : 100;
   const height = (bothWidth > columns ? 2 : 1) + (question ? 1 : 0);
-  const noteLine = inAgent ? null : hintLine({ Box, Text }, hint, reasonNote, "effort-note");
+  const noteLine = inAgent ? null : detailLine({ Box, Text }, reasonNote, "effort-note");
   return { question, rows, height, noteLine };
 }
 
@@ -2793,23 +2829,8 @@ function introLayer({ Box, Svg }, key, show, wash = "#8b6cff", light2 = "#b9a7ff
     }
   ));
 }
-function appHintText(app, sent) {
-  const appEffortKnown = EFFORTS.includes(app.effort) ? app.effort : void 0;
-  const modelDiffers = app.model && sent.model && app.model !== sent.model;
-  const effortDiffers = appEffortKnown && sent.effort && appEffortKnown !== sent.effort;
-  if (!modelDiffers && !effortDiffers) return "";
-  const parts = [MODELS.find((m) => m.key === app.model)?.long, appEffortKnown && EFFORT_LABELS[appEffortKnown]];
-  return `App: ${parts.filter(Boolean).join(" · ")}`;
-}
-function hintLine({ Box, Text }, hint, words, key) {
-  return /* @__PURE__ */ h(Box, { key, flexDirection: "row", justifyContent: "space-between", columnGap: 2 }, hint ? /* @__PURE__ */ h(Box, { flexShrink: 0 }, /* @__PURE__ */ h(Text, { dimColor: true }, hint)) : null, /* @__PURE__ */ h(Box, { flexShrink: 1, minWidth: 0 }, /* @__PURE__ */ h(Text, { dimColor: true, wrap: "truncate-end" }, words)));
-}
-async function appHint($, v) {
-  const pickGoesOut = v.current && (v.current.by === "manual" || v.auto && !v.pausedNow);
-  return appHintText(
-    { model: keyOf(await $.session.model()), effort: v.shownByApp },
-    { model: await sessionModel($), effort: pickGoesOut ? v.current.effort : void 0 }
-  );
+function detailLine({ Box, Text }, words, key) {
+  return /* @__PURE__ */ h(Box, { key, flexDirection: "row" }, /* @__PURE__ */ h(Box, { flexShrink: 1, minWidth: 0 }, /* @__PURE__ */ h(Text, { dimColor: true, wrap: "truncate-end" }, words)));
 }
 var artTimer = null;
 var artShown = null;
@@ -2880,7 +2901,7 @@ async function terminalBand($, e, b) {
   const { Box, Text } = themedEls($.ui.resolve(e));
   const { rows: effort, height } = await effortRows($, e);
   const maxRows = typeof e.props.maxRows === "number" ? e.props.maxRows : 99;
-  const fit = bandFit(maxRows, { detailText: Boolean(b.detail || b.hint), lens: b.extra !== null, effort: height ?? 0 });
+  const fit = bandFit(maxRows, { detailText: Boolean(b.detail), lens: b.extra !== null, effort: height ?? 0 });
   const art = fit.border ? bandArt($, e, b.kind) : null;
   const rows = fit.effort ? effort : null;
   const columns = typeof e.props.bodyColumns === "number" ? e.props.bodyColumns : 100;
@@ -2897,7 +2918,7 @@ async function terminalBand($, e, b) {
       borderStyle: fit.border ? "round" : void 0,
       borderColor: b.edge
     },
-    /* @__PURE__ */ h(Box, { flexDirection: "column", flexGrow: 1, flexShrink: 1, minWidth: 0 }, /* @__PURE__ */ h(Box, { flexDirection: "row", gap: 1, alignItems: "center" }, /* @__PURE__ */ h(Box, { flexShrink: 0 }, b.word ? /* @__PURE__ */ h(Box, { flexDirection: "row" }, /* @__PURE__ */ h(Text, { color: b.color, bold: true }, "✦ "), /* @__PURE__ */ h(Text, { key: `${b.key}-word`, color: b.word.color, bold: true }, b.word.text), /* @__PURE__ */ h(Text, { color: b.color, bold: true }, b.word.rest)) : /* @__PURE__ */ h(Text, { color: b.color, bold: true }, `✦ ${b.title}`)), /* @__PURE__ */ h(Box, { flexGrow: 1 }), b.buttons), fit.detail ? hintLine({ Box, Text }, b.hint ?? "", b.detail || " ", `${b.key}-detail`) : null, extra),
+    /* @__PURE__ */ h(Box, { flexDirection: "column", flexGrow: 1, flexShrink: 1, minWidth: 0 }, /* @__PURE__ */ h(Box, { flexDirection: "row", gap: 1, alignItems: "center" }, /* @__PURE__ */ h(Box, { flexShrink: 0 }, b.word ? /* @__PURE__ */ h(Box, { flexDirection: "row" }, /* @__PURE__ */ h(Text, { color: b.color, bold: true }, "✦ "), /* @__PURE__ */ h(Text, { key: `${b.key}-word`, color: b.word.color, bold: true }, b.word.text), /* @__PURE__ */ h(Text, { color: b.color, bold: true }, b.word.rest)) : /* @__PURE__ */ h(Text, { color: b.color, bold: true }, `✦ ${b.title}`)), /* @__PURE__ */ h(Box, { flexGrow: 1 }), b.buttons), fit.detail ? detailLine({ Box, Text }, b.detail || " ", `${b.key}-detail`) : null, extra),
     art
   ), rows);
 }
@@ -3458,7 +3479,6 @@ async function dashboardBand($, e) {
   const columns = typeof e.props.bodyColumns === "number" ? e.props.bodyColumns : 100;
   const lens = await lensRow($, e, Math.max(20, columns - 4)).catch(() => null);
   const judgingHere = !inAgent && Boolean(v.judging);
-  const hint = inAgent ? "" : await appHint($, v);
   const modelName = MODELS.find((m) => m.key === shownModel)?.long;
   const { head, what, pair, rest, detail } = dashboardLines({
     auto: v.auto,
@@ -3637,7 +3657,6 @@ async function dashboardBand($, e) {
       edge: DASH_EDGE,
       title: head.replace(/^✦ /, ""),
       detail,
-      hint,
       buttons,
       extra: lens,
       word: { text: pair, color: await effortFlash($, what, judgingHere, entering), rest }
@@ -3766,7 +3785,7 @@ async function dashboardBand($, e) {
         buttons[buttons.length - 1]
       ))
     ) : null)),
-    hintLine({ Box, Text }, hint, detail || " ", "dash-detail"),
+    detailLine({ Box, Text }, detail || " ", "dash-detail"),
     lens
   );
 }

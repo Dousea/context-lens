@@ -33,7 +33,7 @@ import { setupBack, setupCounter, setupNext } from '../hooks/logic/setup'
 import { asSpent, savedText, turnLineFor, weighted } from '../hooks/logic/spend'
 import { subagentFloor, subagentModelFor, subagentSteerable } from '../hooks/logic/subagents'
 import { priceOf, subagentNote, subagentPays, switchWorth } from '../hooks/logic/switching'
-import { appHintText, bandFit } from '../hooks/render/band'
+import { bandFit } from '../hooks/render/band'
 import { dashboardLines, flashColor } from '../hooks/render/dashboard'
 import { handoffLook } from '../hooks/svg/controls'
 import {
@@ -891,6 +891,11 @@ describe('typed commands', () => {
     expect(ran).toEqual([])
     await step($)
     expect(sent[0]?.model).toBe('claude-haiku-5-5')
+
+    // The app's own model is still Opus, so the picker marks it.
+    await ui.redraw()
+    expect((await ui.find({ key: 'm-opus' }))?.text).toContain('( Opus )')
+    expect((await ui.find({ key: 'm-haiku' }))?.text).not.toContain('(')
     await ui.unmount()
   })
 
@@ -936,9 +941,10 @@ describe('typed commands', () => {
 
     expect(filled).toEqual([])
     expect(sent[0]?.effort).toBe('high')
-    // Your pick goes out for this session only, so the app's /effort still says Medium: the hint says so.
-    expect(await drawn(ui)).toContain('App: ')
-    expect(await drawn(ui)).toContain('Medium')
+    // Your pick goes out for this session only, so the app's /effort still says medium: the picker marks it.
+    expect((await ui.find({ key: 'e-medium' }))?.text).toContain('( medium )')
+    expect((await ui.find({ key: 'e-high' }))?.text).not.toContain('(')
+    expect(await drawn(ui)).not.toContain('App: ')
     await ui.unmount()
   })
 
@@ -3584,14 +3590,6 @@ describe('dashboard', () => {
     }
     expect(dashboardLines(base).head).toBe(`✦ Medium · cache ${cacheLabel(42)} · 18% context`)
     expect(dashboardLines(base).detail).toBe('Why: a small fix')
-    // The app's own model and effort, only while either differs from what goes out.
-    expect(appHintText({ model: 'opus', effort: 'medium' }, { model: 'opus', effort: 'medium' })).toBe('')
-    expect(appHintText({ model: 'opus', effort: 'medium' }, { model: 'opus', effort: 'high' })).toBe(
-      'App: Opus 5.5 · Medium',
-    )
-    expect(appHintText({ model: 'opus', effort: 'medium' }, { model: 'sonnet' })).toBe('App: Opus 5.5 · Medium')
-    expect(appHintText({ model: 'opus', effort: null }, { model: 'opus', effort: 'high' })).toBe('')
-    expect(appHintText({ model: 'opus', effort: null }, { model: 'haiku', effort: 'high' })).toBe('App: Opus 5.5')
     expect(dashboardLines({ ...base, model: 'Opus 5.5' }).head).toBe(
       `✦ Opus 5.5 · Medium · cache ${cacheLabel(42)} · 18% context`,
     )

@@ -9,11 +9,7 @@ import type {
   TextProps,
 } from 'claude-code'
 
-import type { Effort, ModelKey } from '../../types'
-import { EFFORT_LABELS, EFFORTS, MODELS } from '../core/constants'
 import { ACCENT, BRAND_BG, BRAND_EDGE } from '../core/palette'
-import type { Snap } from '../logic/effort'
-import { keyOf, sessionModel } from '../logic/switching'
 import { ART_COLUMNS, ART_FRAME_MS, ART_MIN_WIDTH, ART_ROWS, artFrame, type ArtKind, MOVING } from '../svg/art'
 import { MARK_SVG } from '../svg/brand-mark'
 import { inPhase } from '../svg/glows'
@@ -137,45 +133,16 @@ export function introLayer(
   )
 }
 
-/** "App: Opus 5.5 · Medium", the app's own model and effort, while either differs from what the band sends; else empty.
- * The app's status line, /model and /effort show its own, so this says why they disagree with the band. */
-export function appHintText(
-  app: { model?: ModelKey; effort?: unknown },
-  sent: { model?: ModelKey; effort?: Effort },
-): string {
-  const appEffortKnown = EFFORTS.includes(app.effort as Effort) ? (app.effort as Effort) : undefined
-  const modelDiffers = app.model && sent.model && app.model !== sent.model
-  const effortDiffers = appEffortKnown && sent.effort && appEffortKnown !== sent.effort
-  if (!modelDiffers && !effortDiffers) return ''
-  const parts = [MODELS.find(m => m.key === app.model)?.long, appEffortKnown && EFFORT_LABELS[appEffortKnown]]
-  return `App: ${parts.filter(Boolean).join(' · ')}`
-}
-
-/** A line with the app hint at the left and `words` at the right end. */
-export function hintLine({ Box, Text }: Pick<BandElements, 'Box' | 'Text'>, hint: string, words: string, key: string) {
+/** A dim line of `words`, cut at the end when it does not fit. */
+export function detailLine({ Box, Text }: Pick<BandElements, 'Box' | 'Text'>, words: string, key: string) {
   return (
-    <Box key={key} flexDirection="row" justifyContent="space-between" columnGap={2}>
-      {hint ? (
-        <Box flexShrink={0}>
-          <Text dimColor>{hint}</Text>
-        </Box>
-      ) : null}
+    <Box key={key} flexDirection="row">
       <Box flexShrink={1} minWidth={0}>
         <Text dimColor wrap="truncate-end">
           {words}
         </Text>
       </Box>
     </Box>
-  )
-}
-
-/** The chat's app hint: the model a taken offer or a click sends against the app's, and the pick's effort against the
- * app's when the pick goes out (the send path's rule: yours always, the judge's with Auto on where the cache allows). */
-export async function appHint($: EngineInterface, v: Snap): Promise<string> {
-  const pickGoesOut = v.current && (v.current.by === 'manual' || (v.auto && !v.pausedNow))
-  return appHintText(
-    { model: keyOf(await $.session.model()), effort: v.shownByApp },
-    { model: await sessionModel($), effort: pickGoesOut ? v.current!.effort : undefined },
   )
 }
 
@@ -279,7 +246,6 @@ type TerminalBand = {
   edge: string
   title: string
   detail: string
-  hint?: string
   buttons: RenderChildren[]
   extra?: RenderChildren
   word?: { text: string; color: string; rest: string }
@@ -305,7 +271,7 @@ export async function terminalBand($: EngineInterface, e: RenderInput<'AboveProm
   const { rows: effort, height } = await effortRows($, e)
   const maxRows = typeof e.props.maxRows === 'number' ? e.props.maxRows : 99
   // An empty detail row is kept (so a band does not move when an alert appears) until the room runs out.
-  const fit = bandFit(maxRows, { detailText: Boolean(b.detail || b.hint), lens: b.extra !== null, effort: height ?? 0 })
+  const fit = bandFit(maxRows, { detailText: Boolean(b.detail), lens: b.extra !== null, effort: height ?? 0 })
   const art = fit.border ? bandArt($, e, b.kind) : null
   const rows = fit.effort ? effort : null
   // The lens row stays under every band: the dashboard passes its own; an alert gets one sized to what the art leaves.
@@ -351,7 +317,7 @@ export async function terminalBand($: EngineInterface, e: RenderInput<'AboveProm
           </Box>
           {/* An empty detail still takes its row (a no-break space), so the dashboard is as tall as an alert and nothing moves
               when one appears. */}
-          {fit.detail ? hintLine({ Box, Text }, b.hint ?? '', b.detail || '\u00a0', `${b.key}-detail`) : null}
+          {fit.detail ? detailLine({ Box, Text }, b.detail || '\u00a0', `${b.key}-detail`) : null}
           {extra}
         </Box>
         {art}

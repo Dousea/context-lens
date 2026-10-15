@@ -5,9 +5,18 @@ import { EFFORTS, MODELS } from '../core/constants'
 import { effortOf, pickEffort, snap, toggleAutoEffort, toggleAutoModel } from '../logic/effort'
 import { saveSetting } from '../logic/settings'
 import { subagentEffortOf } from '../logic/subagents'
-import { declined, offer, sessionModel, setDeclined, settleOffer, suggestedAs, switchModel } from '../logic/switching'
+import {
+  declined,
+  keyOf,
+  offer,
+  sessionModel,
+  setDeclined,
+  settleOffer,
+  suggestedAs,
+  switchModel,
+} from '../logic/switching'
 import { themedEls } from '../theme'
-import { appHint, hintLine } from './band'
+import { detailLine } from './band'
 
 const isAutoModel = atom({ plugin: 'context-lens', key: 'isAutoModel' } as const, false)
 const suggestion = atom({ plugin: 'context-lens', key: 'suggestion' } as const, null)
@@ -108,7 +117,11 @@ export async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt
       : auto
         ? 'Picks the effort at the next prompt'
         : 'Pick an effort'
-  const hint = inAgent ? '' : await appHint($, v)
+  // The app's own model and effort, which its status line, /model and /effort show, are marked ( ) in the pickers. A
+  // subagent in view has none of its own.
+  const appModel = inAgent ? undefined : keyOf(await $.session.model())
+  const appEffort = inAgent || !EFFORTS.includes(v.shownByApp as Effort) ? undefined : (v.shownByApp as Effort)
+  const marked = (label: string, isApp: boolean) => (isApp ? `( ${label} )` : label)
   // The note is drawn by the caller: a band's detail line says why, and the minimal look puts it on a line of its own
   // (noteLine). Each toggle says the mode in force; a press switches to the other.
   const modelPicker = (
@@ -116,9 +129,20 @@ export async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt
       <Text dimColor>Model</Text>
       {MODELS.map(m =>
         m.key === inUse ? (
-          <Button key={`m-${m.key}`} variant="primary" label={m.label} onPress={setModel(m.key)} />
+          <Button
+            key={`m-${m.key}`}
+            variant="primary"
+            label={marked(m.label, m.key === appModel)}
+            onPress={setModel(m.key)}
+          />
         ) : (
-          <Button key={`m-${m.key}`} plain dimColor label={m.label} onPress={setModel(m.key)} />
+          <Button
+            key={`m-${m.key}`}
+            plain
+            dimColor
+            label={marked(m.label, m.key === appModel)}
+            onPress={setModel(m.key)}
+          />
         ),
       )}
       <Button
@@ -135,9 +159,20 @@ export async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt
       <Text dimColor>Effort</Text>
       {EFFORTS.map(level =>
         level === effortNow ? (
-          <Button key={`e-${level}`} variant="primary" label={level} onPress={setEffort(level)} />
+          <Button
+            key={`e-${level}`}
+            variant="primary"
+            label={marked(level, level === appEffort)}
+            onPress={setEffort(level)}
+          />
         ) : (
-          <Button key={`e-${level}`} plain dimColor label={level} onPress={setEffort(level)} />
+          <Button
+            key={`e-${level}`}
+            plain
+            dimColor
+            label={marked(level, level === appEffort)}
+            onPress={setEffort(level)}
+          />
         ),
       )}
       <Button
@@ -161,9 +196,9 @@ export async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt
   )
 
   // Rows it takes, for fitting the band into the room the app gives it. A button is its label and about three cells of
-  // frame and hotkey; a toggle is counted at its wider word.
+  // frame and hotkey; a toggle is counted at its wider word, and the app's mark at its four cells.
   const pickerWidth = (word: string, labels: string[]) =>
-    word.length + [...labels, 'Manual'].reduce((sum, label) => sum + label.length + 4, 0)
+    word.length + 4 + [...labels, 'Manual'].reduce((sum, label) => sum + label.length + 4, 0)
   const bothWidth =
     pickerWidth(
       'Model',
@@ -173,6 +208,6 @@ export async function effortRows($: EngineInterface, e: RenderInput<'AbovePrompt
     pickerWidth('Effort', EFFORTS)
   const columns = typeof e.props.bodyColumns === 'number' ? e.props.bodyColumns : 100
   const height = (bothWidth > columns ? 2 : 1) + (question ? 1 : 0)
-  const noteLine = inAgent ? null : hintLine({ Box, Text }, hint, reasonNote, 'effort-note')
+  const noteLine = inAgent ? null : detailLine({ Box, Text }, reasonNote, 'effort-note')
   return { question, rows, height, noteLine }
 }

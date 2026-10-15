@@ -41,7 +41,7 @@ import {
 import { DASH_MARK_OFF, DASH_SVG } from '../svg/scenes'
 import { themedEls } from '../theme'
 import { PILL_H, THINK_W, thinkingSvg } from '../svg/thinking'
-import { appHint, hintLine, introFresh, introShows, setIntroFresh, terminalBand } from './band'
+import { detailLine, introFresh, introShows, setIntroFresh, terminalBand } from './band'
 import { lensRow } from './lens-row'
 
 const handoffAdvice = atom({ plugin: 'context-lens', key: 'handoffAdvice' } as const, null)
@@ -210,7 +210,6 @@ export async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePro
   const columns = typeof e.props.bodyColumns === 'number' ? e.props.bodyColumns : 100
   const lens = await lensRow($, e, Math.max(20, columns - 4)).catch(() => null)
   const judgingHere = !inAgent && Boolean(v.judging)
-  const hint = inAgent ? '' : await appHint($, v)
   const modelName = MODELS.find(m => m.key === shownModel)?.long
   // The lens row carries the cache and the context; the title says them in words until it has anything to show.
   const { head, what, pair, rest, detail } = dashboardLines({
@@ -402,7 +401,6 @@ export async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePro
       edge: DASH_EDGE,
       title: head.replace(/^✦ /, ''),
       detail,
-      hint,
       buttons,
       extra: lens,
       word: { text: pair, color: await effortFlash($, what, judgingHere, entering), rest },
@@ -454,7 +452,7 @@ export async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePro
           <Svg source={glowSource} alt="deciding glow" width={AUTO_GLOW_W} height={AUTO_GLOW_H} />
         </Box>
       ) : null}
-      {/* Three rows: the title with the controls, the hint and the reason, then the lens. */}
+      {/* Three rows: the title with the controls, the reason, then the lens. */}
       <Box key="dash-title" flexDirection="row" alignItems="center">
         {/* The effort word never shrinks; the row clips rather than run under the buttons. */}
         <Box
@@ -572,7 +570,7 @@ export async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePro
         </Box>
       </Box>
       {/* An empty detail still takes its row, so the band keeps its height when a reason arrives. */}
-      {hintLine({ Box, Text }, hint, detail || ' ', 'dash-detail')}
+      {detailLine({ Box, Text }, detail || ' ', 'dash-detail')}
       {lens}
     </Box>
   )
