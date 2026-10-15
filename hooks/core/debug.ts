@@ -56,9 +56,12 @@ export let drawsTimed = 0
 export const setDrawsTimed = (value: typeof drawsTimed) => {
   drawsTimed = value
 }
+// The last draw that failed and when: kept through the draws after it, so /context-lens debug can still name it.
 export let lastRenderError = ''
+export let lastRenderErrorAt = 0
 export const setLastRenderError = (value: typeof lastRenderError) => {
   lastRenderError = value
+  lastRenderErrorAt = Date.now()
 }
 export let sessionStarted = 0
 export const setSessionStarted = (value: typeof sessionStarted) => {

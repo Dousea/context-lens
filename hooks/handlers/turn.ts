@@ -5,7 +5,7 @@ import { config } from '../core/config'
 import { cacheSafe, EFFORT_LABELS, EFFORTS, MODELS, takesEffort } from '../core/constants'
 import { proof } from '../core/env'
 import { engineEffort, pickCarried, setEngineEffort, setLastRequest, setTurnBusy } from '../core/session'
-import { cacheExpires, cacheTouched } from '../logic/cache'
+import { cacheExpires, cacheTouched, cacheTtl } from '../logic/cache'
 import { choose } from '../logic/effort'
 import { cardRunning, setHandoffText } from '../logic/handoff'
 import { heldPick, setHeldPick } from '../logic/judge'
@@ -98,13 +98,20 @@ export function registerTurnHooks(on: On) {
           at: Date.now(),
         })
       const answer = yield* next(request)
-      if (answer?.usage)
-        await recordRequest($, e.agentId, answer.usage, {
-          model: typeof request.model === 'string' ? keyOf(request.model) : undefined,
-          effort: EFFORTS.find(x => x === request.effort),
-        }).catch(() => undefined)
       // Inside the hook ($ calls after it returns are refused), and never allowed to break the request.
       if (e.agentId === undefined && answer?.usage) await cacheTouched($, answer.usage).catch(() => undefined)
+      // After cacheTouched, so the lens takes the lifetime the countdown learned from this response.
+      if (answer?.usage)
+        await recordRequest(
+          $,
+          e.agentId,
+          answer.usage,
+          {
+            model: typeof request.model === 'string' ? keyOf(request.model) : undefined,
+            effort: EFFORTS.find(x => x === request.effort),
+          },
+          e.agentId === undefined ? cacheTtl : undefined,
+        ).catch(() => undefined)
       const sentModel = typeof request.model === 'string' ? keyOf(request.model) : undefined
       if (e.agentId === undefined && answer?.usage && sentModel) {
         const u = answer.usage

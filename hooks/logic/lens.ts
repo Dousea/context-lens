@@ -30,7 +30,7 @@ export const LENS_WARMTH_COLOR: Record<Warmth, string> = {
 }
 
 /** The TTLs the engine picks, in the order the promptCacheTtl and subagentPromptCacheTtl settings document. */
-async function cacheTtls($: EngineInterface): Promise<{ main: CacheTtl; agent: CacheTtl }> {
+export async function cacheTtls($: EngineInterface): Promise<{ main: CacheTtl; agent: CacheTtl }> {
   const [settings, usage, mainEnv, agentEnv, force5m, enable1h] = await Promise.all([
     $.settings.read(),
     $.session.usage(),
@@ -47,6 +47,11 @@ async function cacheTtls($: EngineInterface): Promise<{ main: CacheTtl; agent: C
   }
 }
 
+/** A resumed chat's lens clock, from when the app says its last response was: one this copy has seen stays. */
+export async function resumeLensClock($: EngineInterface, lastAt: number, ttl: CacheTtl) {
+  await update($, lensMain, clock => (clock.lastAt === null ? { ...emptyClock(ttl), lastAt } : clock))
+}
+
 export async function refreshUsage($: EngineInterface): Promise<void> {
   const usage = await $.session.usage({ breakdown: 'summary' })
   await update($, lensLiveTokens, () => usage.context.tokens ?? null)
@@ -55,17 +60,19 @@ export async function refreshUsage($: EngineInterface): Promise<void> {
   if (breakdown) await update($, lensContext, () => toContextView(breakdown))
 }
 
+/** `mainTtl` is the lifetime the chat's countdown learned from this response, so the lens and the footer agree. */
 export async function recordRequest(
   $: EngineInterface,
   agentId: string | undefined,
   usage: ModelUsage,
   ran?: { model?: ModelKey; effort?: Effort },
+  mainTtl?: CacheTtl,
 ): Promise<void> {
   const [at, ttls] = await Promise.all([$.clock.now(), cacheTtls($)])
   if (agentId === undefined) {
     const previous = await read($, lensMain)
     await update($, lensRewritten, () => isRecache(previous, usage) && warmth(previous, at) !== 'cold')
-    await update($, lensMain, () => applyUsage(usage, at, ttls.main))
+    await update($, lensMain, () => applyUsage(usage, at, mainTtl ?? ttls.main))
     return
   }
   const known = (await read($, lensAgents)).find(a => a.id === agentId)

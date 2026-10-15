@@ -7,6 +7,7 @@ import {
   lastRenderAt,
   lastRenderBranch,
   lastRenderError,
+  lastRenderErrorAt,
   lastRenderProps,
   probeLevel,
   renderCalls,
@@ -43,6 +44,10 @@ import {
   suggestedAs,
   switchModel,
 } from '../logic/switching'
+
+// What /context-lens takes, as commands/context-lens.md lists it.
+const COMMAND_ARGUMENTS =
+  'settings, debug, handoff [full], setup, bench, auto, stats, save, switch, keep, cold, swamp, hot or down'
 
 const isAuto = atom({ plugin: 'context-lens', key: 'isAuto' } as const, true)
 const suggestion = atom({ plugin: 'context-lens', key: 'suggestion' } as const, null)
@@ -136,7 +141,7 @@ export function registerCommandHooks(on: On) {
             `rate limits: app ${appLimits ? limitsText(appLimits) : 'unreadable'}, band ${limitsText(await read($, lensLimits))}`,
             `model caches: ${[...modelCaches].map(([k, c]) => `${k} ${kTokens(c.tokens)} ${Math.max(0, Math.ceil((c.expires - debugNow) / 60_000))} min`).join(', ') || 'none'}${sessionPick ? `, session on ${sessionPick}` : ''}`,
             `band asked for ${renderCalls} times, last ${ago(lastRenderAt)}`,
-            `band error: ${lastRenderError || 'none'}`,
+            `band error: ${lastRenderError ? `${lastRenderError} (${ago(lastRenderErrorAt)}${lastRenderAt > lastRenderErrorAt ? ', drawn again since' : ''})` : 'none'}`,
             `last draw: ${lastRenderBranch || 'none'}`,
             `app sent: ${lastRenderProps || 'nothing'}`,
             `settings open: ${await read($, settingsOpen)}`,
@@ -189,20 +194,28 @@ Saved to ${out}.md and .json`,
       }
     }
     if (arg === 'stats' || arg === 'saved') return { text: `Auto, this session:\n${savedText(await read($, saved))}` }
-    if (!wanted) return { text: 'No model suggestion right now.' }
-    if (arg === 'switch') {
-      if (offer && suggestedAs === 'subagent') {
-        settleOffer(true)
-        return { text: `Handing the prompt to a ${wanted} subagent. The chat stays on its model.` }
+    if (arg === 'switch' || arg === 'keep' || arg === '') {
+      if (!wanted) return { text: 'No model suggestion right now.' }
+      if (arg === '')
+        return {
+          text: `${suggestedAs === 'subagent' ? `A ${wanted} subagent is offered` : `${wanted} is offered`}. /context-lens switch takes it, /context-lens keep turns it down.`,
+        }
+      if (arg === 'switch') {
+        if (offer && suggestedAs === 'subagent') {
+          settleOffer(true)
+          return { text: `Handing the prompt to a ${wanted} subagent. The chat stays on its model.` }
+        }
+        if (offer) settleOffer(true)
+        else await switchModel($, wanted)
+        return { text: `Switching to ${wanted} for this session. The context reloads.` }
       }
-      if (offer) settleOffer(true)
-      else await switchModel($, wanted)
-      return { text: `Switching to ${wanted} for this session. The context reloads.` }
+      setDeclined(wanted)
+      await update($, suggestion, () => null)
+      settleOffer(false)
+      return { text: `Keeping the current model.` }
     }
-    setDeclined(wanted)
-    await update($, suggestion, () => null)
-    settleOffer(false)
-    return { text: `Keeping the current model.` }
+    // An argument it does not know leaves a pending offer standing.
+    return { text: `/context-lens has no "${arg}". It takes ${COMMAND_ARGUMENTS}.` }
   })
 
   // /model ends a taken offer even when it names the model the app already runs, which the app does not count as a switch

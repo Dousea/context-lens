@@ -102,11 +102,12 @@
     "holdOffer": {
       "type": "string",
       "title": "Hold the prompt for a model offer",
-      "description": "on (default): with model on Manual, a typed prompt waits for Switch, Keep or Don't ask again when the judge names another model. off: the other model is suggested in a toast and the prompt goes on. With model on Auto the switch or hand-off happens without asking either way.",
+      "description": "on (default): with model on Manual, a typed prompt waits for Switch, Keep or Don't ask again when the judge names another model. off: the offer shows above the prompt and the prompt goes on. never: the judge never suggests a model. With model on Auto the switch or hand-off happens without asking, whichever is set.",
       "default": "on",
       "options": [
         "on",
-        "off"
+        "off",
+        "never"
       ]
     },
     "handoffButton": {
@@ -143,17 +144,6 @@
         "60",
         "70",
         "80"
-      ]
-    },
-    "appearance": {
-      "type": "string",
-      "title": "Appearance",
-      "description": "auto: light panels when Claude Code's theme is light, dark otherwise. dark and light fix it.",
-      "default": "auto",
-      "options": [
-        "auto",
-        "dark",
-        "light"
       ]
     },
     "theme": {

@@ -21,11 +21,12 @@ import {
   lastResponseAt,
   rememberCache,
   setCacheExpires,
+  setCacheTtl,
   setLastResponseAt,
   showCache,
 } from '../logic/cache'
 import { haikuCompaction, setLastHaikuCompact } from '../logic/compact'
-import { afterCompaction, lensStarted, refreshUsage } from '../logic/lens'
+import { afterCompaction, cacheTtls, lensStarted, refreshUsage, resumeLensClock } from '../logic/lens'
 import { carryRenamedSettings } from '../logic/settings'
 import { drainSetupSave } from '../logic/setup'
 import { modelCaches, modelIs } from '../logic/switching'
@@ -168,6 +169,13 @@ export function registerSessionHooks(on: On) {
     ) {
       const now = await $.clock.now()
       setLastResponseAt(now - r.seconds_since_last_response * 1000)
+
+      // A cache the app still counts as warm past 5 minutes lives an hour; otherwise the lifetime the settings give it.
+      // The footer's countdown and the lens start from the same one.
+      const warmPastShort = !r.prompt_cache_likely_expired && r.seconds_since_last_response * 1000 > CACHE_TTL['5m']
+      setCacheTtl(warmPastShort ? '1h' : ((await cacheTtls($).catch(() => null))?.main ?? cacheTtl))
+      await resumeLensClock($, lastResponseAt!, cacheTtl).catch(() => undefined)
+
       const left = lastResponseAt! + CACHE_TTL[cacheTtl]
       setCacheExpires(r.prompt_cache_likely_expired || left <= now ? now - 1 : left)
       await rememberCache($)

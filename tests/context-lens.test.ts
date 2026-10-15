@@ -1760,6 +1760,28 @@ describe('review fixes', () => {
     expect(String(kept.text)).toContain('Keeping')
     await ui.unmount()
   })
+
+  test('/context-lens with a typo or no argument leaves the offer standing', async ($, on) => {
+    engine(on)
+    on('model.complete', () => ({
+      value: { isAnswered: true as const, text: '{"model":"haiku","effort":"low","why":"simple"}', usage: USAGE },
+    }))
+    mock.clock(on)
+    const ui = await $.ui.mount({ plugin: 'context-lens', surface: 'terminal', ...BAND })
+
+    const prompt = $.prompt.submit({ text: 'hej', wait: false, origin: { kind: 'composer' } })
+    for (let i = 0; i < 5; i++) await ui.redraw()
+
+    const typo = await $.command.run({ command: 'context-lens', args: 'hoy' } as never)
+    expect(String(typo.text)).toContain('has no "hoy"')
+    const bare = await $.command.run({ command: 'context-lens', args: '' } as never)
+    expect(String(bare.text)).toContain('haiku is offered')
+
+    const taken = await $.command.run({ command: 'context-lens', args: 'switch' } as never)
+    await prompt
+    expect(String(taken.text)).toContain('haiku')
+    await ui.unmount()
+  })
 })
 
 describe('judge choice (plugin settings)', () => {
@@ -3054,6 +3076,10 @@ describe('running hot and judge down', () => {
 
     const debug = (await $.command.run({ command: 'context-lens', args: 'debug' } as never)) as { text?: string }
     expect(debug.text).toContain('band error: none')
+
+    // The store is read once: a later draw stays closed only if the timer saved the closed band to the state.
+    await mocked.advance(1)
+    await expect($.ui.mount(DESK_BAND)).rejects.toThrow()
   })
 
   test('a failing judge shows the judge-down band until it answers again', async ($, on) => {
@@ -4136,6 +4162,26 @@ describe('a chat opened again', () => {
     const footer = await $.ui.mount(FOOTER)
     expect(await drawn(footer)).toMatch(/"(49|50)m"/)
     await footer.unmount()
+  })
+
+  test('four minutes after, on a 5-minute cache: the countdown takes the lifetime the settings give', async ($, on) => {
+    engine(on)
+    mock.clock(on)
+    on('settings.read', () => ({ value: { promptCacheTtl: '5m' } }) as never)
+    on(
+      'session.usage',
+      () => ({ value: { context: { tokens: 1000, window: 200_000, percent: 1 }, rateLimits: [] } }) as never,
+    )
+    await start($, on)
+    await closeSetup($)
+    await $.classic.SessionStart({
+      source: 'resume',
+      seconds_since_last_response: 240,
+      prompt_cache_likely_expired: false,
+    } as never)
+    const debug = (await $.command.run({ command: 'context-lens', args: 'debug' } as never)) as { text?: string }
+    expect(debug.text).toContain('1 min left')
+    expect(debug.text).toContain('ttl 5m')
   })
 })
 

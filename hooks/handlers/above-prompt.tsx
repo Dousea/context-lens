@@ -169,7 +169,7 @@ export function registerAbovePromptHooks(on: On) {
         return await swampBand($, e, swampTokens)
       // At rest: the dashboard, unless the person picked the minimal look (the footer's buttons, no band).
       if (config.layout === 'default') {
-        if (e.surface === 'terminal') return dashboardBand($, e)
+        if (e.surface === 'terminal') return await dashboardBand($, e)
         const { question } = await effortRows($, e)
         const dash = await dashboardBand($, e)
         return question ? (

@@ -28,6 +28,8 @@ Then `/context-lens settings`. The first run opens a short setup guide. `/contex
 | `/context-lens handoff [full]`               | writes a handoff for a fresh chat                       |
 | `/context-lens stats`                        | what Auto steered and what it cost                      |
 | `/context-lens bench`                        | runs the judge against the labelled prompts in `bench/` |
+| `/context-lens save`                         | save mode on or off                                     |
+| `/context-lens switch`, `keep`               | takes or turns down a model offer                       |
 | `/context-lens cold`, `swamp`, `hot`, `down` | previews an alert band                                  |
 
 ## Where it comes from

@@ -71,6 +71,9 @@ export function cacheLabel(minutesLeft: number): string {
 }
 
 export let cacheTtl: keyof typeof CACHE_TTL = '1h'
+export const setCacheTtl = (value: typeof cacheTtl) => {
+  cacheTtl = value
+}
 export let cacheExpires = 0
 export const setCacheExpires = (value: typeof cacheExpires) => {
   cacheExpires = value

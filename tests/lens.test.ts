@@ -53,7 +53,7 @@ const band = (bodyColumns: number, agentId?: string) => ({
 const START = { cwd: '/tmp/project', surface: 'terminal' as const, isInteractive: true }
 
 /** Stands in for the engine beneath the plugin; keeps the toasts it was asked to raise. */
-function engine(on: On) {
+function engine(on: On, settings: Record<string, unknown> = {}) {
   const toasts: string[] = []
   // What the dashboard around the lens needs beneath it: a store, the environment, the prompt and the session's model.
   mock.store(on)
@@ -66,7 +66,7 @@ function engine(on: On) {
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('command.register', () => ({ value: undefined }) as never)
   on('session.usage', () => ({ value: USAGE }))
-  on('settings.read', () => ({ value: {} }))
+  on('settings.read', () => ({ value: settings }) as never)
   on('ui.toast', ($, e) => {
     toasts.push(e.text)
     return { value: undefined }
@@ -151,6 +151,22 @@ test('the line counts the main cache down and shows the context and usage', asyn
   const line = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', component: 'AbovePrompt', props: band(140) })
   expect(await line.find({ text: /^30m$/ })).toBeDefined()
   expect(await line.find({ text: /^◑$/ })).toBeDefined()
+})
+
+test('a resumed chat counts the cache down from its last response, at the lifetime the footer uses', async ($, on) => {
+  mock.clock(on, { now: 0 })
+  engine(on, { promptCacheTtl: '5m' })
+  on('classic.SessionStart', () => ({}) as never)
+  await begin($)
+  await $.classic.SessionStart({
+    source: 'resume',
+    seconds_since_last_response: 120,
+    prompt_cache_likely_expired: false,
+  } as never)
+
+  const line = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', component: 'AbovePrompt', props: band(140) })
+  expect(await line.find({ text: /^3m$/ })).toBeDefined()
+  await line.unmount()
 })
 
 test('the usage windows draw bars on a wide terminal and one-cell gauges on a narrower one', async ($, on) => {

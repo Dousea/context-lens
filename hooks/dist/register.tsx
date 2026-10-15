@@ -380,8 +380,10 @@ var setDrawsTimed = (value) => {
   drawsTimed = value;
 };
 var lastRenderError = "";
+var lastRenderErrorAt = 0;
 var setLastRenderError = (value) => {
   lastRenderError = value;
+  lastRenderErrorAt = Date.now();
 };
 var sessionStarted = 0;
 var setSessionStarted = (value) => {
@@ -803,6 +805,9 @@ async function cacheTtls($) {
     agent: resolveTtl(agentEnv ?? settings.subagentPromptCacheTtl, enable1h ? "1h" : "5m")
   };
 }
+async function resumeLensClock($, lastAt, ttl) {
+  await update($, lensMain, (clock) => clock.lastAt === null ? { ...emptyClock(ttl), lastAt } : clock);
+}
 async function refreshUsage($) {
   const usage = await $.session.usage({ breakdown: "summary" });
   await update($, lensLiveTokens, () => usage.context.tokens ?? null);
@@ -810,12 +815,12 @@ async function refreshUsage($) {
   const breakdown = usage.context.breakdown;
   if (breakdown) await update($, lensContext, () => toContextView(breakdown));
 }
-async function recordRequest($, agentId, usage, ran) {
+async function recordRequest($, agentId, usage, ran, mainTtl) {
   const [at, ttls] = await Promise.all([$.clock.now(), cacheTtls($)]);
   if (agentId === void 0) {
     const previous = await read($, lensMain);
     await update($, lensRewritten, () => isRecache(previous, usage) && warmth(previous, at) !== "cold");
-    await update($, lensMain, () => applyUsage(usage, at, ttls.main));
+    await update($, lensMain, () => applyUsage(usage, at, mainTtl ?? ttls.main));
     return;
   }
   const known = (await read($, lensAgents)).find((a) => a.id === agentId);
@@ -1809,6 +1814,9 @@ function cacheLabel(minutesLeft) {
   return `${minutesLeft - 1}m`;
 }
 var cacheTtl = "1h";
+var setCacheTtl = (value) => {
+  cacheTtl = value;
+};
 var cacheExpires = 0;
 var setCacheExpires = (value) => {
   cacheExpires = value;
@@ -4964,7 +4972,7 @@ function registerAbovePromptHooks(on) {
       if (swampTokens !== null && !config.hide.includes("swamp") && !turnBusy() && !compacting && (hiddenAt === null || swampTokens >= hiddenAt + SWAMP_REGROW))
         return await swampBand($, e, swampTokens);
       if (config.layout === "default") {
-        if (e.surface === "terminal") return dashboardBand($, e);
+        if (e.surface === "terminal") return await dashboardBand($, e);
         const { question: question2 } = await effortRows($, e);
         const dash = await dashboardBand($, e);
         return question2 ? /* @__PURE__ */ h(Box, { key: "dash-col", flexDirection: "column" }, question2, dash) : dash;
@@ -5184,6 +5192,7 @@ async function runBench($, cases) {
 }
 
 // hooks/handlers/commands.ts
+var COMMAND_ARGUMENTS = "settings, debug, handoff [full], setup, bench, auto, stats, save, switch, keep, cold, swamp, hot or down";
 var isAuto2 = atom23({ plugin: "context-lens", key: "isAuto" }, true);
 var suggestion4 = atom23({ plugin: "context-lens", key: "suggestion" }, null);
 var saved4 = atom23({ plugin: "context-lens", key: "saved" }, EMPTY_SPENT);
@@ -5266,7 +5275,7 @@ function registerCommandHooks(on) {
           `rate limits: app ${appLimits ? limitsText(appLimits) : "unreadable"}, band ${limitsText(await read19($, lensLimits3))}`,
           `model caches: ${[...modelCaches].map(([k, c]) => `${k} ${kTokens(c.tokens)} ${Math.max(0, Math.ceil((c.expires - debugNow) / 6e4))} min`).join(", ") || "none"}${sessionPick ? `, session on ${sessionPick}` : ""}`,
           `band asked for ${renderCalls} times, last ${ago(lastRenderAt)}`,
-          `band error: ${lastRenderError || "none"}`,
+          `band error: ${lastRenderError ? `${lastRenderError} (${ago(lastRenderErrorAt)}${lastRenderAt > lastRenderErrorAt ? ", drawn again since" : ""})` : "none"}`,
           `last draw: ${lastRenderBranch || "none"}`,
           `app sent: ${lastRenderProps || "nothing"}`,
           `settings open: ${await read19($, settingsOpen5)}`,
@@ -5315,20 +5324,27 @@ Saved to ${out}.md and .json`
     }
     if (arg === "stats" || arg === "saved") return { text: `Auto, this session:
 ${savedText(await read19($, saved4))}` };
-    if (!wanted) return { text: "No model suggestion right now." };
-    if (arg === "switch") {
-      if (offer && suggestedAs === "subagent") {
-        settleOffer(true);
-        return { text: `Handing the prompt to a ${wanted} subagent. The chat stays on its model.` };
+    if (arg === "switch" || arg === "keep" || arg === "") {
+      if (!wanted) return { text: "No model suggestion right now." };
+      if (arg === "")
+        return {
+          text: `${suggestedAs === "subagent" ? `A ${wanted} subagent is offered` : `${wanted} is offered`}. /context-lens switch takes it, /context-lens keep turns it down.`
+        };
+      if (arg === "switch") {
+        if (offer && suggestedAs === "subagent") {
+          settleOffer(true);
+          return { text: `Handing the prompt to a ${wanted} subagent. The chat stays on its model.` };
+        }
+        if (offer) settleOffer(true);
+        else await switchModel($, wanted);
+        return { text: `Switching to ${wanted} for this session. The context reloads.` };
       }
-      if (offer) settleOffer(true);
-      else await switchModel($, wanted);
-      return { text: `Switching to ${wanted} for this session. The context reloads.` };
+      setDeclined(wanted);
+      await update22($, suggestion4, () => null);
+      settleOffer(false);
+      return { text: `Keeping the current model.` };
     }
-    setDeclined(wanted);
-    await update22($, suggestion4, () => null);
-    settleOffer(false);
-    return { text: `Keeping the current model.` };
+    return { text: `/context-lens has no "${arg}". It takes ${COMMAND_ARGUMENTS}.` };
   });
   on("command.run", { command: "model" }, async ($, e, next) => {
     const result = await next(e);
@@ -5723,6 +5739,9 @@ Continue the conversation from where it left off without asking the user any fur
     if ((r.source === "resume" || r.source === "fork") && typeof r.seconds_since_last_response === "number" && cacheExpires === 0) {
       const now = await $.clock.now();
       setLastResponseAt(now - r.seconds_since_last_response * 1e3);
+      const warmPastShort = !r.prompt_cache_likely_expired && r.seconds_since_last_response * 1e3 > CACHE_TTL["5m"];
+      setCacheTtl(warmPastShort ? "1h" : (await cacheTtls($).catch(() => null))?.main ?? cacheTtl);
+      await resumeLensClock($, lastResponseAt, cacheTtl).catch(() => void 0);
       const left = lastResponseAt + CACHE_TTL[cacheTtl];
       setCacheExpires(r.prompt_cache_likely_expired || left <= now ? now - 1 : left);
       await rememberCache($);
@@ -5799,12 +5818,18 @@ function registerTurnHooks(on) {
           at: Date.now()
         });
       const answer = yield* next(request);
-      if (answer?.usage)
-        await recordRequest($, e.agentId, answer.usage, {
-          model: typeof request.model === "string" ? keyOf(request.model) : void 0,
-          effort: EFFORTS.find((x) => x === request.effort)
-        }).catch(() => void 0);
       if (e.agentId === void 0 && answer?.usage) await cacheTouched($, answer.usage).catch(() => void 0);
+      if (answer?.usage)
+        await recordRequest(
+          $,
+          e.agentId,
+          answer.usage,
+          {
+            model: typeof request.model === "string" ? keyOf(request.model) : void 0,
+            effort: EFFORTS.find((x) => x === request.effort)
+          },
+          e.agentId === void 0 ? cacheTtl : void 0
+        ).catch(() => void 0);
       const sentModel = typeof request.model === "string" ? keyOf(request.model) : void 0;
       if (e.agentId === void 0 && answer?.usage && sentModel) {
         const u = answer.usage;
