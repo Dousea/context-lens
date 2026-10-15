@@ -44,6 +44,9 @@ export type HandoffAfter = 'continue' | 'confirm' | 'copy'
 /** A choice in the handoff bar: quick (a fork) or full (the person's skill), then what follows. */
 export type HandoffChoice = { kind: 'quick' | 'full'; after: HandoffAfter }
 
+/** A card of the settings panel. */
+export type SettingsCard = 'auto' | 'subagents' | 'context' | 'look'
+
 /** The settings panel's unsaved changes, by field, as the settings store them (strings). */
 export type SettingsDraft = {
   bias?: string
@@ -66,6 +69,8 @@ export type SettingsDraft = {
   subagentModel?: string
   /** on: the judge's picks replace the model and effort a subagent's definition sets; off: the definition's stay. */
   overrideDefinitions?: string
+  /** on: with model on Manual, a prompt waits for the answer to a model offer; off: the offer is a toast. */
+  holdOffer?: string
   /** violet (the brand), orange (Claude's) or rose (cherry blossom). */
   theme?: string
   appearance?: string
@@ -140,7 +145,7 @@ declare module 'claude-code' {
       judgeDownHidden: string | null
       /** The settings panel is open above the prompt. */
       settingsOpen: boolean
-      settingsCard: 'effort' | 'model' | 'handoff' | 'show' | null
+      settingsCard: SettingsCard | null
       /** Changes made in the settings panel and not saved yet. */
       settingsDraft: SettingsDraft
       /** The user and plugin skills, read when the settings panel opens. */

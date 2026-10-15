@@ -2,9 +2,6 @@ import type { Effort, HandoffAfter } from '../../types'
 import { type ThemeName, THEMES } from '../theme'
 import { EFFORTS } from './constants'
 
-// Which part of the settings panel is open: null for the cards.
-export type SettingsCard = 'auto' | 'subagents' | 'context' | 'look'
-
 /** The plugin's settings, as read from its options. */
 export type JudgeConfig = {
   /** A skill or slash command that writes the handoff instead of the built-in prompt, e.g. "session-handoff". */

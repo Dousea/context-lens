@@ -1,4 +1,4 @@
-import type { SettingsCard } from '../core/config'
+import type { SettingsCard } from '../../types'
 import { HANDOFF_LOUD_AT } from '../core/constants'
 import { ACCENT, DASH_BG, DASH_DIM, HOVER_BOX } from '../core/palette'
 import { HANDOFF_BOX_AT, HANDOFF_PILL_H, HANDOFF_PILL_W, inPhase } from './glows'

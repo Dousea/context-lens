@@ -1,7 +1,7 @@
 import { atom, type EngineInterface, read, type RenderInput, update } from 'claude-code'
 
-import type { Effort, SettingsDraft } from '../../types'
-import { config, type Hideable, type SettingsCard, SWAMP_STEPS } from '../core/config'
+import type { Effort, SettingsCard, SettingsDraft } from '../../types'
+import { config, type Hideable, SWAMP_STEPS } from '../core/config'
 import { EFFORTS } from '../core/constants'
 import { probeLevel } from '../core/debug'
 import { homeDir, noClaudeHint, ownVersion, pluginId, runClaude } from '../core/env'
