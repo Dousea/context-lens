@@ -32,6 +32,7 @@ import {
   readConfig,
   setConfig,
   setPluginOptions,
+  type SettingsCard,
   SWAMP_STEPS,
 } from './core/config'
 import {
@@ -43,7 +44,6 @@ import {
   EMPTY_SPENT,
   FROST_HEIGHT,
   FROST_WIDTH,
-  HANDOFF_LOUD_AT,
   MODELS,
   STEPS,
   takesEffort,
@@ -162,12 +162,95 @@ import {
   type Warmth,
   warmth,
 } from './model'
+import {
+  autoSwitchSvg,
+  binSvg,
+  cacheClockSvg,
+  enterSvg,
+  GO_CELLS,
+  GO_W,
+  goPillSvg,
+  handoffLook,
+  handoffPillSvg,
+  KIND_CELLS,
+  KIND_H,
+  KIND_W,
+  kindFlipAt,
+  kindSwitchSvg,
+  ringSvg,
+  rowIconSvg,
+  setKindFlipAt,
+  settingsSvg,
+} from './svg/controls'
+import {
+  AUTO_GLOW_H,
+  AUTO_GLOW_MS,
+  AUTO_GLOW_W,
+  autoGlowSvg,
+  COLD_GLOW_MS,
+  coldGlowSvg,
+  compactFadeSvg,
+  GLOW_H,
+  GLOW_W,
+  HANDOFF_BOX_AT,
+  HANDOFF_PILL_H,
+  HANDOFF_PILL_W,
+  handoffGlowStep,
+  handoffGlowSvg,
+  inPhase,
+  JUDGE_FADE_MS,
+  JUDGE_RISE_MS,
+  JUDGE_STEP_MS,
+  judgeGlowAt,
+} from './svg/glows'
+import {
+  BRAND_SVG,
+  DASH_MARK_OFF,
+  DASH_SVG,
+  DONE_MARK_SVG,
+  DONE_SVG,
+  DOWN_SVG,
+  EMBER_SVG,
+  FROST_SVG,
+  HANDOFF_SVG,
+  INTRO_SVG,
+  SETTINGS_MARK,
+  SETTINGS_TITLE,
+  SWAMP_SVG,
+} from './svg/scenes'
 import { themedEls, type ThemeName, THEMES } from './theme'
 import { PILL_H, THINK_W, thinkingSvg } from './thinking'
 
 export { HIDEABLE, type Hideable, type JudgeConfig, readConfig, SWAMP_STEPS } from './core/config'
 export { cacheSafe, EFFORTS, MODELS, takesEffort } from './core/constants'
 export { claudeCandidates, noClaudeHint } from './core/env'
+export {
+  autoSwitchSvg,
+  cacheClockSvg,
+  enterSvg,
+  handoffLook,
+  handoffPillSvg,
+  kindSwitchSvg,
+  ringSvg,
+  rowIconSvg,
+  settingsSvg,
+} from './svg/controls'
+export {
+  autoGlowSvg,
+  coldGlowSvg,
+  easeInOut,
+  handoffGlowStep,
+  handoffGlowSvg,
+  inPhase,
+  JUDGE_FADE_MS,
+  JUDGE_PIECE_MS,
+  JUDGE_RISE_MS,
+  JUDGE_STEP_MS,
+  judgeBrightnessAt,
+  judgeGlowAt,
+  judgeGlowSvg,
+} from './svg/glows'
+export { INTRO_SVG } from './svg/scenes'
 
 // Auto is two switches. `isAuto` is effort (the name stays: it is what the store and state hold);
 // `isAutoModel` lets the judge suggest another model and starts off.
@@ -251,13 +334,6 @@ const CACHE_RED_MIN = 5
 let compactNote = ''
 // When the compact bar opened: its first half second fades the swamped band's colours out (see compactFadeSvg).
 let compactOpenedAt = 0
-/** The swamped band's colours over the compact bar, fading to nothing: the band seems to turn from green to violet. */
-function compactFadeSvg(elapsedMs: number): string {
-  return inPhase(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="240" viewBox="0 0 1600 240" preserveAspectRatio="none"><style>.f{animation:f ${COMPACT_FADE_MS / 1000}s ease-out forwards}@keyframes f{from{opacity:1}to{opacity:0}}</style><rect class="f" width="1600" height="240" fill="${BOG_BG}"/></svg>`,
-    elapsedMs,
-  )
-}
 // The handoff card above the prompt: shown from the start of a handoff, and once it lands ('done' in the
 // cleared chat, 'copied'). It goes with the next message, its ✕, or HANDOFF_CARD_MS after it was set.
 type HandoffCard = {
@@ -271,8 +347,6 @@ const cardRunning = (kind: HandoffCard['kind']) => kind === 'writing' || kind ==
 // Kinds that landed well: the card turns green with a checkmark.
 const cardLanded = (kind: HandoffCard['kind']) => kind === 'done' || kind === 'compacted'
 const HANDOFF_CARD_MS = 2 * 60_000
-// The handoff card's art while it is written: sparkles carried from left to right.
-const HANDOFF_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="440" height="64" viewBox="0 0 360 30" preserveAspectRatio="xMaxYMid slice"><style>:root{color-scheme:light dark}html,body{margin:0}svg{background:transparent;display:block}.d{fill:#d9d1ff;opacity:0;animation-name:go;animation-timing-function:ease-in-out;animation-iteration-count:infinite}@keyframes go{0%{opacity:0;transform:translate(0,0)}15%{opacity:.9}85%{opacity:.7}100%{opacity:0;transform:translate(190px,0)}}.br{animation:br 2.4s ease-in-out infinite}@keyframes br{0%,100%{opacity:.75}50%{opacity:1}}</style><defs><linearGradient id="bg" x1="0" x2="1"><stop offset=".43" stop-color="#7c6cf0" stop-opacity="0"/><stop offset=".7" stop-color="#7c6cf0" stop-opacity=".2"/><stop offset="1" stop-color="#b3a6ff" stop-opacity=".46"/></linearGradient><linearGradient id="fade" x1="0" x2="1"><stop offset=".43" stop-color="#fff" stop-opacity="0"/><stop offset=".7" stop-color="#fff" stop-opacity="1"/></linearGradient><mask id="m"><rect width="360" height="30" fill="url(#fade)"/></mask><pattern id="grain" width="2" height="2" patternUnits="userSpaceOnUse"><rect width=".6" height=".6" fill="#fff" fill-opacity=".07"/></pattern></defs><g mask="url(#m)"><rect class="br" width="360" height="30" fill="url(#bg)"/><circle class="d" cx="170" cy="9.2" r="0.83" style="animation-duration:2.7s;animation-delay:-2.2s"/><circle class="d" cx="170" cy="17.8" r="0.54" style="animation-duration:2.2s;animation-delay:-3.0s"/><circle class="d" cx="170" cy="9.7" r="0.64" style="animation-duration:3.6s;animation-delay:-1.7s"/><circle class="d" cx="170" cy="22.4" r="0.79" style="animation-duration:3.1s;animation-delay:-0.5s"/><circle class="d" cx="170" cy="18.0" r="1.02" style="animation-duration:2.9s;animation-delay:-2.7s"/><circle class="d" cx="170" cy="18.8" r="0.54" style="animation-duration:3.3s;animation-delay:-2.1s"/><circle class="d" cx="170" cy="10.6" r="0.52" style="animation-duration:3.4s;animation-delay:-1.7s"/><circle class="d" cx="170" cy="19.8" r="1.03" style="animation-duration:3.2s;animation-delay:-3.3s"/><circle class="d" cx="170" cy="12.7" r="0.98" style="animation-duration:2.8s;animation-delay:-3.4s"/><circle class="d" cx="170" cy="23.3" r="0.56" style="animation-duration:2.4s;animation-delay:-0.8s"/><circle class="d" cx="170" cy="25.2" r="0.76" style="animation-duration:3.1s;animation-delay:-1.1s"/><circle class="d" cx="170" cy="15.2" r="0.73" style="animation-duration:2.7s;animation-delay:-2.1s"/><circle class="d" cx="170" cy="16.9" r="1.04" style="animation-duration:3.2s;animation-delay:-3.3s"/><circle class="d" cx="170" cy="22.8" r="1.09" style="animation-duration:3.1s;animation-delay:-0.6s"/><rect width="360" height="30" fill="url(#grain)"/></g></svg>`
 
 async function setHandoffCard($: EngineInterface, kind: HandoffCard['kind'], full: boolean, seen = false) {
   const at = await $.clock.now()
@@ -329,8 +403,6 @@ async function storeTurnLine($: EngineInterface, key: string, line: TurnLine) {
 let turnCost = 0
 // What the reply's last main-thread request ran on: the footer's model and effort.
 let ranThisTurn: { model?: ModelKey; effort?: Effort } | null = null
-// Which part of the settings panel is open: null for the cards.
-type SettingsCard = 'auto' | 'subagents' | 'context' | 'look'
 /** The settings panel's parts: a card each on the overview, and what the part is for, said once it is open. */
 const CARDS: readonly { id: SettingsCard; title: string; about: string }[] = [
   {
@@ -348,49 +420,14 @@ const CARDS: readonly { id: SettingsCard; title: string; about: string }[] = [
 ]
 const BIAS_WORDS = ['Cheapest', 'Cheaper', 'Balanced', 'Smarter', 'Smartest'] as const
 const THEME_LABELS: Record<ThemeName, string> = { violet: 'Violet', orange: 'Claude orange', rose: 'Cherry blossom' }
-
-// The band above the prompt when the cache has gone cold: an icy gradient with snowflakes drifting down.
-const FROST_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="440" height="64" viewBox="0 0 360 30" preserveAspectRatio="xMaxYMid slice"><style>:root{color-scheme:light dark}html,body{margin:0}svg{background:transparent;display:block}.f path{stroke:#eaf6ff;stroke-width:.5;stroke-linecap:round;fill:none}.f{transform-box:fill-box;transform-origin:center;animation:spin linear infinite;opacity:.75}@keyframes spin{to{transform:rotate(360deg)}}.fr{stroke:#dff1ff;stroke-width:.4;fill:none;stroke-linecap:round;opacity:.5}.gl{fill:#fff;opacity:0;animation:tw 3.6s ease-in-out infinite}@keyframes tw{0%,70%,100%{opacity:0}80%{opacity:.9}}.br{animation:br 6s ease-in-out infinite}@keyframes br{0%,100%{opacity:.85}50%{opacity:1}}</style><defs><linearGradient id="ice" x1="0" x2="1"><stop offset=".43" stop-color="#5aa9e6" stop-opacity="0"/><stop offset=".62" stop-color="#5aa9e6" stop-opacity=".12"/><stop offset=".85" stop-color="#8fd0ff" stop-opacity=".28"/><stop offset="1" stop-color="#cdeaff" stop-opacity=".42"/></linearGradient><radialGradient id="cold" cx="330" cy="15" r="60" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#e9f6ff" stop-opacity=".22"/><stop offset="1" stop-color="#e9f6ff" stop-opacity="0"/></radialGradient><linearGradient id="rime" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".18"/><stop offset=".22" stop-color="#fff" stop-opacity="0"/><stop offset=".78" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity=".15"/></linearGradient><linearGradient id="fade" x1="0" x2="1"><stop offset=".43" stop-color="#fff" stop-opacity="0"/><stop offset=".7" stop-color="#fff" stop-opacity="1"/></linearGradient><mask id="m"><rect width="360" height="30" fill="url(#fade)"/></mask><pattern id="grain" width="2" height="2" patternUnits="userSpaceOnUse"><rect width=".6" height=".6" fill="#fff" fill-opacity=".07"/></pattern></defs><g mask="url(#m)"><rect class="br" width="360" height="30" fill="url(#ice)"/><rect width="360" height="30" fill="url(#cold)"/><rect width="360" height="30" fill="url(#rime)"/><rect width="360" height="30" fill="url(#grain)"/><path class="fr" d="M360.0 3.0L354.1 2.1M354.1 2.1L349.8 1.8M349.8 1.8L346.7 2.1M346.7 2.1L344.4 2.2M348.2 1.9L347.5 3.2M351.9 1.9L350.3 3.1M350.3 3.1L349.2 3.8M357.0 2.5L355.1 0.6M355.1 0.6L353.5 -0.5M353.5 -0.5L352.4 -1.4M356.1 1.6L354.9 1.4M360.0 27.0L354.1 27.9M354.1 27.9L349.8 28.5M349.8 28.5L346.9 29.6M346.9 29.6L345.0 30.8M348.3 29.0L347.1 28.4M351.9 28.2L350.9 29.9M350.9 29.9L350.3 31.1M357.0 27.5L355.2 29.4M355.2 29.4L353.9 30.9M353.9 30.9L352.8 31.8M356.1 28.4L354.9 28.5M350.0 30.0L348.8 26.2M348.8 26.2L347.9 23.4M347.9 23.4L347.6 21.4M347.6 21.4L347.7 19.9M348.4 24.8L348.9 23.6M349.4 28.1L350.2 26.5M350.2 26.5L350.8 25.3M352.0 0.0L351.0 3.9M351.0 3.9L350.4 6.7M350.4 6.7L349.6 8.6M349.6 8.6L349.0 10.0M350.7 5.3L349.6 5.9M351.5 1.9L352.2 3.6M352.2 3.6L352.9 4.7"/><circle class="gl" cx="228" cy="26" r="0.5" style="animation-delay:0s"/><circle class="gl" cx="205" cy="4" r="0.45" style="animation-delay:1.3s"/><circle class="gl" cx="186" cy="26" r="0.4" style="animation-delay:2.4s"/><circle class="gl" cx="262" cy="6" r="0.5" style="animation-delay:0.7s"/><circle class="gl" cx="300" cy="25" r="0.45" style="animation-delay:3.1s"/><circle class="gl" cx="330" cy="6" r="0.5" style="animation-delay:1.9s"/><g class="f" style="animation-duration:10s;animation-delay:0s"><path d="M236.0 9.0L236.0 13.2M236.0 10.9L237.0 11.8M236.0 10.9L235.0 11.8M236.0 11.9L236.7 12.6M236.0 11.9L235.3 12.6M236.0 9.0L232.4 11.1M234.4 9.9L234.0 11.2M234.4 9.9L233.1 9.6M233.5 10.5L233.2 11.4M233.5 10.5L232.6 10.2M236.0 9.0L232.4 6.9M234.4 8.1L233.1 8.4M234.4 8.1L234.0 6.8M233.5 7.5L232.6 7.8M233.5 7.5L233.2 6.6M236.0 9.0L236.0 4.8M236.0 7.1L235.0 6.2M236.0 7.1L237.0 6.2M236.0 6.1L235.3 5.4M236.0 6.1L236.7 5.4M236.0 9.0L239.6 6.9M237.6 8.1L238.0 6.8M237.6 8.1L238.9 8.4M238.5 7.5L238.8 6.6M238.5 7.5L239.4 7.8M236.0 9.0L239.6 11.1M237.6 9.9L238.9 9.6M237.6 9.9L238.0 11.2M238.5 10.5L239.4 10.2M238.5 10.5L238.8 11.4"/></g><g class="f" style="animation-duration:12s;animation-delay:-4s"><path d="M214.0 21.0L214.0 24.2M214.0 22.4L214.7 23.2M214.0 22.4L213.3 23.2M214.0 23.2L214.5 23.7M214.0 23.2L213.5 23.7M214.0 21.0L211.2 22.6M212.8 21.7L212.5 22.7M212.8 21.7L211.8 21.5M212.1 22.1L211.9 22.8M212.1 22.1L211.4 21.9M214.0 21.0L211.2 19.4M212.8 20.3L211.8 20.5M212.8 20.3L212.5 19.3M212.1 19.9L211.4 20.1M212.1 19.9L211.9 19.2M214.0 21.0L214.0 17.8M214.0 19.6L213.3 18.8M214.0 19.6L214.7 18.8M214.0 18.8L213.5 18.3M214.0 18.8L214.5 18.3M214.0 21.0L216.8 19.4M215.2 20.3L215.5 19.3M215.2 20.3L216.2 20.5M215.9 19.9L216.1 19.2M215.9 19.9L216.6 20.1M214.0 21.0L216.8 22.6M215.2 21.7L216.2 21.5M215.2 21.7L215.5 22.7M215.9 22.1L216.6 21.9M215.9 22.1L216.1 22.8"/></g><g class="f" style="animation-duration:11s;animation-delay:-7s"><path d="M194.0 8.0L194.0 10.6M194.0 9.2L194.6 9.8M194.0 9.2L193.4 9.8M194.0 9.8L194.4 10.2M194.0 9.8L193.6 10.2M194.0 8.0L191.7 9.3M193.0 8.6L192.8 9.4M193.0 8.6L192.2 8.4M192.4 8.9L192.3 9.5M192.4 8.9L191.9 8.8M194.0 8.0L191.7 6.7M193.0 7.4L192.2 7.6M193.0 7.4L192.8 6.6M192.4 7.1L191.9 7.2M192.4 7.1L192.3 6.5M194.0 8.0L194.0 5.4M194.0 6.8L193.4 6.2M194.0 6.8L194.6 6.2M194.0 6.2L193.6 5.8M194.0 6.2L194.4 5.8M194.0 8.0L196.3 6.7M195.0 7.4L195.2 6.6M195.0 7.4L195.8 7.6M195.6 7.1L195.7 6.5M195.6 7.1L196.1 7.2M194.0 8.0L196.3 9.3M195.0 8.6L195.8 8.4M195.0 8.6L195.2 9.4M195.6 8.9L196.1 8.8M195.6 8.9L195.7 9.5"/></g><g class="f" style="animation-duration:13s;animation-delay:-2s"><path d="M176.0 19.0L176.0 21.2M176.0 20.0L176.5 20.5M176.0 20.0L175.5 20.5M176.0 20.5L176.3 20.9M176.0 20.5L175.7 20.9M176.0 19.0L174.1 20.1M175.1 19.5L175.0 20.2M175.1 19.5L174.5 19.3M174.7 19.8L174.5 20.2M174.7 19.8L174.2 19.6M176.0 19.0L174.1 17.9M175.1 18.5L174.5 18.7M175.1 18.5L175.0 17.8M174.7 18.2L174.2 18.4M174.7 18.2L174.5 17.8M176.0 19.0L176.0 16.8M176.0 18.0L175.5 17.5M176.0 18.0L176.5 17.5M176.0 17.5L175.7 17.1M176.0 17.5L176.3 17.1M176.0 19.0L177.9 17.9M176.9 18.5L177.0 17.8M176.9 18.5L177.5 18.7M177.3 18.2L177.5 17.8M177.3 18.2L177.8 18.4M176.0 19.0L177.9 20.1M176.9 19.5L177.5 19.3M176.9 19.5L177.0 20.2M177.3 19.8L177.8 19.6M177.3 19.8L177.5 20.2"/></g><g class="f" style="animation-duration:14s;animation-delay:-9s"><path d="M252.0 22.0L252.0 24.4M252.0 23.1L252.5 23.6M252.0 23.1L251.5 23.6M252.0 23.7L252.4 24.1M252.0 23.7L251.6 24.1M252.0 22.0L249.9 23.2M251.1 22.5L250.9 23.3M251.1 22.5L250.3 22.3M250.5 22.8L250.4 23.4M250.5 22.8L250.0 22.7M252.0 22.0L249.9 20.8M251.1 21.5L250.3 21.7M251.1 21.5L250.9 20.7M250.5 21.2L250.0 21.3M250.5 21.2L250.4 20.6M252.0 22.0L252.0 19.6M252.0 20.9L251.5 20.4M252.0 20.9L252.5 20.4M252.0 20.3L251.6 19.9M252.0 20.3L252.4 19.9M252.0 22.0L254.1 20.8M252.9 21.5L253.1 20.7M252.9 21.5L253.7 21.7M253.5 21.2L253.6 20.6M253.5 21.2L254.0 21.3M252.0 22.0L254.1 23.2M252.9 22.5L253.7 22.3M252.9 22.5L253.1 23.3M253.5 22.8L254.0 22.7M253.5 22.8L253.6 23.4"/></g></g></svg>`
-// The band when the context is swamped: murky green, bubbles rising, slow ripples.
-const SWAMP_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="440" height="64" viewBox="0 0 360 30" preserveAspectRatio="xMaxYMid slice"><style>:root{color-scheme:light dark}html,body{margin:0}svg{background:transparent;display:block}.b{fill:none;stroke:#cfe8b8;stroke-width:.5;opacity:0;animation-name:rise;animation-timing-function:ease-in;animation-iteration-count:infinite}@keyframes rise{0%{opacity:0;transform:translate(0,0)}15%{opacity:.7}80%{opacity:.5}100%{opacity:0;transform:translate(3px,-30px)}}.rp{fill:none;stroke:#a7c98f;stroke-width:.4;stroke-linecap:round;opacity:.25;animation:drift 7s ease-in-out infinite}@keyframes drift{0%,100%{transform:translate(0,0);opacity:.15}50%{transform:translate(4px,0);opacity:.4}}.mk{animation:mk 8s ease-in-out infinite}@keyframes mk{0%,100%{opacity:.85}50%{opacity:1}}</style><defs><linearGradient id="bog" x1="0" x2="1"><stop offset=".43" stop-color="#4f7a3a" stop-opacity="0"/><stop offset=".62" stop-color="#4f7a3a" stop-opacity=".16"/><stop offset=".85" stop-color="#6f9a4f" stop-opacity=".32"/><stop offset="1" stop-color="#9cc27a" stop-opacity=".42"/></linearGradient><linearGradient id="silt" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity="0"/><stop offset=".6" stop-color="#2b3a1f" stop-opacity=".18"/><stop offset="1" stop-color="#1c2614" stop-opacity=".45"/></linearGradient><linearGradient id="fade" x1="0" x2="1"><stop offset=".43" stop-color="#fff" stop-opacity="0"/><stop offset=".7" stop-color="#fff" stop-opacity="1"/></linearGradient><mask id="m"><rect width="360" height="30" fill="url(#fade)"/></mask><pattern id="grain" width="2" height="2" patternUnits="userSpaceOnUse"><rect width=".6" height=".6" fill="#fff" fill-opacity=".06"/></pattern></defs><g mask="url(#m)"><rect class="mk" width="360" height="30" fill="url(#bog)"/><rect width="360" height="30" fill="url(#silt)"/><rect width="360" height="30" fill="url(#grain)"/><path class="rp" style="animation-delay:-0s" d="M190 22 q6 -2 12 0 t12 0"/><path class="rp" style="animation-delay:-2.5s" d="M226 9 q6 -2 12 0 t12 0"/><path class="rp" style="animation-delay:-5s" d="M250 18 q6 -2 12 0 t12 0"/><path class="rp" style="animation-delay:-1.5s" d="M300 24 q6 -2 12 0 t12 0"/><path class="rp" style="animation-delay:-3.8s" d="M322 7 q6 -2 12 0 t12 0"/><circle class="b" cx="168" cy="32" r="1.6" style="animation-duration:6.5s;animation-delay:-0s"/><circle class="b" cx="182" cy="32" r="1.1" style="animation-duration:8s;animation-delay:-2.1s"/><circle class="b" cx="197" cy="32" r="2.0" style="animation-duration:7s;animation-delay:-4.2s"/><circle class="b" cx="210" cy="32" r="1.3" style="animation-duration:9s;animation-delay:-1.0s"/><circle class="b" cx="224" cy="32" r="1.7" style="animation-duration:7.5s;animation-delay:-3.3s"/><circle class="b" cx="238" cy="32" r="1.0" style="animation-duration:8.5s;animation-delay:-5.1s"/><circle class="b" cx="252" cy="32" r="1.4" style="animation-duration:6.8s;animation-delay:-2.6s"/><circle class="b" cx="176" cy="32" r="0.9" style="animation-duration:9.5s;animation-delay:-6.0s"/><circle class="b" cx="232" cy="32" r="0.8" style="animation-duration:10s;animation-delay:-0.5s"/></g></svg>`
-// The band when a usage limit is close: embers, sparks rising.
-const EMBER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="440" height="64" viewBox="0 0 360 30" preserveAspectRatio="xMaxYMid slice"><style>:root{color-scheme:light dark}html,body{margin:0}svg{background:transparent;display:block}.s{fill:#ffb06a;opacity:0;animation-name:up;animation-timing-function:ease-out;animation-iteration-count:infinite}@keyframes up{0%{opacity:0;transform:translate(0,0)}12%{opacity:.95}70%{opacity:.6}100%{opacity:0;transform:translate(4px,-30px)}}.br{animation:br 3.4s ease-in-out infinite}@keyframes br{0%,100%{opacity:.8}50%{opacity:1}}.br2{animation:br2 2.2s ease-in-out infinite}@keyframes br2{0%,100%{opacity:.7}40%{opacity:1}70%{opacity:.8}}</style><defs><linearGradient id="heat" x1="0" x2="1"><stop offset=".43" stop-color="#b8461b" stop-opacity="0"/><stop offset=".62" stop-color="#b8461b" stop-opacity=".16"/><stop offset=".85" stop-color="#d9622a" stop-opacity=".32"/><stop offset="1" stop-color="#f08a3c" stop-opacity=".42"/></linearGradient><linearGradient id="glow" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity="0"/><stop offset=".55" stop-color="#e2581f" stop-opacity=".08"/><stop offset="1" stop-color="#ff7a2e" stop-opacity=".32"/></linearGradient><linearGradient id="fade" x1="0" x2="1"><stop offset=".43" stop-color="#fff" stop-opacity="0"/><stop offset=".7" stop-color="#fff" stop-opacity="1"/></linearGradient><mask id="m"><rect width="360" height="30" fill="url(#fade)"/></mask><pattern id="grain" width="2" height="2" patternUnits="userSpaceOnUse"><rect width=".6" height=".6" fill="#fff" fill-opacity=".06"/></pattern></defs><g mask="url(#m)"><rect class="br" width="360" height="30" fill="url(#heat)"/><rect class="br2" width="360" height="30" fill="url(#glow)"/><circle class="s" cx="166" cy="31" r="0.7" style="animation-duration:3.2s;animation-delay:-0s"/><circle class="s" cx="178" cy="31" r="0.5" style="animation-duration:4.1s;animation-delay:-1.2s"/><circle class="s" cx="191" cy="31" r="0.8" style="animation-duration:3.6s;animation-delay:-2.4s"/><circle class="s" cx="203" cy="31" r="0.5" style="animation-duration:4.6s;animation-delay:-0.7s"/><circle class="s" cx="216" cy="31" r="0.7" style="animation-duration:3.9s;animation-delay:-3.0s"/><circle class="s" cx="228" cy="31" r="0.6" style="animation-duration:4.3s;animation-delay:-1.8s"/><circle class="s" cx="241" cy="31" r="0.8" style="animation-duration:3.4s;animation-delay:-0.4s"/><circle class="s" cx="254" cy="31" r="0.5" style="animation-duration:4.8s;animation-delay:-2.9s"/><circle class="s" cx="184" cy="31" r="0.4" style="animation-duration:5.0s;animation-delay:-3.6s"/><circle class="s" cx="236" cy="31" r="0.4" style="animation-duration:4.4s;animation-delay:-2.1s"/><rect width="360" height="30" fill="url(#grain)"/></g></svg>`
-// The band when the judge the person picked is failing: signal lost, a blip sweeping along a flat line.
-const DOWN_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="440" height="64" viewBox="0 0 360 30" preserveAspectRatio="xMaxYMid slice"><style>:root{color-scheme:light dark}html,body{margin:0}svg{background:transparent;display:block}.tr{fill:none;stroke:#e6ecf8;stroke-width:.6;stroke-linecap:round;stroke-linejoin:round}.gw{fill:none;stroke:#9fb0d6;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;opacity:.35}.hd{animation:hd 4.8s linear infinite}@keyframes hd{0%{transform:translate(150px,0)}88%,100%{transform:translate(372px,0)}}.gl{animation:gl 4.8s ease-in-out infinite}@keyframes gl{0%,100%{opacity:.75}50%{opacity:1}}</style><defs><linearGradient id="steel" x1="0" x2="1"><stop offset=".43" stop-color="#5d6a86" stop-opacity="0"/><stop offset=".65" stop-color="#5d6a86" stop-opacity=".16"/><stop offset=".88" stop-color="#7d8aa8" stop-opacity=".32"/><stop offset="1" stop-color="#a3afca" stop-opacity=".42"/></linearGradient><radialGradient id="glow" cx="330" cy="15" r="80" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#c4cee6" stop-opacity=".22"/><stop offset="1" stop-color="#8d9ab8" stop-opacity="0"/></radialGradient><pattern id="grid" width="7.5" height="7.5" patternUnits="userSpaceOnUse"><path d="M7.5 0 L0 0 L0 7.5" fill="none" stroke="#fff" stroke-opacity=".06" stroke-width=".25"/></pattern><linearGradient id="trail" x1="0" x2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".85" stop-color="#fff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity="1"/></linearGradient><linearGradient id="fade" x1="0" x2="1"><stop offset=".43" stop-color="#fff" stop-opacity="0"/><stop offset=".7" stop-color="#fff" stop-opacity="1"/></linearGradient><mask id="m"><rect width="360" height="30" fill="url(#fade)"/></mask><mask id="sweep"><g class="hd"><rect x="-110" y="0" width="110" height="30" fill="url(#trail)"/></g></mask></defs><g mask="url(#m)"><rect class="gl" width="360" height="30" fill="url(#steel)"/><rect width="360" height="30" fill="url(#glow)"/><rect width="360" height="30" fill="url(#grid)"/><g mask="url(#sweep)"><g transform="translate(0 3.5)"><path class="gw" d="M150 15 L196 15 L196.0 15.0 L199.0 13.8 L202.0 15.0 L204.0 15.0 L205.5 16.5 L208.0 5.0 L210.5 19.0 L212.0 15.0 L216.0 15.0 L220.0 13.0 L224.0 15.0 L238 15 L238.0 15.0 L241.0 14.2 L244.0 15.0 L246.0 15.0 L247.5 16.1 L250.0 8.0 L252.5 17.8 L254.0 15.0 L258.0 15.0 L262.0 13.6 L266.0 15.0 L278 15 L278.0 15.0 L281.0 14.5 L284.0 15.0 L286.0 15.0 L287.5 15.6 L290.0 11.2 L292.5 16.5 L294.0 15.0 L298.0 15.0 L302.0 14.2 L306.0 15.0 L316 15 L316.0 15.0 L319.0 14.9 L322.0 15.0 L324.0 15.0 L325.5 15.2 L328.0 13.8 L330.5 15.5 L332.0 15.0 L336.0 15.0 L340.0 14.8 L344.0 15.0 L360 15"/><path class="tr" d="M150 15 L196 15 L196.0 15.0 L199.0 13.8 L202.0 15.0 L204.0 15.0 L205.5 16.5 L208.0 5.0 L210.5 19.0 L212.0 15.0 L216.0 15.0 L220.0 13.0 L224.0 15.0 L238 15 L238.0 15.0 L241.0 14.2 L244.0 15.0 L246.0 15.0 L247.5 16.1 L250.0 8.0 L252.5 17.8 L254.0 15.0 L258.0 15.0 L262.0 13.6 L266.0 15.0 L278 15 L278.0 15.0 L281.0 14.5 L284.0 15.0 L286.0 15.0 L287.5 15.6 L290.0 11.2 L292.5 16.5 L294.0 15.0 L298.0 15.0 L302.0 14.2 L306.0 15.0 L316 15 L316.0 15.0 L319.0 14.9 L322.0 15.0 L324.0 15.0 L325.5 15.2 L328.0 13.8 L330.5 15.5 L332.0 15.0 L336.0 15.0 L340.0 14.8 L344.0 15.0 L360 15"/></g></g></g></svg>`
-// The right of the setup guide, pure decoration (the name is on the left): a purple gradient with a soft glow,
-// faint light streaks and grain, a still star, and small sparkles that twinkle in and out here and there. One constant source, so the app never rebuilds its frame (a changing source flickers); the
-// motion is CSS inside it.
-const BRAND_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="440" height="64" viewBox="0 0 360 30" preserveAspectRatio="xMaxYMid slice"><style>:root{color-scheme:light dark}html,body{margin:0}svg{background:transparent;display:block}.sp{fill:#fff;opacity:0;transform:scale(0);animation-name:gl;animation-timing-function:ease-in-out;animation-iteration-count:infinite}@keyframes gl{0%,72%,100%{opacity:0;transform:scale(0) rotate(0deg)}82%{opacity:.9;transform:scale(1) rotate(30deg)}92%{opacity:0;transform:scale(.2) rotate(60deg)}}.br{animation:br 6s ease-in-out infinite}@keyframes br{0%,100%{opacity:.85}50%{opacity:1}}</style><defs><linearGradient id="bg" x1="0" x2="1"><stop offset=".43" stop-color="#7c6cf0" stop-opacity="0"/><stop offset=".62" stop-color="#7c6cf0" stop-opacity=".16"/><stop offset=".85" stop-color="#8f7ff0" stop-opacity=".34"/><stop offset="1" stop-color="#b3a6ff" stop-opacity=".48"/></linearGradient><radialGradient id="glow" cx="320" cy="15" r="70" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#c9bdff" stop-opacity=".28"/><stop offset="1" stop-color="#9a86ff" stop-opacity="0"/></radialGradient><linearGradient id="fade" x1="0" x2="1"><stop offset=".43" stop-color="#fff" stop-opacity="0"/><stop offset=".7" stop-color="#fff" stop-opacity="1"/></linearGradient><mask id="m"><rect width="360" height="30" fill="url(#fade)"/></mask><pattern id="grain" width="2" height="2" patternUnits="userSpaceOnUse"><rect width=".6" height=".6" fill="#fff" fill-opacity=".07"/></pattern></defs><g mask="url(#m)"><rect class="br" width="360" height="30" fill="url(#bg)"/><rect width="360" height="30" fill="url(#glow)"/><rect width="360" height="30" fill="url(#grain)"/><line x1="186" y1="32" x2="198" y2="-2" stroke="#fff" stroke-opacity="0.04" stroke-width="3"/><line x1="204" y1="32" x2="216" y2="-2" stroke="#fff" stroke-opacity="0.05" stroke-width="1.2"/><line x1="226" y1="32" x2="238" y2="-2" stroke="#fff" stroke-opacity="0.05" stroke-width="4"/><line x1="262" y1="32" x2="274" y2="-2" stroke="#fff" stroke-opacity="0.04" stroke-width="1.5"/><line x1="290" y1="32" x2="302" y2="-2" stroke="#fff" stroke-opacity="0.05" stroke-width="3"/><line x1="320" y1="32" x2="332" y2="-2" stroke="#fff" stroke-opacity="0.04" stroke-width="1.2"/><path class="sp" style="transform-origin:168px 8px;animation-duration:4.2s;animation-delay:0.3s" d="M168 6.4 L168.34 7.66 L169.6 8 L168.34 8.34 L168 9.6 L167.66 8.34 L166.4 8 L167.66 7.66 Z"/><path class="sp" style="transform-origin:182px 22px;animation-duration:5.1s;animation-delay:2.1s" d="M182 20.7 L182.27 21.73 L183.3 22 L182.27 22.27 L182 23.3 L181.73 22.27 L180.7 22 L181.73 21.73 Z"/><path class="sp" style="transform-origin:196px 6px;animation-duration:3.8s;animation-delay:1.2s" d="M196 4.2 L196.38 5.62 L197.8 6 L196.38 6.38 L196 7.8 L195.62 6.38 L194.2 6 L195.62 5.62 Z"/><path class="sp" style="transform-origin:208px 19px;animation-duration:4.6s;animation-delay:3.4s" d="M208 17.8 L208.25 18.75 L209.2 19 L208.25 19.25 L208 20.2 L207.75 19.25 L206.8 19 L207.75 18.75 Z"/><path class="sp" style="transform-origin:221px 9px;animation-duration:5.4s;animation-delay:0.9s" d="M221 7.5 L221.31 8.69 L222.5 9 L221.31 9.31 L221 10.5 L220.69 9.31 L219.5 9 L220.69 8.69 Z"/><path class="sp" style="transform-origin:232px 23px;animation-duration:4.0s;animation-delay:2.7s" d="M232 21.9 L232.23 22.77 L233.1 23 L232.23 23.23 L232 24.1 L231.77 23.23 L230.9 23 L231.77 22.77 Z"/><path class="sp" style="transform-origin:244px 7px;animation-duration:4.8s;animation-delay:1.8s" d="M244 5.7 L244.27 6.73 L245.3 7 L244.27 7.27 L244 8.3 L243.73 7.27 L242.7 7 L243.73 6.73 Z"/><path class="sp" style="transform-origin:176px 15px;animation-duration:5.8s;animation-delay:4.0s" d="M176 14.0 L176.21 14.79 L177.0 15 L176.21 15.21 L176 16.0 L175.79 15.21 L175.0 15 L175.79 14.79 Z"/><path class="sp" style="transform-origin:214px 26px;animation-duration:4.4s;animation-delay:3.0s" d="M214 25.0 L214.21 25.79 L215.0 26 L214.21 26.21 L214 27.0 L213.79 26.21 L213.0 26 L213.79 25.79 Z"/><path class="sp" style="transform-origin:238px 15px;animation-duration:3.6s;animation-delay:0.1s" d="M238 14.0 L238.21 14.79 L239.0 15 L238.21 15.21 L238 16.0 L237.79 15.21 L237.0 15 L237.79 14.79 Z"/></g></svg>`
-
-// The dashboard sits there all the time, so it is grey: purple is kept for the moments that ask for attention. Its
-// art is the brand's, in grey and at 40% of its strength; only the ✦ keeps the accent.
-const DASH_SVG = BRAND_SVG.replace(
-  /stop-opacity="([0-9.]+)"/g,
-  (_m, v: string) => `stop-opacity="${(Number(v) * 0.4).toFixed(3)}"`,
-).replace(/#(7c6cf0|8f7ff0|b3a6ff|c9bdff|9a86ff)/g, '#9a9aa2')
-/** The settings title's word in the website hero's style: crisp, going soft and grainy at its bottom right (a radial
- * mask fades the crisp copy out there and a copy through the site's #grainy filter takes over). The app gives the image
- * the band's font. */
-const SETTINGS_TITLE = `<svg xmlns="http://www.w3.org/2000/svg" width="112" height="28" viewBox="0 0 112 28"><defs><radialGradient id="c" cx="1" cy="1" r=".75" gradientTransform="matrix(.7 0 0 2.3 .3 -1.3)"><stop offset=".35" stop-color="#000"/><stop offset="1" stop-color="#fff"/></radialGradient><radialGradient id="s" cx=".9" cy=".85" r=".55" gradientTransform="matrix(.7 0 0 2.3 .27 -1.1)"><stop offset=".4" stop-color="#fff"/><stop offset="1" stop-color="#000"/></radialGradient><mask id="mc"><rect width="112" height="28" fill="url(#c)"/></mask><mask id="ms"><rect width="112" height="28" fill="url(#s)"/></mask><filter id="g" x="-20%" y="-40%" width="140%" height="180%"><feTurbulence type="fractalNoise" baseFrequency="1.4" numOctaves="1" seed="7" result="noise"/><feDisplacementMap in="SourceGraphic" in2="noise" scale="2.5" xChannelSelector="R" yChannelSelector="G" result="moved"/><feGaussianBlur in="moved" stdDeviation="0.35" result="soft"/><feComponentTransfer in="noise" result="dots"><feFuncA type="discrete" tableValues="0 1 1 1 1"/></feComponentTransfer><feComposite in="soft" in2="dots" operator="in"/></filter></defs><g font-size="21" font-weight="600" letter-spacing="-.5"><text x="1" y="20" fill="#ffffff" mask="url(#mc)">context-lens</text><g mask="url(#ms)"><text x="1" y="20" fill="#ffffff" filter="url(#g)">context-lens</text></g></g></svg>`
-/** The mark as the settings bar shows it: big, tilted and faint, cut off by the bar. */
-const SETTINGS_MARK = MARK_SVG.replace('<g mask=', '<g opacity=".2" transform="rotate(9 50 50)" mask=')
 // The dashboard's mark: its size, and its look with Auto off.
 const DASH_MARK_SIZE = 18
-const DASH_MARK_OFF = MARK_SVG.replace('<g mask=', '<g opacity=".35" mask=')
 /** How long a band's entrance runs: it is drawn only this long after the band appears, since every redraw of the band
  * (a choice, the minute tick) would replay it. */
 const INTRO_MS = 1300
 // The band last drawn above the prompt, and when it appeared (see introShows).
 let introKind = ''
 let introAt = 0
-/** An animated Svg drawn `elapsedMs` into its animations. Every redraw rebuilds the band and starts its images' CSS
- * animations over; with this, a redraw mid-animation picks it up where it was instead of jumping back. */
-export function inPhase(svg: string, elapsedMs: number): string {
-  return svg.replace(
-    '</svg>',
-    `<style>svg *{animation-delay:${(-Math.max(0, elapsedMs) / 1000).toFixed(3)}s !important}</style></svg>`,
-  )
-}
 // How far the entrance on screen is, for introLayer.
 let introElapsed = 0
 // Set when a band replaces another, taken by the first draw of the new one.
@@ -469,20 +506,6 @@ function introLayer(
     </B>
   )
 }
-// The handoff card once it has landed: the brand's art in green, with a big dark checkmark on the right.
-const DONE_SVG = BRAND_SVG.replace(/#7c6cf0/g, '#2fae62')
-  .replace(/#8f7ff0/g, '#3cc472')
-  .replace(/#b3a6ff/g, '#7fe0a4')
-  .replace(/#c9bdff/g, '#b4f0c8')
-  .replace(/#9a86ff/g, '#4fd486')
-  .replace(
-    '</g></svg>',
-    '<path d="M323 15.5 L330 22 L345 7.5" fill="none" stroke="#0c3a20" stroke-opacity=".8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></g></svg>',
-  )
-// The mark in the done green, for the titles of cards that have landed.
-const DONE_MARK_SVG = MARK_SVG.replace(/#7566d8/g, '#2f9a5e')
-  .replace(/#a79cf7/g, '#7fe0a4')
-  .replace(/#cfc7ff/g, '#c8f4d8')
 
 const JUDGE_SYSTEM = `You choose which Claude model and reasoning effort an agentic assistant (it reads files, runs tools and edits things, not only code) should use for the user's next message. Pick the cheapest pair that will still do the job well.
 
@@ -1391,23 +1414,6 @@ export function cacheClock(msLeft: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 }
 
-/** How many seconds the countdown image carries: the band is redrawn once a minute, with some slack. */
-const CLOCK_FRAMES = 75
-/** The dashboard's countdown as an image that ticks by itself: one frame per second, each shown for its second by a
- * CSS animation. The band is redrawn only once a minute: every redraw rebuilds the band, which restarts every image's
- * animation. The app sets the image's font and colour to the band's, so the digits match the text around them. */
-export function cacheClockSvg(msLeft: number, color: string): string {
-  const start = Math.max(0, Math.ceil(msLeft / 1000))
-  const frames: string[] = []
-  for (let j = 0; j < CLOCK_FRAMES && start - j > 0; j++) {
-    const left = start - j
-    const label = `cache ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`
-    frames.push(`<text x="0" y="12.5" style="animation-delay:${j}s">${label}</text>`)
-  }
-  frames.push(`<text x="0" y="12.5" style="animation-delay:${frames.length}s;animation-duration:100000s">❄ Cold</text>`)
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="84" height="17" viewBox="0 0 84 17"><style>text{font-size:13px;fill:${color};opacity:0;animation:f 1s step-end 1}@keyframes f{0%{opacity:1}100%{opacity:0}}</style>${frames.join('')}</svg>`
-}
-
 let cacheTtl: keyof typeof CACHE_TTL = '1h'
 let cacheExpires = 0
 /** The countdown's variables live in the module, and a reload starts the module over: the chat's cache did not go cold
@@ -1752,19 +1758,8 @@ async function openHandoffBar($: EngineInterface) {
   await update($, handoffPick, () => choice)
   $.ui.invalidate('ui.render')
 }
-
-/** The Enter mark as Claude's prompt box draws it: a return arrow, down the right side and back left. */
-export function enterSvg(color: string): string {
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14"><g fill="none" stroke="${color}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M11.5 2.5V7.2A1.8 1.8 0 0 1 9.7 9H2.8"/><path d="M5.3 6.4 2.7 9l2.6 2.6"/></g></svg>`
-}
 // The narrowest bar (in cells) that still has room for a Compact button beside Auto and Handoff.
 const COMPACT_BUTTON_MIN_COLUMNS = 80
-const GO_CELLS = 12
-const GO_W = Math.round(GO_CELLS * 7.9)
-/** The compact bar's Compact: a white pill like the app's primary buttons, GO_CELLS wide. */
-function goPillSvg(): string {
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${GO_W}" height="20" viewBox="0 0 ${GO_W} 20"><rect width="${GO_W}" height="20" rx="5" fill="#ffffff"/></svg>`
-}
 /** Compact pressed: on desktop a bar asks for an optional note first; the terminal compacts at once. */
 async function openCompact($: EngineInterface, e: { surface: string }) {
   if (e.surface === 'terminal') return compactCold($)
@@ -2278,62 +2273,6 @@ async function choose($: EngineInterface, next: Pick | null) {
 // The context figures from the last usage check, for the cache tooltip.
 let lastContext: { tokens: number; window: number; percent: number } | null = null
 
-/** A small ring filled to `percent`, for the context in the swamp band. */
-export function ringSvg(percent: number, color: string): string {
-  const p = Math.max(0, Math.min(100, percent))
-  const c = 2 * Math.PI * 6
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="none" stroke="${color}" stroke-opacity=".25" stroke-width="2.2"/><circle cx="8" cy="8" r="6" fill="none" stroke="${color}" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="${((c * p) / 100).toFixed(2)} ${c.toFixed(2)}" transform="rotate(-90 8 8)"/></svg>`
-}
-
-/** The dashboard's settings icon: an outlined cog of eight teeth, drawn rather than a glyph, since the gear character
- * is a different shape in every font. */
-export function settingsSvg(color: string): string {
-  const step = (2 * Math.PI) / 8
-  const pts: string[] = []
-  for (let i = 0; i < 8; i++) {
-    const a = i * step
-    const at = (f: number, r: number) =>
-      `${(7 + r * Math.cos(a + f * step)).toFixed(2)},${(7 + r * Math.sin(a + f * step)).toFixed(2)}`
-    pts.push(at(-0.42, 4.6), at(-0.27, 4.6), at(-0.2, 6.1), at(0.2, 6.1), at(0.27, 4.6), at(0.42, 4.6))
-  }
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14"><g fill="none" stroke="${color}" stroke-width="1.3" stroke-linejoin="round" shape-rendering="geometricPrecision"><path d="M${pts.join('L')}Z"/><circle cx="7" cy="7" r="2"/></g></svg>`
-}
-
-/** The settings rows' icons, drawn in the cog's outline style (14 px, 1.3 stroke) rather than font glyphs, which
- * differ per font. */
-export function rowIconSvg(kind: SettingsCard | 'quick' | 'full', color: string): string {
-  const shapes = {
-    // A gauge: an open arc with a needle.
-    auto: '<path d="M2.6 10.4A5 5 0 1 1 11.4 10.4"/><path d="M7 8.2L9.6 5.2"/><circle cx="7" cy="8.6" r=".9"/>',
-    // Layers: the subagents, stacked.
-    subagents:
-      '<path d="M7 2 12.2 4.7 7 7.4 1.8 4.7Z"/><path d="M1.8 7.3 7 10 12.2 7.3"/><path d="M1.8 9.9 7 12.6 12.2 9.9"/>',
-    // An arrow into a bar: hand off.
-    context: '<path d="M1.8 7H9.4M6.6 4.2L9.4 7L6.6 9.8"/><path d="M11.8 2.6V11.4"/>',
-    // A pencil: the look. The tip down left, a line across the ferrule.
-    look: '<path d="M9.6 2.1 11.9 4.4 4.9 11.4 2.1 11.9 2.6 9.1Z"/><path d="M8.1 3.6 10.4 5.9"/>',
-    // Quick and Full are drawn solid below: an outline at 14 px was too thin to read.
-    quick: '',
-    full: '',
-  }[kind]
-  if (kind === 'quick' || kind === 'full') {
-    const solid =
-      kind === 'quick'
-        ? // A bolt: the quick handoff, done in seconds.
-          'M8.6 1 2.8 8.2H6.6L5.4 13 11.2 5.8H7.4Z'
-        : // A pen: the full handoff, written out by your skill.
-          'M10.2 1.5 12.5 3.8 5.3 11 2.3 11.7 3 8.7ZM9 2.7 11.3 5'
-    return `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14"><path d="${solid}" fill="${color}" stroke="${color}" stroke-width="0.6" stroke-linejoin="round"/></svg>`
-  }
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14"><g fill="none" stroke="${color}" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision">${shapes}</g></svg>`
-}
-
-/** A band's entrance: a soft violet wash that fades and a light sweep passing left to right, once, as the band
- * appears. The app has no transitions for a band (its tree is swapped at once), but a plain Svg's CSS animation starts
- * when the image is first drawn and is not restarted by a redraw with the same source. Stretched to the band
- * (preserveAspectRatio none: the app scales a Svg down to its box's width but keeps its height), behind the content. */
-export const INTRO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="240" viewBox="0 0 1600 240" preserveAspectRatio="none"><style>.w{opacity:0;animation:w .7s ease-out}.s{opacity:0;animation:s 1.1s cubic-bezier(.2,.7,.2,1)}@keyframes w{from{opacity:.16}to{opacity:0}}@keyframes s{from{transform:translateX(-520px);opacity:1}80%{opacity:1}to{transform:translateX(1700px);opacity:0}}</style><defs><linearGradient id="g" x1="0" x2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".55" stop-color="#b9a7ff" stop-opacity=".16"/><stop offset=".7" stop-color="#fff" stop-opacity=".1"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient></defs><rect class="w" width="1600" height="240" fill="#8b6cff"/><rect class="s" width="480" height="240" fill="url(#g)"/></svg>`
-
 /** k/M for token counts: 420000 -> "420k", 1000000 -> "1.0M". */
 function kTokens(n: number): string {
   return n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : `${Math.round(n / 1000)}k`
@@ -2757,10 +2696,6 @@ async function effortFlash($: EngineInterface, what: string, judging: boolean, e
 const UNINSTALL_ARM_MS = 4000
 let uninstallArmedAt = 0
 let uninstalling = false
-/** A bin: the lid and its handle, the can with two ribs. */
-function binSvg(color: string): string {
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14"><g fill="none" stroke="${color}" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M2.2 3.8H11.8M5.4 3.8V2.4H8.6V3.8M3.4 3.8L4 12H10L10.6 3.8M5.9 6V9.8M8.1 6V9.8"/></g></svg>`
-}
 /** A plain /reload-plugins holds back a change that would make the next message re-read the chat without the cache; --force reloads anyway. */
 const RELOAD_ARGS = '--force'
 function uninstallButton($: EngineInterface, els: ReturnType<EngineInterface['ui']['resolve']>) {
@@ -2997,186 +2932,6 @@ const HANDOFF_ADVICE_LEVEL = 50
 const handoffLevel = () => (adviceNow ? HANDOFF_ADVICE_LEVEL : config.handoffButton === 'always' ? HANDOFF_BOX_AT : 0)
 const handoffLoud = () => adviceNow !== null
 const handoffSlot = () => handoffLoud() || config.handoffButton === 'always'
-/** Handoff's box: it fades in, grey, up to HANDOFF_BOX_AT, then lightens to white by HANDOFF_LOUD_AT, where the glow
- * takes over (it grows to 80%). A glow only ever sits around the white box. */
-const HANDOFF_BOX_AT = 15
-const HANDOFF_PILL_W = 66
-const HANDOFF_PILL_H = 19
-/** Handoff's look at `percent` of context, a step each percent: no box at 0, the grey box by HANDOFF_BOX_AT, white by
- * HANDOFF_LOUD_AT. The label goes from dim to white, and dark once the box is light enough to need it. */
-export function handoffLook(
-  percent: number,
-  hovered = false,
-): { fill: string; opacity: number; edge: string; label: string } {
-  // Hovered, the box is there even on a fresh chat and a few steps lighter.
-  const p = Math.max(hovered ? HANDOFF_BOX_AT : 0, Math.min(HANDOFF_LOUD_AT, Math.round(percent) + (hovered ? 5 : 0)))
-  const mix = (a: string, b: string, k: number) => {
-    const ch = (hex: string, i: number) => parseInt(hex.slice(1 + i * 2, 3 + i * 2), 16)
-    return `#${[0, 1, 2]
-      .map(i =>
-        Math.round(ch(a, i) + (ch(b, i) - ch(a, i)) * k)
-          .toString(16)
-          .padStart(2, '0'),
-      )
-      .join('')}`
-  }
-  if (p <= HANDOFF_BOX_AT) {
-    const k = p / HANDOFF_BOX_AT
-    return { fill: HOVER_BOX, opacity: k, edge: mix(DASH_BG, '#3a3a40', k), label: mix(DASH_DIM, '#ececf0', k) }
-  }
-  const k = (p - HANDOFF_BOX_AT) / (HANDOFF_LOUD_AT - HANDOFF_BOX_AT)
-  return {
-    fill: mix(HOVER_BOX, '#ececf0', k),
-    opacity: 1,
-    edge: mix('#3a3a40', '#ffffff', k),
-    label: k > 0.45 ? '#141416' : '#ececf0',
-  }
-}
-/** Handoff's box as drawn (see handoffLook). */
-export function handoffPillSvg(percent: number, hovered = false): string {
-  const l = handoffLook(percent, hovered)
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${HANDOFF_PILL_W}" height="${HANDOFF_PILL_H}" viewBox="0 0 ${HANDOFF_PILL_W} ${HANDOFF_PILL_H}"><rect x=".5" y=".5" width="${HANDOFF_PILL_W - 1}" height="${HANDOFF_PILL_H - 1}" rx="6" fill="${l.fill}" fill-opacity="${l.opacity.toFixed(3)}" stroke="${l.edge}" stroke-opacity="${l.opacity.toFixed(3)}"/></svg>`
-}
-/** How hard the glow behind Handoff pulls: 0 below HANDOFF_LOUD_AT, then 1 to 5, one step per 10% of context. */
-export function handoffGlowStep(percent: number): number {
-  return percent < HANDOFF_LOUD_AT ? 0 : Math.min(5, 1 + Math.floor((percent - HANDOFF_LOUD_AT) / 10))
-}
-/** The glow behind the Handoff button, one design per step, drawn on a screenshot of the real bar: a tight violet rim
- * just past the button (about 121 by 32 px there), wider, softer and brighter each step, pulsing between a low and a
- * peak. Centred on the button by the layer the dashboard puts it in. A preview draws it tighter than the app does, so
- * judge a change in the app. */
-const GLOW_LEVELS: ReadonlyArray<{ spread: number; blur: number; peak: number; low: number; period: number }> = [
-  { spread: 0, blur: 0, peak: 0, low: 0, period: 0 },
-  { spread: 1.5, blur: 1.2, peak: 0.55, low: 0.2, period: 3.4 },
-  { spread: 2, blur: 1.5, peak: 0.65, low: 0.25, period: 2.8 },
-  { spread: 2.5, blur: 1.8, peak: 0.75, low: 0.3, period: 2.3 },
-  { spread: 3, blur: 2.1, peak: 0.85, low: 0.35, period: 1.9 },
-  { spread: 3.5, blur: 2.4, peak: 0.95, low: 0.4, period: 1.5 },
-]
-/** The glow's drawing in CSS px, measured on the desktop band: the primary
- * Handoff button is 77 by 20 with a 6 px radius, and the band leaves 8 px above and below it. The drawing is no wider
- * than the layer it sits in, so the app never scales it (a Svg is at most as wide as its box). */
-const GLOW_W = HANDOFF_PILL_W + 16
-const GLOW_H = HANDOFF_PILL_H + 16
-const GLOW_BUTTON = { w: HANDOFF_PILL_W, h: HANDOFF_PILL_H, r: 6 }
-export function handoffGlowSvg(step: number, nowMs = 0): string {
-  const { spread: e, blur, peak, low, period } = GLOW_LEVELS[step]
-  // The pulse's place from the clock, so a redraw does not restart it from the low point.
-  const lock = (svg: string) => inPhase(svg, nowMs % (period * 1000))
-  const x = (GLOW_W - GLOW_BUTTON.w) / 2 - e
-  const y = (GLOW_H - GLOW_BUTTON.h) / 2 - e
-  return lock(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${GLOW_W}" height="${GLOW_H}" viewBox="0 0 ${GLOW_W} ${GLOW_H}"><style>.g{animation:p ${period}s ease-in-out infinite}@keyframes p{0%,100%{opacity:${low}}50%{opacity:${peak}}}</style><defs><filter id="b" x="-30%" y="-80%" width="160%" height="260%"><feGaussianBlur stdDeviation="${blur}"/></filter></defs><g class="g" filter="url(#b)"><rect x="${x}" y="${y}" width="${GLOW_BUTTON.w + 2 * e}" height="${GLOW_BUTTON.h + 2 * e}" rx="${GLOW_BUTTON.r + e}" fill="${ACCENT}"/></g></svg>`,
-  )
-}
-
-/** How long the switch's knob takes to slide after a click. */
-const AUTO_SLIDE_MS = 260
-/** Auto as a switch: a pill with its knob right and violet when on, left and grey when off. `slide` draws the move from
- * the other side, for the redraw right after a click only (every redraw replays an image's animation). */
-export function autoSwitchSvg(on: boolean, slideMs: number | null = null): string {
-  const slide = slideMs !== null && slideMs < AUTO_SLIDE_MS
-  const t = `${AUTO_SLIDE_MS / 1000}s cubic-bezier(.3,.7,.2,1)`
-  const css = slide
-    ? `<style>.k{animation:k ${t}}.p{animation:p ${t}}@keyframes k{from{transform:translateX(${on ? -11 : 11}px);fill:${on ? '#8b8b93' : '#ffffff'}}}@keyframes p{from{fill:${on ? '#2c2c31' : ACCENT};stroke:${on ? '#4a4a52' : ACCENT}}}</style>`
-    : ''
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="15" viewBox="0 0 26 15">${css}<rect class="p" x=".5" y=".5" width="25" height="14" rx="7" fill="${on ? ACCENT : '#2c2c31'}" stroke="${on ? ACCENT : '#4a4a52'}"/><circle class="k" data-keep="1" cx="${on ? 18.5 : 7.5}" cy="7.5" r="5" fill="${on ? '#ffffff' : '#8b8b93'}"/></svg>`
-  return slide ? inPhase(svg, slideMs) : svg
-}
-/** The handoff bar's Quick | Full switch: a dark track with both words in it and a light knob under the picked one,
- * as tall as Go (20 px, 5 px radius) so the row's controls line up,
- * KIND_CELLS wide each half (the words are app Text laid over it; an image would draw them in another font). */
-const KIND_CELLS = 9
-/** One cell of the desktop band in CSS px (`1ch` of its font, measured). */
-const CELL_PX = 7.9
-const KIND_W = Math.round(KIND_CELLS * 2 * CELL_PX)
-const KIND_H = 20
-/** The track and the knob under `kind`; `slideMs` slides the knob over from the other half, for the redraw right
- * after a click only (every redraw replays an image's animation). */
-export function kindSwitchSvg(kind: 'quick' | 'full', slideMs: number | null = null): string {
-  const half = KIND_W / 2
-  const at = (k: 'quick' | 'full') => (k === 'full' ? half + 0.5 : 2)
-  const slide = slideMs !== null && slideMs < KIND_SLIDE_DELAY_MS + KIND_SLIDE_MS
-  // It starts a beat after the click: the click redraws the whole bar, its large art included, and a slide in those
-  // same frames stuttered. SMIL, not CSS: it moves the knob's own x, held at the old side until it begins.
-  const from = at(kind === 'full' ? 'quick' : 'full')
-  const begin = slideMs === null ? 0 : KIND_SLIDE_DELAY_MS - slideMs
-  const move = slide
-    ? `<animate attributeName="x" from="${from}" to="${at(kind)}" begin="${(begin / 1000).toFixed(3)}s" dur="${KIND_SLIDE_MS / 1000}s" fill="freeze" calcMode="spline" keyTimes="0;1" keySplines=".3 .7 .2 1"/>`
-    : ''
-  // The track is the app's Select (white at 5%, a 1 px inset edge of white at 10%, 6 px corners), so the row reads as
-  // one set; the knob sits 2 px inside it.
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${KIND_W}" height="${KIND_H}" viewBox="0 0 ${KIND_W} ${KIND_H}"><rect x=".5" y=".5" width="${KIND_W - 1}" height="${KIND_H - 1}" rx="5.5" fill="#ffffff" fill-opacity=".05" stroke="#ffffff" stroke-opacity=".1"/><rect x="${slide ? from : at(kind)}" y="2" width="${half - 2.5}" height="${KIND_H - 4}" rx="4" data-keep="1" fill="#ececf0">${move}</rect>${slide ? `<!--${kindFlipAt}-->` : ''}</svg>`
-}
-const KIND_SLIDE_MS = 300
-const KIND_SLIDE_DELAY_MS = 70
-// When the handoff bar's Quick | Full last changed, for the knob's slide. Stamped into the slide's image too: going
-// back and forth drew the same image twice, and the app reused it without playing the slide again.
-let kindFlipAt = 0
-/** How long the bar's edges glow after Auto is switched on. */
-const AUTO_GLOW_MS = 2600
-const AUTO_GLOW_W = 760
-const AUTO_GLOW_H = 37
-const COLD_GLOW_MS = 4200
-
-/** The rim in the brand's violet while the judge decides: it lights up and stays at full while it thinks, then fades from
- * full once the verdict is in. Two images, each placed by the clock on every draw (inPhase): the app swaps the whole
- * band on every redraw and a new image starts its animation over, so nothing here may depend on an image surviving.
- * The rise ends at full and holds there (forwards); the fade starts at full. The fade waits for the rise to finish, so
- * a quick verdict never fades from half-way. */
-export const JUDGE_RISE_MS = 500
-export const JUDGE_FADE_MS = 450
-const JUDGE_GLOW_MAX = 0.85
-/** CSS's ease-in-out, cubic-bezier(.42,0,.58,1): the progress at time t (0 to 1), by bisection on the curve's x. */
-export function easeInOut(t: number): number {
-  const at = (a: number, b: number, u: number) => 3 * (1 - u) * (1 - u) * u * a + 3 * (1 - u) * u * u * b + u * u * u
-  let lo = 0
-  let hi = 1
-  for (let i = 0; i < 30; i++) {
-    const mid = (lo + hi) / 2
-    if (at(0.42, 0.58, mid) < t) lo = mid
-    else hi = mid
-  }
-  return at(0, 1, (lo + hi) / 2)
-}
-/** The rim's brightness `elapsedMs` into its rise or fade, read off the same curve the browser draws. */
-export function judgeBrightnessAt(kind: 'rise' | 'fade', elapsedMs: number): number {
-  const p = Math.min(1, Math.max(0, elapsedMs / (kind === 'rise' ? JUDGE_RISE_MS : JUDGE_FADE_MS)))
-  return kind === 'rise' ? JUDGE_GLOW_MAX * easeInOut(p) : JUDGE_GLOW_MAX * (1 - easeInOut(p))
-}
-/** The rim as one short piece: from its brightness now to its brightness JUDGE_STEP_MS later, in a straight line, then held.
- * The app draws old copies of the band again at moments the mod does not see (measured on a screen recording: a copy
- * from 130 ms into a fade came back 570 ms in, and the fade started over from full). A long animation replayed from a
- * stale copy jumps far; a piece this short is wrong for at most one step, and the schedule draws the next one. The rim
- * at full is a still image with no animation, so a replay changes nothing. */
-export const JUDGE_STEP_MS = 50
-/** How far each piece runs: longer than the gap between the app's redraws (measured 100 to 120 ms, however often the mod
- * asks), so a piece never ends and stands still before the next one is drawn. A piece of 50 ms did, in visible steps. */
-export const JUDGE_PIECE_MS = 150
-export function judgeGlowSvg(kind: 'rise' | 'fade', elapsedMs = 0): string {
-  const W = AUTO_GLOW_W
-  const H = AUTO_GLOW_H
-  const dur = kind === 'rise' ? JUDGE_RISE_MS : JUDGE_FADE_MS
-  const from = judgeBrightnessAt(kind, elapsedMs)
-  // Five points along the true curve, so the piece is where the curve is at every moment and the next one starts on it.
-  const span = Math.max(1, Math.min(JUDGE_PIECE_MS, dur - elapsedMs))
-  const points = [0, 0.25, 0.5, 0.75, 1]
-    .map(k => `${(k * 100).toFixed(0)}%{opacity:${judgeBrightnessAt(kind, elapsedMs + k * span).toFixed(3)}}`)
-    .join('')
-  const still = kind === 'rise' && elapsedMs >= dur
-  const css = still
-    ? `.r{opacity:${JUDGE_GLOW_MAX}}`
-    : `.r{opacity:${from.toFixed(3)};animation:r ${(span / 1000).toFixed(3)}s linear forwards}@keyframes r{${points}}`
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><style>${css}</style><defs><filter id="b" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation="1.5"/></filter></defs><g class="r"><rect x="0" y="0" width="${W}" height="${H}" rx="8" fill="none" stroke="${ACCENT}" stroke-width="4" opacity=".16" filter="url(#b)"/><rect x=".75" y="1.75" width="${W - 1.5}" height="${H - 3.5}" rx="8.25" fill="none" stroke="#b9a7ff" stroke-width="1.5" vector-effect="non-scaling-stroke"/></g></svg>`
-}
-/** What the glow is at `now`: nothing, rising or holding, or fading. `endedAt` is null while the judge decides. */
-export function judgeGlowAt(startedAt: number, endedAt: number | null, now: number): string | null {
-  if (now < startedAt) return null
-  const fadeFrom = endedAt === null ? Infinity : Math.max(endedAt, startedAt + JUDGE_RISE_MS)
-  if (now < fadeFrom) return judgeGlowSvg('rise', now - startedAt)
-  if (now < fadeFrom + JUDGE_FADE_MS) return judgeGlowSvg('fade', now - fadeFrom)
-  return null
-}
 /** Redraws the band every JUDGE_STEP_MS from `from` ms over `span` ms, so each piece of the rise or fade is drawn in turn. */
 function drawGlowSteps($: EngineInterface, from: number, span: number) {
   for (let at = Math.max(0, from); at <= from + span + JUDGE_STEP_MS; at += JUDGE_STEP_MS)
@@ -3201,28 +2956,6 @@ async function endJudgeGlow($: EngineInterface, why: string) {
   )
   drawGlowSteps($, fadeAt, JUDGE_FADE_MS)
   $.ui.invalidate('ui.render')
-}
-
-/** The cold band's rim: the Auto glow's light in ice, breathing slowly for as long as the band shows, so a cold chat
- * looks alive rather than parked. Placed by the clock (inPhase), so a redraw picks up where the breath was. */
-export function coldGlowSvg(): string {
-  const W = AUTO_GLOW_W
-  const H = AUTO_GLOW_H
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><style>.r{opacity:.15;animation:r ${COLD_GLOW_MS / 1000}s ease-in-out infinite}@keyframes r{0%,100%{opacity:.15}50%{opacity:.6}}</style><defs><filter id="b" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation="1.5"/></filter></defs><g class="r"><rect x="0" y="0" width="${W}" height="${H}" rx="8" fill="none" stroke="${ICE}" stroke-width="4" opacity=".16" filter="url(#b)"/><rect x=".75" y="1.75" width="${W - 1.5}" height="${H - 3.5}" rx="8.25" fill="none" stroke="#cfeeff" stroke-width="1.5" vector-effect="non-scaling-stroke"/></g></svg>`
-}
-/** The image starts inside the band's side borders but over its top and bottom ones (the layer's top and bottom are the
- * band's outer edge, its sides the inner), so the line is inset 0.75 px at the sides and 1.75 px at top and bottom: 1 px
- * inside the border all round.
- * The glow inside the bar's edges as Auto comes on: a violet light that rises along the rim, holds, and fades once. Drawn
- * for AUTO_GLOW_MS only (every redraw would replay it). Stretched across the band's width (preserveAspectRatio none: the
- * app scales a Svg to its box's width and keeps its height); drawn at about the band's real width so the sides stay
- * as thick as the top and bottom. Clipped to the bar's inside, so the light falls inward. */
-export function autoGlowSvg(on: boolean): string {
-  const W = AUTO_GLOW_W
-  const H = AUTO_GLOW_H
-  const rim = `x="0" y="0" width="${W}" height="${H}" rx="8"`
-  const [wash, line, strength] = on ? [ACCENT, '#b9a7ff', 0.9] : ['#8b8b93', '#c8c8d0', 0.6]
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><style>.r{opacity:0;animation:r ${AUTO_GLOW_MS / 1000}s ease-in-out}@keyframes r{0%{opacity:0}15%{opacity:${strength}}45%{opacity:${(strength * 0.85).toFixed(2)}}100%{opacity:0}}</style><defs><filter id="b" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation="1.5"/></filter><filter id="s" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation=".8"/></filter></defs><g class="r"><rect ${rim} fill="none" stroke="${wash}" stroke-width="4" opacity=".14" filter="url(#b)"/><rect x=".75" y="1.75" width="${W - 1.5}" height="${H - 3.5}" rx="8.25" fill="none" stroke="${line}" stroke-width="1.5" vector-effect="non-scaling-stroke"/></g></svg>`
 }
 // Auto as the bar last saw it, and when it last flipped, either way (for the edge glow and the switch's slide).
 let autoSeen: boolean | undefined
@@ -6015,7 +5748,7 @@ Saved to ${out}.md and .json`,
       const choice = await read($, handoffPick)
       if (choice) {
         const setBar = (change: Partial<HandoffChoice>) => async () => {
-          if (change.kind && change.kind !== choice.kind) kindFlipAt = await $.clock.now()
+          if (change.kind && change.kind !== choice.kind) setKindFlipAt(await $.clock.now())
           await update($, handoffPick, () => ({ ...choice, ...change }))
           // The write alone redraws the bar; a full invalidate redraws the art too, which flickers.
         }
