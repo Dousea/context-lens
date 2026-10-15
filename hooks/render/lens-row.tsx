@@ -201,8 +201,8 @@ export async function lensRow($: EngineInterface, e: RenderInput<'AbovePrompt'>,
           </Box>
         )}
         {segments.length > 0 && !Svg && lineBar('ctx-bar', segments)}
-        {/* The band's own text colour: the app's default follows its theme, not the band's look, and is lost on a light band
-          in a dark app. */}
+        {/* The band's own text colour: the app's default follows the app's theme, and is lost on a light band in a dark
+          app. */}
         <Text color={DASH_TEXT}>{usedText}</Text>
         {maxText && <Text dimColor>/ {maxText}</Text>}
         {Svg && breakdown.length > 0 && (

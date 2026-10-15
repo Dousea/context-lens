@@ -142,7 +142,7 @@ export const fillBar = (fraction: number, width: number): BarSegment[] => {
   ]
 }
 
-// A heavy rule on a light one sits at mid-height, so the bar reads as part of the text line, not a block.
+// A heavy rule on a light one sits at mid-height, so the bar reads as part of the text line.
 export const segmentGlyph = (kind: CategoryKind): string => (kind === 'used' ? '━' : '─')
 
 export type UsageStyle = 'full' | 'gauge' | 'percent'
@@ -153,7 +153,7 @@ export type UsageWindow = { label: string; short: string; percent: number; reset
 const USAGE_STYLES: readonly UsageStyle[] = ['full', 'gauge', 'percent']
 const SEPARATOR = 3 // ' · '
 const MIN_CTX_BAR = 8
-// A usage window draws a bar of its own only when the row gives each one this much; else a one-cell gauge.
+// A usage window draws a bar of its own when the row gives each one this much; else a one-cell gauge.
 const MIN_USAGE_BAR = 10
 export const CONTEXT_LABEL = { label: 'Context', short: 'Ctx' } as const
 export const CACHE_LABEL = 'Cache'

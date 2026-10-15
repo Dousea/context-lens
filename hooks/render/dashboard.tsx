@@ -491,7 +491,7 @@ export async function dashboardBand($: EngineInterface, e: RenderInput<'AbovePro
             {/* A new effort shows in the accent, then white (effortFlash): plain text in the app's font. An animated image
               of the word looked cheap: another font, a late start and a jump back to the text. */}
             {/* While the judge's line is hidden from the band, the model and effort are a hover scope: the pointer on them
-                reveals it, which the app draws as a card by them, as it does the cache clock's. */}
+                reveals it, which the app draws as a card by them. */}
             <Box key="dash-pair" position="relative" flexShrink={0}>
               <Text key="dash-level" color={wordColor} bold hover={reasonOnHover ? { underline: true } : undefined}>
                 {judgingHere && Svg ? (modelName ? `${modelName} · Deciding` : 'Deciding') : pair}
