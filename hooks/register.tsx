@@ -1,5 +1,13 @@
-import { atom, read, update } from 'claude-code'
-import type { EngineInterface, ModelForkResult, ModelUsage, Register, RenderInput } from 'claude-code'
+import {
+  atom,
+  type EngineInterface,
+  type ModelForkResult,
+  type ModelUsage,
+  read,
+  type Register,
+  type RenderInput,
+  update,
+} from 'claude-code'
 
 import type {
   AgentCache,
@@ -14,11 +22,129 @@ import type {
   Spent,
   Steps,
 } from '../types'
-import { ART_COLUMNS, ART_FRAME_MS, ART_MIN_WIDTH, ART_ROWS, type ArtKind, artFrame, MOVING } from './art'
+import { ART_COLUMNS, ART_FRAME_MS, ART_MIN_WIDTH, ART_ROWS, artFrame, type ArtKind, MOVING } from './art'
 import { MARK_SVG } from './brand-mark'
+import {
+  config,
+  type Hideable,
+  type JudgeConfig,
+  pluginOptions,
+  readConfig,
+  setConfig,
+  setPluginOptions,
+  SWAMP_STEPS,
+} from './core/config'
+import {
+  CACHE_TTL,
+  cacheSafe,
+  COMPACT_FADE_MS,
+  EFFORT_LABELS,
+  EFFORTS,
+  EMPTY_SPENT,
+  FROST_HEIGHT,
+  FROST_WIDTH,
+  HANDOFF_LOUD_AT,
+  MODELS,
+  STEPS,
+  takesEffort,
+  WEIGHT,
+} from './core/constants'
+import {
+  drawsTimed,
+  firstDrawLogged,
+  lastRenderAt,
+  lastRenderBranch,
+  lastRenderError,
+  lastRenderProps,
+  loadedAt,
+  loadedSession,
+  probeLevel,
+  renderCalls,
+  renderLog,
+  sessionStarted,
+  setDrawsTimed,
+  setFirstDrawLogged,
+  setLastRenderAt,
+  setLastRenderBranch,
+  setLastRenderError,
+  setLastRenderProps,
+  setLoadedAt,
+  setLoadedSession,
+  setProbeLevel,
+  setRenderCalls,
+  setSessionStarted,
+  writeRenderLog,
+} from './core/debug'
+import {
+  envAgentCacheTtl,
+  envCacheTtl,
+  envEnable1h,
+  envForce5m,
+  envHome,
+  envUserProfile,
+  homeDir,
+  noClaudeHint,
+  ownVersion,
+  pluginId,
+  proof,
+  readOwnVersion,
+  runClaude,
+} from './core/env'
+import {
+  ACCENT,
+  applyTheme,
+  BOG,
+  BOG_BG,
+  BOG_EDGE,
+  BRAND_BG,
+  BRAND_EDGE,
+  CARD_CLOSE_HOVER,
+  CARD_HOVER,
+  CARD_HOVER_EDGE,
+  DASH_BG,
+  DASH_DIM,
+  DASH_EDGE,
+  DASH_HEAD,
+  DASH_TEXT,
+  DONE_ACCENT,
+  DONE_BG,
+  DONE_EDGE,
+  EMBER,
+  EMBER_BG,
+  EMBER_EDGE,
+  FLASH_COLOR,
+  HOVER_BOX,
+  ICE,
+  ICE_BG,
+  ICE_EDGE,
+  RED,
+  refreshAppearance,
+  SLATE,
+  SLATE_BG,
+  SLATE_EDGE,
+  UNINSTALL_RED,
+  YELLOW,
+} from './core/palette'
+import {
+  classicStart,
+  engineEffort,
+  lastRequest,
+  lastTyped,
+  pickCarried,
+  setClassicStart,
+  setEngineEffort,
+  setLastRequest,
+  setLastTyped,
+  setPickCarried,
+  setToldAboutEnter,
+  setTurnBusy,
+  toldAboutEnter,
+  turnBusy,
+} from './core/session'
 import {
   applyUsage,
   bar,
+  type BarSegment,
   clockTokens,
   emptyClock,
   fillBar,
@@ -33,119 +159,19 @@ import {
   stackedBar,
   toContextView,
   usageWindow,
-  warmth,
-  type BarSegment,
   type Warmth,
+  warmth,
 } from './model'
-import { accent, setLight, setTheme, themedEls, type ThemeName, THEMES, tintHex } from './theme'
-import { PILL_H, thinkingSvg, THINK_W } from './thinking'
+import { themedEls, type ThemeName, THEMES } from './theme'
+import { PILL_H, THINK_W, thinkingSvg } from './thinking'
 
-// The ladders the two sliders walk, cheapest first.
-export const MODELS: { key: ModelKey; label: string; long: string; id: string }[] = [
-  { key: 'haiku', label: 'Haiku', long: 'Haiku 5.5', id: 'claude-haiku-5-5' },
-  { key: 'sonnet', label: 'Sonnet', long: 'Sonnet 5.5', id: 'claude-sonnet-5-5' },
-  { key: 'opus', label: 'Opus', long: 'Opus 5.5', id: 'claude-opus-5-5' },
-  { key: 'fable', label: 'Fable', long: 'Fable 5.1', id: 'claude-fable-5-1' },
-]
-export const EFFORTS: Effort[] = ['low', 'medium', 'high', 'xhigh', 'max']
-const STEPS: Steps[] = ['one', 'few', 'many']
-// What one token costs relative to an uncached input token, the same ratios on every Claude model. Measured over
-// 80k requests of real Claude Code use, cache reads are about 76% of a session's cost, cache writes 16% and output 8%: effort
-// mostly changes how many tool calls a prompt makes, not what one answer writes, so all four are counted.
-// A write to the 1-hour cache costs twice the input price, to the 5-minute one 1.25 times.
-const WEIGHT = { input: 1, write: 1.25, write1h: 2, read: 0.1, out: 5 }
-// Changing effort between two requests keeps the prompt cache on these models only. On Fable 5.1 and older Opus
-// the next request rewrote 56-100% of the cache (measured), which costs more than any effort can save. Haiku 5.5 is
-// not measured: it is taken to behave like Opus and Sonnet 5.5, and a rewrite of its cache is the cheapest there is.
-export const cacheSafe = (modelId: string) => /(opus|sonnet|haiku)-5-5/.test(modelId)
-// Haiku before 5.5 runs without an effort level.
-export const takesEffort = (modelId: string) => !/haiku-[1-4]|3-(5-)?haiku/.test(modelId)
-// The accent the effort in the footer is written in: the brand violet, or what the theme turns it to.
-let ACCENT = accent()
-/** Takes the theme the settings name; the accent and every drawing follow it. */
-function applyTheme() {
-  setTheme(config.theme)
-  ACCENT = accent()
-  BRAND_BG = tintHex('#15121f')
-  BRAND_EDGE = tintHex('#4a3f80')
-  BRAND_HEAD = tintHex('#221c3a')
-  FLASH_COLOR = tintHex('#9b7bff')
-  // The panel greys lean blue beside the violet; with the other themes they are the app's own neutral greys.
-  const neutral = config.theme !== 'violet'
-  DASH_BG = neutral ? '#151515' : '#141416'
-  DASH_EDGE = neutral ? '#2a2a2a' : '#2a2a2f'
-  DASH_HEAD = neutral ? '#191919' : '#18181b'
-  CARD_HOVER = neutral ? '#1c1c1c' : '#1c1c20'
-  CARD_HOVER_EDGE = neutral ? '#3b3b3b' : '#3b3b42'
-  HOVER_BOX = neutral ? '#2b2b2b' : '#2b2b2f'
-  applyAppearance()
-}
-
-// Claude Code's own theme, read from its /config row: a light one turns everything light when appearance is auto.
-let claudeIsLight = false
-let appearanceCheckedAt = -Infinity
-function applyAppearance() {
-  setLight(config.appearance === 'light' || (config.appearance === 'auto' && claudeIsLight))
-}
-/** Reads Claude Code's theme row (at most every few seconds) and redraws when light or dark changed. */
-async function refreshAppearance($: EngineInterface) {
-  const now = await $.clock.now().catch(() => Date.now())
-  if (now - appearanceCheckedAt < 4000) return
-  appearanceCheckedAt = now
-  const rows = await $.config.list().catch(() => [])
-  const value = rows.find(row => row.key === 'theme')?.value
-  const lightNow = typeof value === 'string' && value.startsWith('light')
-  if (lightNow === claudeIsLight) return
-  claudeIsLight = lightNow
-  applyAppearance()
-  $.ui.invalidate('ui.render')
-}
-let BRAND_BG = '#15121f'
-let BRAND_EDGE = '#4a3f80'
-// The settings panel's header bar: a shade lighter than the panel, so it reads as a title bar.
-let BRAND_HEAD = '#221c3a'
-// The box behind the level while it is hovered: the grey of the app's own pills.
-let HOVER_BOX = '#2b2b2f'
-const EFFORT_LABELS: Record<Effort, string> = { low: 'Low', medium: 'Medium', high: 'High', xhigh: 'XHigh', max: 'Max' }
+export { HIDEABLE, type Hideable, type JudgeConfig, readConfig, SWAMP_STEPS } from './core/config'
+export { cacheSafe, EFFORTS, MODELS, takesEffort } from './core/constants'
+export { claudeCandidates, noClaudeHint } from './core/env'
 
 // Auto is two switches. `isAuto` is effort (the name stays: it is what the store and state hold);
 // `isAutoModel` lets the judge suggest another model and starts off.
 const isAuto = atom({ plugin: 'context-lens', key: 'isAuto' } as const, true)
-const EMPTY_SPENT: Spent = {
-  prompts: 0,
-  requests: 0,
-  input: 0,
-  write: 0,
-  writeHour: 0,
-  read: 0,
-  out: 0,
-  byEffort: {},
-  judge: { haiku: 0, ms: 0, tokens: 0 },
-  subagents: { runs: {}, requests: 0, cost: 0 },
-}
-const SWITCHED_MS = 2500
-// The prompt cache lives this long after the last request read or wrote it. A response may say which lifetime its
-// cache writes got (usage.cache_creation: ephemeral_1h / ephemeral_5m); until one does, 1 hour is assumed: 99% of
-// the cache writes in 80k requests of real Claude Code use (289k of 292k) were 1 hour.
-const CACHE_TTL = { '5m': 5 * 60_000, '1h': 60 * 60_000 } as const
-const CACHE_TICK_MS = 15_000
-// Shown minutes at or under these turn the countdown yellow, then red: grey while there is time, yellow at 20, red at 5.
-const CACHE_YELLOW_MIN = 20
-const CACHE_RED_MIN = 5
-const ICE = '#7cc4ff'
-const ICE_BG = '#0e1820'
-const ICE_EDGE = '#2f5c80'
-const BOG = '#a7c98f'
-const BOG_BG = '#111710'
-const BOG_EDGE = '#3e5a33'
-const EMBER = '#f08a3c'
-const EMBER_BG = '#1a110c'
-const EMBER_EDGE = '#6a3418'
-const SLATE = '#b4b8c4'
-const SLATE_BG = '#12141b'
-const SLATE_EDGE = '#39415a'
-const YELLOW = '#e0a33a'
-const RED = '#e5534b'
 const isAutoModel = atom({ plugin: 'context-lens', key: 'isAutoModel' } as const, false)
 const pick = atom({ plugin: 'context-lens', key: 'pick' } as const, null)
 const isJudging = atom({ plugin: 'context-lens', key: 'isJudging' } as const, false)
@@ -165,18 +191,6 @@ const cacheMemo = atom({ plugin: 'context-lens', key: 'cacheMemo' } as const, nu
 const isCompacting = atom({ plugin: 'context-lens', key: 'isCompacting' } as const, false)
 // The compact bar: open after Compact is pressed, with a field for what the summary should keep.
 const compactAsk = atom({ plugin: 'context-lens', key: 'compactAsk' } as const, false)
-// What is typed in that field. Kept here, not in state: a write per key would redraw the bar under the cursor.
-let compactNote = ''
-// When the compact bar opened: its first half second fades the swamped band's colours out (see compactFadeSvg).
-let compactOpenedAt = 0
-const COMPACT_FADE_MS = 450
-/** The swamped band's colours over the compact bar, fading to nothing: the band seems to turn from green to violet. */
-function compactFadeSvg(elapsedMs: number): string {
-  return inPhase(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="240" viewBox="0 0 1600 240" preserveAspectRatio="none"><style>.f{animation:f ${COMPACT_FADE_MS / 1000}s ease-out forwards}@keyframes f{from{opacity:1}to{opacity:0}}</style><rect class="f" width="1600" height="240" fill="${BOG_BG}"/></svg>`,
-    elapsedMs,
-  )
-}
 // Where a handoff is: null idle, writing (the handoff turn runs), clearing (clear and resend).
 const handoffStage = atom({ plugin: 'context-lens', key: 'handoffStage' } as const, null)
 // The handoff bar above the prompt, open with the choice shown in it, or null.
@@ -185,6 +199,65 @@ const handoffPick = atom({ plugin: 'context-lens', key: 'handoffPick' } as const
 const swamped = atom({ plugin: 'context-lens', key: 'swamped' } as const, null)
 // Why Haiku thinks a handoff would suit now, or null. It lights Handoff and says why; there is no percent threshold.
 const handoffAdvice = atom({ plugin: 'context-lens', key: 'handoffAdvice' } as const, null)
+const handoffCard = atom({ plugin: 'context-lens', key: 'handoffCard' } as const, null)
+
+// The newest reply's text, so the warning card goes under its last block and nowhere else.
+const lastAnswer = atom({ plugin: 'context-lens', key: 'lastAnswer' } as const, '')
+// What each reply's footer says (effort, model, cost), by the reply's duration in ms: written when the turn ends, so a later
+// effort or model change leaves the older footers as they were.
+const turnLines = atom({ plugin: 'context-lens', key: 'turnLines' } as const, {})
+// The swamp band was closed at this many tokens; it comes back once the context has grown well past it.
+const swampHiddenAt = atom({ plugin: 'context-lens', key: 'swampHiddenAt' } as const, null)
+// The first-run setup is not done: the footer offers "Setup".
+const setupPending = atom({ plugin: 'context-lens', key: 'setupPending' } as const, false)
+// The context-lens settings panel is open above the prompt.
+const settingsOpen = atom({ plugin: 'context-lens', key: 'settingsOpen' } as const, false)
+// The user and plugin skills, read when the settings panel opens.
+const installedSkills = atom({ plugin: 'context-lens', key: 'installedSkills' } as const, [])
+// What was changed in the panel and not saved yet, by field; Save applies it all, the cross drops it.
+const settingsDraft = atom({ plugin: 'context-lens', key: 'settingsDraft' } as const, {})
+// Why the judge is failing, or null when it works.
+const judgeDown = atom({ plugin: 'context-lens', key: 'judgeDown' } as const, null)
+const settingsCard = atom({ plugin: 'context-lens', key: 'settingsCard' } as const, null)
+// The judge-down band was closed for this reason; a new reason shows it again.
+const judgeDownHidden = atom({ plugin: 'context-lens', key: 'judgeDownHidden' } as const, null)
+// A usage limit is close: which window, how much is used, when it resets. Null below the line.
+const hot = atom({ plugin: 'context-lens', key: 'hot' } as const, null)
+// The running-hot band closed with its cross: in which window and how full. Kept in the store too, so a new chat keeps it closed.
+const hotHidden = atom({ plugin: 'context-lens', key: 'hotHidden' } as const, null as HotClosed | null)
+// Save mode: Auto picks at most medium until this time (ms), when the limit resets.
+const saveUntil = atom({ plugin: 'context-lens', key: 'saveUntil' } as const, null)
+// The person closed the cold band; it comes back the next time the cache goes cold.
+const isColdHidden = atom({ plugin: 'context-lens', key: 'isColdHidden' } as const, false)
+// The setup guide above the prompt: which step it shows, or null when it is closed.
+const setupStep = atom({ plugin: 'context-lens', key: 'setupStep' } as const, null)
+// What was picked in the setup guide and not saved yet: it is saved in one go at Done or ✕. Each saved setting reloads
+// the plugin, and the app says so in the chat, so a save per click filled the chat with notices.
+const setupDraft = atom({ plugin: 'context-lens', key: 'setupDraft' } as const, {})
+
+const lensMain = atom({ plugin: 'context-lens', key: 'lensMain' } as const, emptyClock('1h'))
+const lensAgents = atom({ plugin: 'context-lens', key: 'lensAgents' } as const, [])
+const lensContext = atom({ plugin: 'context-lens', key: 'lensContext' } as const, null)
+const lensLiveTokens = atom({ plugin: 'context-lens', key: 'lensLive' } as const, null)
+const lensRewritten = atom({ plugin: 'context-lens', key: 'lensRewritten' } as const, false)
+const lensLimits = atom({ plugin: 'context-lens', key: 'lensLimits' } as const, [])
+const lensNow = atom({ plugin: 'context-lens', key: 'lensNow' } as const, 0)
+const SWITCHED_MS = 2500
+const CACHE_TICK_MS = 15_000
+// Shown minutes at or under these turn the countdown yellow, then red: grey while there is time, yellow at 20, red at 5.
+const CACHE_YELLOW_MIN = 20
+const CACHE_RED_MIN = 5
+// What is typed in that field. Kept here, not in state: a write per key would redraw the bar under the cursor.
+let compactNote = ''
+// When the compact bar opened: its first half second fades the swamped band's colours out (see compactFadeSvg).
+let compactOpenedAt = 0
+/** The swamped band's colours over the compact bar, fading to nothing: the band seems to turn from green to violet. */
+function compactFadeSvg(elapsedMs: number): string {
+  return inPhase(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="240" viewBox="0 0 1600 240" preserveAspectRatio="none"><style>.f{animation:f ${COMPACT_FADE_MS / 1000}s ease-out forwards}@keyframes f{from{opacity:1}to{opacity:0}}</style><rect class="f" width="1600" height="240" fill="${BOG_BG}"/></svg>`,
+    elapsedMs,
+  )
+}
 // The handoff card above the prompt: shown from the start of a handoff, and once it lands ('done' in the
 // cleared chat, 'copied'). It goes with the next message, its ✕, or HANDOFF_CARD_MS after it was set.
 type HandoffCard = {
@@ -197,7 +270,6 @@ type HandoffCard = {
 const cardRunning = (kind: HandoffCard['kind']) => kind === 'writing' || kind === 'compacting'
 // Kinds that landed well: the card turns green with a checkmark.
 const cardLanded = (kind: HandoffCard['kind']) => kind === 'done' || kind === 'compacted'
-const handoffCard = atom({ plugin: 'context-lens', key: 'handoffCard' } as const, null)
 const HANDOFF_CARD_MS = 2 * 60_000
 // The handoff card's art while it is written: sparkles carried from left to right.
 const HANDOFF_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="440" height="64" viewBox="0 0 360 30" preserveAspectRatio="xMaxYMid slice"><style>:root{color-scheme:light dark}html,body{margin:0}svg{background:transparent;display:block}.d{fill:#d9d1ff;opacity:0;animation-name:go;animation-timing-function:ease-in-out;animation-iteration-count:infinite}@keyframes go{0%{opacity:0;transform:translate(0,0)}15%{opacity:.9}85%{opacity:.7}100%{opacity:0;transform:translate(190px,0)}}.br{animation:br 2.4s ease-in-out infinite}@keyframes br{0%,100%{opacity:.75}50%{opacity:1}}</style><defs><linearGradient id="bg" x1="0" x2="1"><stop offset=".43" stop-color="#7c6cf0" stop-opacity="0"/><stop offset=".7" stop-color="#7c6cf0" stop-opacity=".2"/><stop offset="1" stop-color="#b3a6ff" stop-opacity=".46"/></linearGradient><linearGradient id="fade" x1="0" x2="1"><stop offset=".43" stop-color="#fff" stop-opacity="0"/><stop offset=".7" stop-color="#fff" stop-opacity="1"/></linearGradient><mask id="m"><rect width="360" height="30" fill="url(#fade)"/></mask><pattern id="grain" width="2" height="2" patternUnits="userSpaceOnUse"><rect width=".6" height=".6" fill="#fff" fill-opacity=".07"/></pattern></defs><g mask="url(#m)"><rect class="br" width="360" height="30" fill="url(#bg)"/><circle class="d" cx="170" cy="9.2" r="0.83" style="animation-duration:2.7s;animation-delay:-2.2s"/><circle class="d" cx="170" cy="17.8" r="0.54" style="animation-duration:2.2s;animation-delay:-3.0s"/><circle class="d" cx="170" cy="9.7" r="0.64" style="animation-duration:3.6s;animation-delay:-1.7s"/><circle class="d" cx="170" cy="22.4" r="0.79" style="animation-duration:3.1s;animation-delay:-0.5s"/><circle class="d" cx="170" cy="18.0" r="1.02" style="animation-duration:2.9s;animation-delay:-2.7s"/><circle class="d" cx="170" cy="18.8" r="0.54" style="animation-duration:3.3s;animation-delay:-2.1s"/><circle class="d" cx="170" cy="10.6" r="0.52" style="animation-duration:3.4s;animation-delay:-1.7s"/><circle class="d" cx="170" cy="19.8" r="1.03" style="animation-duration:3.2s;animation-delay:-3.3s"/><circle class="d" cx="170" cy="12.7" r="0.98" style="animation-duration:2.8s;animation-delay:-3.4s"/><circle class="d" cx="170" cy="23.3" r="0.56" style="animation-duration:2.4s;animation-delay:-0.8s"/><circle class="d" cx="170" cy="25.2" r="0.76" style="animation-duration:3.1s;animation-delay:-1.1s"/><circle class="d" cx="170" cy="15.2" r="0.73" style="animation-duration:2.7s;animation-delay:-2.1s"/><circle class="d" cx="170" cy="16.9" r="1.04" style="animation-duration:3.2s;animation-delay:-3.3s"/><circle class="d" cx="170" cy="22.8" r="1.09" style="animation-duration:3.1s;animation-delay:-0.6s"/><rect width="360" height="30" fill="url(#grain)"/></g></svg>`
@@ -213,12 +285,6 @@ async function setHandoffCard($: EngineInterface, kind: HandoffCard['kind'], ful
     } catch {}
   }
 }
-
-// The newest reply's text, so the warning card goes under its last block and nowhere else.
-const lastAnswer = atom({ plugin: 'context-lens', key: 'lastAnswer' } as const, '')
-// What each reply's footer says (effort, model, cost), by the reply's duration in ms: written when the turn ends, so a later
-// effort or model change leaves the older footers as they were.
-const turnLines = atom({ plugin: 'context-lens', key: 'turnLines' } as const, {})
 const TURN_LINES_KEPT = 200
 type TurnLine = { effort?: Effort; model?: ModelKey; cost?: number }
 // The session's state ends with the process: the lines are kept in the store too, by session id (the transcript's name, which
@@ -263,21 +329,8 @@ async function storeTurnLine($: EngineInterface, key: string, line: TurnLine) {
 let turnCost = 0
 // What the reply's last main-thread request ran on: the footer's model and effort.
 let ranThisTurn: { model?: ModelKey; effort?: Effort } | null = null
-// The swamp band was closed at this many tokens; it comes back once the context has grown well past it.
-const swampHiddenAt = atom({ plugin: 'context-lens', key: 'swampHiddenAt' } as const, null)
-// The first-run setup is not done: the footer offers "Setup".
-const setupPending = atom({ plugin: 'context-lens', key: 'setupPending' } as const, false)
-// The context-lens settings panel is open above the prompt.
-const settingsOpen = atom({ plugin: 'context-lens', key: 'settingsOpen' } as const, false)
-// The user and plugin skills, read when the settings panel opens.
-const installedSkills = atom({ plugin: 'context-lens', key: 'installedSkills' } as const, [])
-// What was changed in the panel and not saved yet, by field; Save applies it all, the cross drops it.
-const settingsDraft = atom({ plugin: 'context-lens', key: 'settingsDraft' } as const, {})
-// Why the judge is failing, or null when it works.
-const judgeDown = atom({ plugin: 'context-lens', key: 'judgeDown' } as const, null)
 // Which part of the settings panel is open: null for the cards.
 type SettingsCard = 'auto' | 'subagents' | 'context' | 'look'
-const settingsCard = atom({ plugin: 'context-lens', key: 'settingsCard' } as const, null)
 /** The settings panel's parts: a card each on the overview, and what the part is for, said once it is open. */
 const CARDS: readonly { id: SettingsCard; title: string; about: string }[] = [
   {
@@ -295,27 +348,9 @@ const CARDS: readonly { id: SettingsCard; title: string; about: string }[] = [
 ]
 const BIAS_WORDS = ['Cheapest', 'Cheaper', 'Balanced', 'Smarter', 'Smartest'] as const
 const THEME_LABELS: Record<ThemeName, string> = { violet: 'Violet', orange: 'Claude orange', rose: 'Cherry blossom' }
-// The judge-down band was closed for this reason; a new reason shows it again.
-const judgeDownHidden = atom({ plugin: 'context-lens', key: 'judgeDownHidden' } as const, null)
-// A usage limit is close: which window, how much is used, when it resets. Null below the line.
-const hot = atom({ plugin: 'context-lens', key: 'hot' } as const, null)
-// The running-hot band closed with its cross: in which window and how full. Kept in the store too, so a new chat keeps it closed.
-const hotHidden = atom({ plugin: 'context-lens', key: 'hotHidden' } as const, null as HotClosed | null)
-// Save mode: Auto picks at most medium until this time (ms), when the limit resets.
-const saveUntil = atom({ plugin: 'context-lens', key: 'saveUntil' } as const, null)
-// The person closed the cold band; it comes back the next time the cache goes cold.
-const isColdHidden = atom({ plugin: 'context-lens', key: 'isColdHidden' } as const, false)
-// The setup guide above the prompt: which step it shows, or null when it is closed.
-const setupStep = atom({ plugin: 'context-lens', key: 'setupStep' } as const, null)
-// What was picked in the setup guide and not saved yet: it is saved in one go at Done or ✕. Each saved setting reloads
-// the plugin, and the app says so in the chat, so a save per click filled the chat with notices.
-const setupDraft = atom({ plugin: 'context-lens', key: 'setupDraft' } as const, {})
 
 // The band above the prompt when the cache has gone cold: an icy gradient with snowflakes drifting down.
 const FROST_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="440" height="64" viewBox="0 0 360 30" preserveAspectRatio="xMaxYMid slice"><style>:root{color-scheme:light dark}html,body{margin:0}svg{background:transparent;display:block}.f path{stroke:#eaf6ff;stroke-width:.5;stroke-linecap:round;fill:none}.f{transform-box:fill-box;transform-origin:center;animation:spin linear infinite;opacity:.75}@keyframes spin{to{transform:rotate(360deg)}}.fr{stroke:#dff1ff;stroke-width:.4;fill:none;stroke-linecap:round;opacity:.5}.gl{fill:#fff;opacity:0;animation:tw 3.6s ease-in-out infinite}@keyframes tw{0%,70%,100%{opacity:0}80%{opacity:.9}}.br{animation:br 6s ease-in-out infinite}@keyframes br{0%,100%{opacity:.85}50%{opacity:1}}</style><defs><linearGradient id="ice" x1="0" x2="1"><stop offset=".43" stop-color="#5aa9e6" stop-opacity="0"/><stop offset=".62" stop-color="#5aa9e6" stop-opacity=".12"/><stop offset=".85" stop-color="#8fd0ff" stop-opacity=".28"/><stop offset="1" stop-color="#cdeaff" stop-opacity=".42"/></linearGradient><radialGradient id="cold" cx="330" cy="15" r="60" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#e9f6ff" stop-opacity=".22"/><stop offset="1" stop-color="#e9f6ff" stop-opacity="0"/></radialGradient><linearGradient id="rime" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".18"/><stop offset=".22" stop-color="#fff" stop-opacity="0"/><stop offset=".78" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity=".15"/></linearGradient><linearGradient id="fade" x1="0" x2="1"><stop offset=".43" stop-color="#fff" stop-opacity="0"/><stop offset=".7" stop-color="#fff" stop-opacity="1"/></linearGradient><mask id="m"><rect width="360" height="30" fill="url(#fade)"/></mask><pattern id="grain" width="2" height="2" patternUnits="userSpaceOnUse"><rect width=".6" height=".6" fill="#fff" fill-opacity=".07"/></pattern></defs><g mask="url(#m)"><rect class="br" width="360" height="30" fill="url(#ice)"/><rect width="360" height="30" fill="url(#cold)"/><rect width="360" height="30" fill="url(#rime)"/><rect width="360" height="30" fill="url(#grain)"/><path class="fr" d="M360.0 3.0L354.1 2.1M354.1 2.1L349.8 1.8M349.8 1.8L346.7 2.1M346.7 2.1L344.4 2.2M348.2 1.9L347.5 3.2M351.9 1.9L350.3 3.1M350.3 3.1L349.2 3.8M357.0 2.5L355.1 0.6M355.1 0.6L353.5 -0.5M353.5 -0.5L352.4 -1.4M356.1 1.6L354.9 1.4M360.0 27.0L354.1 27.9M354.1 27.9L349.8 28.5M349.8 28.5L346.9 29.6M346.9 29.6L345.0 30.8M348.3 29.0L347.1 28.4M351.9 28.2L350.9 29.9M350.9 29.9L350.3 31.1M357.0 27.5L355.2 29.4M355.2 29.4L353.9 30.9M353.9 30.9L352.8 31.8M356.1 28.4L354.9 28.5M350.0 30.0L348.8 26.2M348.8 26.2L347.9 23.4M347.9 23.4L347.6 21.4M347.6 21.4L347.7 19.9M348.4 24.8L348.9 23.6M349.4 28.1L350.2 26.5M350.2 26.5L350.8 25.3M352.0 0.0L351.0 3.9M351.0 3.9L350.4 6.7M350.4 6.7L349.6 8.6M349.6 8.6L349.0 10.0M350.7 5.3L349.6 5.9M351.5 1.9L352.2 3.6M352.2 3.6L352.9 4.7"/><circle class="gl" cx="228" cy="26" r="0.5" style="animation-delay:0s"/><circle class="gl" cx="205" cy="4" r="0.45" style="animation-delay:1.3s"/><circle class="gl" cx="186" cy="26" r="0.4" style="animation-delay:2.4s"/><circle class="gl" cx="262" cy="6" r="0.5" style="animation-delay:0.7s"/><circle class="gl" cx="300" cy="25" r="0.45" style="animation-delay:3.1s"/><circle class="gl" cx="330" cy="6" r="0.5" style="animation-delay:1.9s"/><g class="f" style="animation-duration:10s;animation-delay:0s"><path d="M236.0 9.0L236.0 13.2M236.0 10.9L237.0 11.8M236.0 10.9L235.0 11.8M236.0 11.9L236.7 12.6M236.0 11.9L235.3 12.6M236.0 9.0L232.4 11.1M234.4 9.9L234.0 11.2M234.4 9.9L233.1 9.6M233.5 10.5L233.2 11.4M233.5 10.5L232.6 10.2M236.0 9.0L232.4 6.9M234.4 8.1L233.1 8.4M234.4 8.1L234.0 6.8M233.5 7.5L232.6 7.8M233.5 7.5L233.2 6.6M236.0 9.0L236.0 4.8M236.0 7.1L235.0 6.2M236.0 7.1L237.0 6.2M236.0 6.1L235.3 5.4M236.0 6.1L236.7 5.4M236.0 9.0L239.6 6.9M237.6 8.1L238.0 6.8M237.6 8.1L238.9 8.4M238.5 7.5L238.8 6.6M238.5 7.5L239.4 7.8M236.0 9.0L239.6 11.1M237.6 9.9L238.9 9.6M237.6 9.9L238.0 11.2M238.5 10.5L239.4 10.2M238.5 10.5L238.8 11.4"/></g><g class="f" style="animation-duration:12s;animation-delay:-4s"><path d="M214.0 21.0L214.0 24.2M214.0 22.4L214.7 23.2M214.0 22.4L213.3 23.2M214.0 23.2L214.5 23.7M214.0 23.2L213.5 23.7M214.0 21.0L211.2 22.6M212.8 21.7L212.5 22.7M212.8 21.7L211.8 21.5M212.1 22.1L211.9 22.8M212.1 22.1L211.4 21.9M214.0 21.0L211.2 19.4M212.8 20.3L211.8 20.5M212.8 20.3L212.5 19.3M212.1 19.9L211.4 20.1M212.1 19.9L211.9 19.2M214.0 21.0L214.0 17.8M214.0 19.6L213.3 18.8M214.0 19.6L214.7 18.8M214.0 18.8L213.5 18.3M214.0 18.8L214.5 18.3M214.0 21.0L216.8 19.4M215.2 20.3L215.5 19.3M215.2 20.3L216.2 20.5M215.9 19.9L216.1 19.2M215.9 19.9L216.6 20.1M214.0 21.0L216.8 22.6M215.2 21.7L216.2 21.5M215.2 21.7L215.5 22.7M215.9 22.1L216.6 21.9M215.9 22.1L216.1 22.8"/></g><g class="f" style="animation-duration:11s;animation-delay:-7s"><path d="M194.0 8.0L194.0 10.6M194.0 9.2L194.6 9.8M194.0 9.2L193.4 9.8M194.0 9.8L194.4 10.2M194.0 9.8L193.6 10.2M194.0 8.0L191.7 9.3M193.0 8.6L192.8 9.4M193.0 8.6L192.2 8.4M192.4 8.9L192.3 9.5M192.4 8.9L191.9 8.8M194.0 8.0L191.7 6.7M193.0 7.4L192.2 7.6M193.0 7.4L192.8 6.6M192.4 7.1L191.9 7.2M192.4 7.1L192.3 6.5M194.0 8.0L194.0 5.4M194.0 6.8L193.4 6.2M194.0 6.8L194.6 6.2M194.0 6.2L193.6 5.8M194.0 6.2L194.4 5.8M194.0 8.0L196.3 6.7M195.0 7.4L195.2 6.6M195.0 7.4L195.8 7.6M195.6 7.1L195.7 6.5M195.6 7.1L196.1 7.2M194.0 8.0L196.3 9.3M195.0 8.6L195.8 8.4M195.0 8.6L195.2 9.4M195.6 8.9L196.1 8.8M195.6 8.9L195.7 9.5"/></g><g class="f" style="animation-duration:13s;animation-delay:-2s"><path d="M176.0 19.0L176.0 21.2M176.0 20.0L176.5 20.5M176.0 20.0L175.5 20.5M176.0 20.5L176.3 20.9M176.0 20.5L175.7 20.9M176.0 19.0L174.1 20.1M175.1 19.5L175.0 20.2M175.1 19.5L174.5 19.3M174.7 19.8L174.5 20.2M174.7 19.8L174.2 19.6M176.0 19.0L174.1 17.9M175.1 18.5L174.5 18.7M175.1 18.5L175.0 17.8M174.7 18.2L174.2 18.4M174.7 18.2L174.5 17.8M176.0 19.0L176.0 16.8M176.0 18.0L175.5 17.5M176.0 18.0L176.5 17.5M176.0 17.5L175.7 17.1M176.0 17.5L176.3 17.1M176.0 19.0L177.9 17.9M176.9 18.5L177.0 17.8M176.9 18.5L177.5 18.7M177.3 18.2L177.5 17.8M177.3 18.2L177.8 18.4M176.0 19.0L177.9 20.1M176.9 19.5L177.5 19.3M176.9 19.5L177.0 20.2M177.3 19.8L177.8 19.6M177.3 19.8L177.5 20.2"/></g><g class="f" style="animation-duration:14s;animation-delay:-9s"><path d="M252.0 22.0L252.0 24.4M252.0 23.1L252.5 23.6M252.0 23.1L251.5 23.6M252.0 23.7L252.4 24.1M252.0 23.7L251.6 24.1M252.0 22.0L249.9 23.2M251.1 22.5L250.9 23.3M251.1 22.5L250.3 22.3M250.5 22.8L250.4 23.4M250.5 22.8L250.0 22.7M252.0 22.0L249.9 20.8M251.1 21.5L250.3 21.7M251.1 21.5L250.9 20.7M250.5 21.2L250.0 21.3M250.5 21.2L250.4 20.6M252.0 22.0L252.0 19.6M252.0 20.9L251.5 20.4M252.0 20.9L252.5 20.4M252.0 20.3L251.6 19.9M252.0 20.3L252.4 19.9M252.0 22.0L254.1 20.8M252.9 21.5L253.1 20.7M252.9 21.5L253.7 21.7M253.5 21.2L253.6 20.6M253.5 21.2L254.0 21.3M252.0 22.0L254.1 23.2M252.9 22.5L253.7 22.3M252.9 22.5L253.1 23.3M253.5 22.8L254.0 22.7M253.5 22.8L253.6 23.4"/></g></g></svg>`
-// The frost is drawn larger than the band and cut by it: wide enough for the right side, tall enough for any band.
-const FROST_WIDTH = 440
-const FROST_HEIGHT = 64
 // The band when the context is swamped: murky green, bubbles rising, slow ripples.
 const SWAMP_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="440" height="64" viewBox="0 0 360 30" preserveAspectRatio="xMaxYMid slice"><style>:root{color-scheme:light dark}html,body{margin:0}svg{background:transparent;display:block}.b{fill:none;stroke:#cfe8b8;stroke-width:.5;opacity:0;animation-name:rise;animation-timing-function:ease-in;animation-iteration-count:infinite}@keyframes rise{0%{opacity:0;transform:translate(0,0)}15%{opacity:.7}80%{opacity:.5}100%{opacity:0;transform:translate(3px,-30px)}}.rp{fill:none;stroke:#a7c98f;stroke-width:.4;stroke-linecap:round;opacity:.25;animation:drift 7s ease-in-out infinite}@keyframes drift{0%,100%{transform:translate(0,0);opacity:.15}50%{transform:translate(4px,0);opacity:.4}}.mk{animation:mk 8s ease-in-out infinite}@keyframes mk{0%,100%{opacity:.85}50%{opacity:1}}</style><defs><linearGradient id="bog" x1="0" x2="1"><stop offset=".43" stop-color="#4f7a3a" stop-opacity="0"/><stop offset=".62" stop-color="#4f7a3a" stop-opacity=".16"/><stop offset=".85" stop-color="#6f9a4f" stop-opacity=".32"/><stop offset="1" stop-color="#9cc27a" stop-opacity=".42"/></linearGradient><linearGradient id="silt" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity="0"/><stop offset=".6" stop-color="#2b3a1f" stop-opacity=".18"/><stop offset="1" stop-color="#1c2614" stop-opacity=".45"/></linearGradient><linearGradient id="fade" x1="0" x2="1"><stop offset=".43" stop-color="#fff" stop-opacity="0"/><stop offset=".7" stop-color="#fff" stop-opacity="1"/></linearGradient><mask id="m"><rect width="360" height="30" fill="url(#fade)"/></mask><pattern id="grain" width="2" height="2" patternUnits="userSpaceOnUse"><rect width=".6" height=".6" fill="#fff" fill-opacity=".06"/></pattern></defs><g mask="url(#m)"><rect class="mk" width="360" height="30" fill="url(#bog)"/><rect width="360" height="30" fill="url(#silt)"/><rect width="360" height="30" fill="url(#grain)"/><path class="rp" style="animation-delay:-0s" d="M190 22 q6 -2 12 0 t12 0"/><path class="rp" style="animation-delay:-2.5s" d="M226 9 q6 -2 12 0 t12 0"/><path class="rp" style="animation-delay:-5s" d="M250 18 q6 -2 12 0 t12 0"/><path class="rp" style="animation-delay:-1.5s" d="M300 24 q6 -2 12 0 t12 0"/><path class="rp" style="animation-delay:-3.8s" d="M322 7 q6 -2 12 0 t12 0"/><circle class="b" cx="168" cy="32" r="1.6" style="animation-duration:6.5s;animation-delay:-0s"/><circle class="b" cx="182" cy="32" r="1.1" style="animation-duration:8s;animation-delay:-2.1s"/><circle class="b" cx="197" cy="32" r="2.0" style="animation-duration:7s;animation-delay:-4.2s"/><circle class="b" cx="210" cy="32" r="1.3" style="animation-duration:9s;animation-delay:-1.0s"/><circle class="b" cx="224" cy="32" r="1.7" style="animation-duration:7.5s;animation-delay:-3.3s"/><circle class="b" cx="238" cy="32" r="1.0" style="animation-duration:8.5s;animation-delay:-5.1s"/><circle class="b" cx="252" cy="32" r="1.4" style="animation-duration:6.8s;animation-delay:-2.6s"/><circle class="b" cx="176" cy="32" r="0.9" style="animation-duration:9.5s;animation-delay:-6.0s"/><circle class="b" cx="232" cy="32" r="0.8" style="animation-duration:10s;animation-delay:-0.5s"/></g></svg>`
 // The band when a usage limit is close: embers, sparks rising.
@@ -333,8 +368,6 @@ const DASH_SVG = BRAND_SVG.replace(
   /stop-opacity="([0-9.]+)"/g,
   (_m, v: string) => `stop-opacity="${(Number(v) * 0.4).toFixed(3)}"`,
 ).replace(/#(7c6cf0|8f7ff0|b3a6ff|c9bdff|9a86ff)/g, '#9a9aa2')
-let DASH_BG = '#141416'
-let DASH_EDGE = '#2a2a2f'
 /** The settings title's word in the website hero's style: crisp, going soft and grainy at its bottom right (a radial
  * mask fades the crisp copy out there and a copy through the site's #grainy filter takes over). The app gives the image
  * the band's font. */
@@ -436,14 +469,6 @@ function introLayer(
     </B>
   )
 }
-/** The settings panel's top bar: a shade above the band. */
-let DASH_HEAD = '#18181b'
-const DASH_TEXT = '#d4d4d8'
-/** The dashboard's quieter figures: the cache countdown while it has time left. */
-const DASH_DIM = '#8b8b93'
-// A settings card under the pointer: a shade up from the band, its edge a shade up from that.
-let CARD_HOVER = '#1c1c20'
-let CARD_HOVER_EDGE = '#3b3b42'
 // The handoff card once it has landed: the brand's art in green, with a big dark checkmark on the right.
 const DONE_SVG = BRAND_SVG.replace(/#7c6cf0/g, '#2fae62')
   .replace(/#8f7ff0/g, '#3cc472')
@@ -454,9 +479,6 @@ const DONE_SVG = BRAND_SVG.replace(/#7c6cf0/g, '#2fae62')
     '</g></svg>',
     '<path d="M323 15.5 L330 22 L345 7.5" fill="none" stroke="#0c3a20" stroke-opacity=".8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></g></svg>',
   )
-const DONE_ACCENT = '#7fe0a4'
-const DONE_BG = '#0f1c15'
-const DONE_EDGE = '#2f7a4c'
 // The mark in the done green, for the titles of cards that have landed.
 const DONE_MARK_SVG = MARK_SVG.replace(/#7566d8/g, '#2f9a5e')
   .replace(/#a79cf7/g, '#7fe0a4')
@@ -646,100 +668,6 @@ function warnJudge($: EngineInterface, reason: string) {
   if (warned.has(reason)) return
   warned.add(reason)
   $.ui.toast(`context-lens: ${reason}. The effort stays as it is.`)
-}
-
-/** The plugin's settings, as read from its options. */
-export type JudgeConfig = {
-  /** A skill or slash command that writes the handoff instead of the built-in prompt, e.g. "session-handoff". */
-  handoffSkill: string
-  /** What follows the handoff: clear and carry on, clear and wait, or keep the chat and copy the handoff. The handoff
-   *  bar opens on the choice made last; this is the first one. */
-  handoffAfter: HandoffAfter
-  /** The effort slider, -2 (cheaper) to 2 (smarter): tips the judge's close calls that way. */
-  bias: number
-  /** Auto never goes below this effort. */
-  floor: Effort
-  /** Auto never goes above this effort. */
-  ceiling: Effort
-  /** What the person switched off: the footer's handoff button and any of the alert bands. */
-  hide: Hideable[]
-  /** The swamp band shows once the context fills this share of the window, in percent. */
-  swampAt: number
-  /** default: the dashboard band above the prompt; minimal: the footer's small buttons and no band. */
-  layout: 'default' | 'minimal'
-  /** Who writes a compaction's summary: Haiku 5.5 (the default, a fraction of the price) or the chat's own model. */
-  compactWith: 'haiku' | 'session'
-  /** advised: the footer slot is Compact until Haiku advises a handoff. always: it is always the Handoff button. */
-  handoffButton: 'advised' | 'always'
-  /** on: every subagent the chat sends off gets an effort picked by the judge before it starts. */
-  subagents: 'on' | 'off'
-  /** on (with subagents on): the judge also picks the model of each subagent, never above the one it was given. */
-  subagentModel: 'on' | 'off'
-  /** on: the judge's picks replace the model and effort a subagent's definition sets. off: the definition's stay. */
-  overrideDefinitions: 'on' | 'off'
-  /** on: with Auto for model off, a typed prompt waits for the answer when the judge names another model. off: a toast. */
-  holdOffer: 'on' | 'off'
-  /** The accent colour of everything context-lens draws: the brand violet, Claude orange or cherry-blossom rose. */
-  theme: ThemeName
-  /** auto: light when Claude Code's own theme is light. dark and light fix it. */
-  appearance: 'auto' | 'dark' | 'light'
-}
-
-/** The swamp thresholds the settings offer, in percent of the context window. */
-export const SWAMP_STEPS = [10, 20, 30, 40, 50, 60, 70, 80] as const
-
-/** The parts of context-lens a person can switch off: the Handoff button, the cache timer, the judge's reason line and
- * the context (swamp), running-low (hot) and cold-cache alerts. The Context card switches off the button and the context
- * alert, the Look card the rest; the judge-down alert always shows. Each alert also has its own ✕. */
-export const HIDEABLE = ['handoff', 'timer', 'reason', 'swamp', 'hot', 'cold'] as const
-export type Hideable = (typeof HIDEABLE)[number]
-// What the app passed to register, so settings kept in the store can be laid over it at session start.
-let pluginOptions: Record<string, unknown> = {}
-let config: JudgeConfig = {
-  handoffSkill: '',
-  handoffAfter: 'continue',
-  bias: 0,
-  floor: 'low',
-  ceiling: 'max',
-  hide: [],
-  swampAt: 70,
-  layout: 'default',
-  compactWith: 'haiku',
-  handoffButton: 'advised',
-  subagents: 'off',
-  subagentModel: 'off',
-  overrideDefinitions: 'off',
-  holdOffer: 'on',
-  theme: 'violet',
-  appearance: 'auto',
-}
-
-/** The settings as the engine hands them over (defaults filled in), cleaned to the shape the judge reads. */
-export function readConfig(options: unknown): JudgeConfig {
-  const o = (options ?? {}) as Record<string, unknown>
-  const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '')
-  return {
-    handoffSkill: str(o.handoffSkill).replace(/^\//, ''),
-    handoffAfter: (['confirm', 'copy'] as const).find(a => a === str(o.handoffAfter)) ?? 'continue',
-    bias: Math.max(-2, Math.min(2, Math.round(Number(str(o.effortBias)) || 0))),
-    floor: EFFORTS.includes(str(o.effortFloor) as Effort) ? (str(o.effortFloor) as Effort) : 'low',
-    ceiling: EFFORTS.includes(str(o.effortCeiling) as Effort) ? (str(o.effortCeiling) as Effort) : 'max',
-    swampAt: SWAMP_STEPS.includes(Number(str(o.swampAt)) as (typeof SWAMP_STEPS)[number]) ? Number(str(o.swampAt)) : 70,
-    layout: str(o.layout) === 'minimal' ? 'minimal' : 'default',
-    compactWith: str(o.compactWith) === 'session' ? 'session' : 'haiku',
-    handoffButton: str(o.handoffButton) === 'always' ? 'always' : 'advised',
-    subagents: str(o.subagents) === 'on' ? 'on' : 'off',
-    subagentModel: str(o.subagentModel) === 'on' ? 'on' : 'off',
-    overrideDefinitions: str(o.overrideDefinitions) === 'on' ? 'on' : 'off',
-    holdOffer: str(o.holdOffer) === 'off' ? 'off' : 'on',
-    theme: THEMES.find(t => t === str(o.theme)) ?? 'violet',
-    appearance: (['dark', 'light'] as const).find(a => a === str(o.appearance)) ?? 'auto',
-    // Everything shows unless switched off; the judge's line too.
-    hide: (o.hide === undefined ? '' : str(o.hide))
-      .split(',')
-      .map(part => part.trim())
-      .filter((part): part is Hideable => (HIDEABLE as readonly string[]).includes(part)),
-  }
 }
 
 /** The text the judge reads: the current pair, the last turns and the next message. */
@@ -1084,7 +1012,7 @@ async function modelIs($: EngineInterface, id: string) {
   await update($, model, () => key)
   // The engine's effort can differ per model, so a change across a switch is not the person's doing;
   // and a model turned down earlier may be suggested again.
-  engineEffort = undefined
+  setEngineEffort(undefined)
   declined = null
   settleOffer(false)
   const current = await read($, pick)
@@ -1100,66 +1028,6 @@ async function sessionModel($: EngineInterface): Promise<ModelKey> {
 async function sessionModelId($: EngineInterface): Promise<string> {
   return sessionPick ? MODELS.find(m => m.key === sessionPick)!.id : $.session.model()
 }
-
-// Proof log: every verdict, /effort and request effort, written to CONTEXT_LENS_LOG, or to
-// %TEMP%/context-lens-proof.log while the mod is loaded from a dev-mods folder. Off otherwise.
-const proofLines: string[] = []
-// An environment variable does not change while the session runs, so each one is asked for once. The
-// engine wants the name spelled out in every $.env.get call, hence one small getter per variable.
-type EnvAsk = Promise<string | undefined> | undefined
-let askLog: EnvAsk
-let askTemp: EnvAsk
-let askTmpdir: EnvAsk
-let askUserProfile: EnvAsk
-let askHome: EnvAsk
-let askCacheTtl: EnvAsk
-let askAgentCacheTtl: EnvAsk
-let askForce5m: EnvAsk
-let askEnable1h: EnvAsk
-const envLog = ($: EngineInterface) => (askLog = askLog ?? $.env.get('CONTEXT_LENS_LOG'))
-const envTemp = ($: EngineInterface) => (askTemp = askTemp ?? $.env.get('TEMP'))
-const envTmpdir = ($: EngineInterface) => (askTmpdir = askTmpdir ?? $.env.get('TMPDIR'))
-const envUserProfile = ($: EngineInterface) => (askUserProfile = askUserProfile ?? $.env.get('USERPROFILE'))
-const envHome = ($: EngineInterface) => (askHome = askHome ?? $.env.get('HOME'))
-const envCacheTtl = ($: EngineInterface) => (askCacheTtl = askCacheTtl ?? $.env.get('CLAUDE_CODE_PROMPT_CACHE_TTL'))
-const envAgentCacheTtl = ($: EngineInterface) =>
-  (askAgentCacheTtl = askAgentCacheTtl ?? $.env.get('CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL'))
-const envForce5m = ($: EngineInterface) => (askForce5m = askForce5m ?? $.env.get('FORCE_PROMPT_CACHING_5M'))
-const envEnable1h = ($: EngineInterface) => (askEnable1h = askEnable1h ?? $.env.get('ENABLE_PROMPT_CACHING_1H'))
-
-async function proofPath($: EngineInterface): Promise<string | undefined> {
-  const named = await envLog($)
-  if (named) return named
-  if (!$.plugin.root.replace(/\\/g, '/').includes('/dev-mods/')) return undefined
-  const tmp = (await envTemp($)) ?? (await envTmpdir($)) ?? '/tmp'
-  return `${tmp}/context-lens-proof.log`
-}
-async function proof($: EngineInterface, line: string) {
-  const path = await proofPath($).catch(() => undefined)
-  if (!path) return
-  proofLines.push(`${new Date().toISOString()} ${line}`)
-  await $.fs.write(path, proofLines.slice(-200).join('\n') + '\n').catch(() => undefined)
-}
-
-// The effort the engine itself last asked for on the main loop (the app's setting; this mod only
-// rewrites the request, never the setting). It changing means the person set it (the app's Effort
-// control, their own /effort): that wins and Auto goes off.
-let engineEffort: string | undefined
-// The pick was carried over from the last chat (the store), not made in this one: the app's effort may overrule it.
-let pickCarried = false
-// The last main-chat request, for /context-lens debug: what the app asked for and what the mod sent instead, if anything.
-let lastRequest: {
-  index: number
-  appModel: string
-  appEffort: unknown
-  model: string
-  effort: unknown
-  at: number
-} | null = null
-// The slash command this mod last typed into the prompt box.
-let lastTyped = ''
-// The toast about pressing Enter is shown once; on every click it is only noise.
-let toldAboutEnter = false
 // A model the person turned down; not suggested again until they pick something else.
 let declined: ModelKey | null = null
 // The model a taken offer moved this session to. Only the requests carry it: /model would also make it the app's
@@ -1194,9 +1062,9 @@ async function typeCommand($: EngineInterface, text: string): Promise<boolean> {
     // A draft of your own is never overwritten; the mod's own earlier command is replaced.
     if (draft !== '' && draft !== lastTyped) return false
     const filled = await $.prompt.fill({ text })
-    if (filled.isFilled) lastTyped = text
+    if (filled.isFilled) setLastTyped(text)
     if (filled.isFilled && !toldAboutEnter) {
-      toldAboutEnter = true
+      setToldAboutEnter(true)
       $.ui.toast(`Press Enter to send ${text} so the app's own control follows`)
     }
     return filled.isFilled
@@ -1653,20 +1521,6 @@ export function bounded(effort: Effort, floor: Effort, ceiling: Effort): Effort 
 /** Save mode caps what Auto picks at medium; a higher pick comes down to it. */
 export function capped(effort: Effort, saving: boolean): Effort {
   return saving && EFFORTS.indexOf(effort) > EFFORTS.indexOf('medium') ? 'medium' : effort
-}
-
-// A main-conversation turn is running: set when a prompt is sent and at each request, cleared when the turn ends (an
-// aborted one too). The swamp band and card wait for it: Compact or Handoff mid-turn would cut the reply off. A turn
-// with no request for TURN_STALE_MS counts as over, so a missed end never hides the band for good.
-let turnBusyAt: number | undefined
-const TURN_STALE_MS = 10 * 60_000
-function turnBusy(): boolean {
-  return turnBusyAt !== undefined && Date.now() - turnBusyAt < TURN_STALE_MS
-}
-async function setTurnBusy($: EngineInterface, busy: boolean) {
-  const was = turnBusyAt !== undefined
-  turnBusyAt = busy ? Date.now() : undefined
-  if (was !== busy) $.ui.invalidate('ui.render')
 }
 
 /** A context share to draw the bars with instead of the real one, from ~/.claude/context-lens-preview.json
@@ -2130,7 +1984,7 @@ async function saveSetting($: EngineInterface, field: keyof typeof SETTING_FIELD
     appearance: config.appearance,
     [SETTING_FIELDS[field]]: value,
   }
-  config = readConfig(raw)
+  setConfig(readConfig(raw))
   applyTheme()
   $.ui.invalidate('ui.render')
 }
@@ -2410,7 +2264,7 @@ async function toggleAutoModel($: EngineInterface) {
 }
 
 async function choose($: EngineInterface, next: Pick | null) {
-  pickCarried = false
+  setPickCarried(false)
   const before = await read($, pick)
   await Promise.all([update($, pick, () => next), $.store.set('pick', next)])
   // A change Auto made is shown as "Low → High" for a moment, so the switch is seen.
@@ -2609,39 +2463,6 @@ async function appHint($: EngineInterface, v: Snap): Promise<string> {
     { model: await sessionModel($), effort: pickGoesOut ? v.current!.effort : undefined },
   )
 }
-
-// For /context-lens debug: how often the app asked for the band, when, and the last error drawing it.
-// /context-lens probe N: 1 a bare box, 2 the panel's frame and header only, 3 the panel without pickers or fields.
-let probeLevel = 0
-let renderCalls = 0
-let lastRenderProps = ''
-let lastRenderBranch = ''
-// Every time the app asked for the band, with what it sent, written to ~/.claude/context-lens-render-<chat>.log each second
-// (the last 300): how often the band is really redrawn in the app, which the render rig cannot see (hover flicker).
-const renderLog: string[] = []
-let renderLogWritten = 0
-async function writeRenderLog($: EngineInterface) {
-  if (renderLog.length === renderLogWritten) return
-  if (renderLog.length > 600) renderLog.splice(0, renderLog.length - 300)
-  renderLogWritten = renderLog.length
-  const home = (await envUserProfile($)) ?? (await envHome($))
-  // One file per chat: a shared file was overwritten whole by whichever chat drew last.
-  if (home)
-    await $.fs
-      .write(`${home}/.claude/context-lens-render-${loadedSession}.log`, renderLog.slice(-300).join('\n') + '\n')
-      .catch(() => undefined)
-}
-let lastRenderAt = 0
-let loadedSession = '-'
-// When this module loaded, for the render log's "first draw" line.
-let loadedAt = Date.now()
-let firstDrawLogged = false
-let drawsTimed = 0
-let lastRenderError = ''
-let sessionStarted = 0
-// When the app's SessionStart came and what it said, for /context-lens debug: a cold band that shows late is either a
-// late signal or a redraw the app did not take.
-let classicStart: { at: number; said: string } | null = null
 // /context-lens cold shows the band whatever the chat's size, until the next response (a test of the band itself).
 let coldForced = false
 let handoffTimer: { cancel: () => void } | undefined
@@ -2890,8 +2711,6 @@ const FLASH_STEPS: readonly (readonly [number, number])[] = [
   [1480, 0.75],
   [1640, 0.9],
 ]
-/** The glow: a stronger shade than the accent, so a switch is seen at a glance. */
-let FLASH_COLOR = '#9b7bff'
 /** The effort word's colour `ms` after it changed: the glow, held, then easing out to the band's white. */
 export function flashColor(ms: number | null): string {
   if (ms === null || ms >= FLASH_MS) return DASH_TEXT
@@ -2938,7 +2757,6 @@ async function effortFlash($: EngineInterface, what: string, judging: boolean, e
 const UNINSTALL_ARM_MS = 4000
 let uninstallArmedAt = 0
 let uninstalling = false
-const UNINSTALL_RED = '#ff6b6b'
 /** A bin: the lid and its handle, the can with two ribs. */
 function binSvg(color: string): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14"><g fill="none" stroke="${color}" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M2.2 3.8H11.8M5.4 3.8V2.4H8.6V3.8M3.4 3.8L4 12H10L10.6 3.8M5.9 6V9.8M8.1 6V9.8"/></g></svg>`
@@ -3108,17 +2926,6 @@ function handoffCardTree(
   )
 }
 
-/** This install's version, read from its plugin.json when the timers start. */
-let ownVersion = ''
-function readOwnVersion($: EngineInterface) {
-  void $.fs
-    .read(`${$.plugin.root}/.claude-plugin/plugin.json`)
-    .then(text => {
-      ownVersion = String(JSON.parse(String(text)).version ?? '')
-    })
-    .catch(() => undefined)
-}
-
 /** The session's timers. A reload loads the module again with no session start, so the band's first draw starts them
  * too; a session start restarts them, cancelling the ones the draw started. */
 let timersFrom: 'start' | 'draw' | null = null
@@ -3167,50 +2974,12 @@ function startTimers($: EngineInterface, from: 'start' | 'draw') {
     void finishHandoff($).catch(() => undefined)
   })
 }
-
-/**
- * Where `claude` may be: on PATH, then where the official installers put it. The desktop app starts with the PATH it
- * had at login, so a CLI installed since is not on it until the next sign-in.
- */
-export function claudeCandidates(home: string | undefined): string[] {
-  if (!home) return ['claude']
-  const win = /^[A-Za-z]:/.test(home)
-  const sep = home.includes('\\') ? '\\' : '/'
-  return ['claude', [home.replace(/[\\/]+$/, ''), '.local', 'bin', win ? 'claude.exe' : 'claude'].join(sep)]
-}
-// What the engine says when a command cannot be started at all, as opposed to one that ran and failed.
-const NOT_STARTED = /ENOENT|not found or is in an unsafe location|failed to start/i
-/** For a `claude` that would not start: what to install, in the person's own shell; undefined for any other error. */
-export function noClaudeHint(error: string, home: string | undefined): string | undefined {
-  if (!NOT_STARTED.test(error)) return undefined
-  const install =
-    home && /^[A-Za-z]:/.test(home)
-      ? 'irm https://claude.ai/install.ps1 | iex'
-      : 'curl -fsSL https://claude.ai/install.sh | bash'
-  return `This needs the Claude Code CLI. Install it with ${install}, then reopen the app.`
-}
-const homeDir = async ($: EngineInterface) => ((await envUserProfile($)) ?? (await envHome($))) || undefined
-/** `claude <args>`, from the next place it may be when one will not start. */
-async function runClaude($: EngineInterface, args: string[], opts: Parameters<EngineInterface['process']['run']>[1]) {
-  let last: unknown
-  for (const bin of claudeCandidates(await homeDir($))) {
-    try {
-      return await $.process.run([bin, ...args], opts)
-    } catch (error) {
-      last = error
-      if (!NOT_STARTED.test(String(error))) throw error
-    }
-  }
-  throw last
-}
 /** How long "Compact complete" stays above the prompt when nothing else clears it. */
 const COMPACT_CARD_MS = 20_000
 /** A settings part's body on desktop is as tall as the overview's row of cards, so the panel keeps its height going in
  * and out of a part. In lines (a Box height is a number of lines or a percentage) at the app's 19 px line: 56 px makes
  * the band 121.5 px tall in every part, as with the cards. */
 const SETTINGS_BODY_H = 56 / 19
-/** The card ✕'s hover: the app's ghost fill is lost on the green and violet cards, so a darker wash of the card itself. */
-const CARD_CLOSE_HOVER = '#00000040'
 /** A handoff's or compact's card for the band above the prompt: while it runs, and once landed until the next message
  * is sent, the ✕ is pressed or its time has passed (COMPACT_CARD_MS, HANDOFF_CARD_MS). */
 async function compactCard($: EngineInterface, working = false) {
@@ -3220,9 +2989,6 @@ async function compactCard($: EngineInterface, working = false) {
   if (working || (card.kind === 'compacted' && card.seen) || (await $.clock.now()) - card.at >= keep) return null
   return card
 }
-
-/** Context share from which the dashboard's Handoff button turns white: below it a handoff saves little. */
-const HANDOFF_LOUD_AT = 30
 // Handoff is calm until Haiku says a fresh chat would suit now (handoffAdvice); then it is the white box with a glow.
 // What the band last read from handoffAdvice, so the drawing helpers need no await.
 let adviceNow: string | null = null
@@ -3352,9 +3118,6 @@ const AUTO_GLOW_MS = 2600
 const AUTO_GLOW_W = 760
 const AUTO_GLOW_H = 37
 const COLD_GLOW_MS = 4200
-/** This install's id, context-lens@<marketplace>, read off the cache path (…/plugins/cache/<marketplace>/context-lens/<version>). */
-const pluginId = ($: EngineInterface) =>
-  `context-lens@${$.plugin.root.match(/cache[\\/]([^\\/]+)[\\/]/)?.[1] ?? 'context-lens'}`
 
 /** The rim in the brand's violet while the judge decides: it lights up and stays at full while it thinks, then fades from
  * full once the verdict is in. Two images, each placed by the clock on every draw (inPhase): the app swaps the whole
@@ -4357,14 +4120,6 @@ async function haikuHandoff(
 
 const LENS_TICK_MS = 5_000
 
-const lensMain = atom({ plugin: 'context-lens', key: 'lensMain' } as const, emptyClock('1h'))
-const lensAgents = atom({ plugin: 'context-lens', key: 'lensAgents' } as const, [])
-const lensContext = atom({ plugin: 'context-lens', key: 'lensContext' } as const, null)
-const lensLiveTokens = atom({ plugin: 'context-lens', key: 'lensLive' } as const, null)
-const lensRewritten = atom({ plugin: 'context-lens', key: 'lensRewritten' } as const, false)
-const lensLimits = atom({ plugin: 'context-lens', key: 'lensLimits' } as const, [])
-const lensNow = atom({ plugin: 'context-lens', key: 'lensNow' } as const, 0)
-
 const LENS_WARMTH_COLOR: Record<Warmth, string> = {
   uncached: 'inactive',
   warm: 'success',
@@ -4544,14 +4299,14 @@ export const register: Register = (on, options) => {
     }
     return next(e)
   })
-  loadedAt = Date.now()
+  setLoadedAt(Date.now())
   timersFrom = null
   timersScheduled = false
-  firstDrawLogged = false
-  drawsTimed = 0
-  config = readConfig(options)
+  setFirstDrawLogged(false)
+  setDrawsTimed(0)
+  setConfig(readConfig(options))
   applyTheme()
-  pluginOptions = options
+  setPluginOptions(options)
   on('session.compact', async ($, e, next) => {
     const result = await (async () => {
       // A subagent's own compaction, the session's model by choice: Claude Code's own.
@@ -4584,7 +4339,7 @@ export const register: Register = (on, options) => {
     return result
   })
   on('session.start', async ($, e, next) => {
-    sessionStarted = Date.now()
+    setSessionStarted(Date.now())
     await lensStarted($).catch(() => undefined)
     // Everything the first draw needs, asked for at once: one after the other they held the start (and with it the
     // band) for a second or more. What the draw does not need runs after, unawaited.
@@ -4597,13 +4352,13 @@ export const register: Register = (on, options) => {
       $.store.get('setupDone').catch(() => null),
     ])
     // Which chat this load serves, and when it started: each chat has its own render log.
-    loadedSession = String(sid).slice(0, 8)
+    setLoadedSession(String(sid).slice(0, 8))
     // Settings saved under an old name, then the ones the app had no /config row for (see saveSetting), over the ones it
     // passed in. The carried ones are saved under their new names by the save queue below.
     const keptSettings = kept && typeof kept === 'object' ? (kept as Record<string, unknown>) : {}
     const carried = await carryRenamedSettings($, keptSettings).catch(() => ({}))
     if (Object.keys(keptSettings).length || Object.keys(carried).length) {
-      config = readConfig({ ...pluginOptions, ...carried, ...keptSettings })
+      setConfig(readConfig({ ...pluginOptions, ...carried, ...keptSettings }))
       applyTheme()
     }
     await Promise.all([
@@ -4612,7 +4367,7 @@ export const register: Register = (on, options) => {
       // Auto off means the effort you chose should still be the one in force.
       storedAuto === false && storedPick && EFFORTS.includes(storedPick.effort)
         ? update($, pick, () => storedPick).then(() => {
-            pickCarried = true
+            setPickCarried(true)
           })
         : null,
       // The first time the mod runs, the setup guide opens above the prompt.
@@ -4648,10 +4403,10 @@ export const register: Register = (on, options) => {
   on('classic.SessionStart', async ($, e, next) => {
     const result = await next(e)
     const r = e as { source?: string; seconds_since_last_response?: number; prompt_cache_likely_expired?: boolean }
-    classicStart = {
+    setClassicStart({
       at: Date.now(),
       said: `${r.source ?? '?'}, ${r.seconds_since_last_response ?? '?'}s since reply, expired ${r.prompt_cache_likely_expired ?? '?'}`,
-    }
+    })
     if (
       (r.source === 'resume' || r.source === 'fork') &&
       typeof r.seconds_since_last_response === 'number' &&
@@ -4765,7 +4520,7 @@ export const register: Register = (on, options) => {
       return { text: `Writing the ${full ? 'full' : 'quick'} handoff. ${what.by}. ${what.then}` }
     }
     if (arg.startsWith('probe')) {
-      probeLevel = Number(arg.slice(5).trim()) || 0
+      setProbeLevel(Number(arg.slice(5).trim()) || 0)
       await update($, settingsOpen, () => true)
       $.ui.invalidate('ui.render')
       return { text: `Probe ${probeLevel} drawn above the prompt (0 is the real panel). Tell me if you see it.` }
@@ -5099,14 +4854,14 @@ Saved to ${out}.md and .json`,
           effort: EFFORTS.find(x => x === request.effort),
         }
       if (e.agentId === undefined)
-        lastRequest = {
+        setLastRequest({
           index: e.index,
           appModel: asked.model,
           appEffort: asked.effort,
           model: request.model,
           effort: request.effort,
           at: Date.now(),
-        }
+        })
       const answer = yield* next(request)
       if (answer?.usage)
         await recordRequest($, e.agentId, answer.usage, {
@@ -5131,7 +4886,7 @@ Saved to ${out}.md and .json`,
       const seen = e.effort
       const isFirst = engineEffort === undefined
       const isByPerson = !isFirst && seen !== engineEffort
-      engineEffort = seen
+      setEngineEffort(seen)
       // The first effort seen is the app's setting; a change the mod did not make is the person's.
       if (isFirst || isByPerson) await update($, appEffort, () => seen)
       // A new chat with Auto off starts from the pick kept from the last chat; the effort the app is on now is the
@@ -5421,13 +5176,13 @@ Saved to ${out}.md and .json`,
     // Setup changes a reload cut off are saved from here: the reloaded plugin draws before anything else runs.
     void drainSetupSave($).catch(() => undefined)
     await restoreCache($).catch(() => undefined)
-    renderCalls++
-    lastRenderAt = Date.now()
+    setRenderCalls(renderCalls + 1)
+    setLastRenderAt(Date.now())
     void refreshAppearance($).catch(() => undefined)
-    lastRenderProps = JSON.stringify(e.props).slice(0, 200)
+    setLastRenderProps(JSON.stringify(e.props).slice(0, 200))
     renderLog.push(`${new Date(lastRenderAt).toISOString()} ${loadedSession} ${lastRenderProps}`)
     if (!firstDrawLogged) {
-      firstDrawLogged = true
+      setFirstDrawLogged(true)
       renderLog.push(
         `${new Date().toISOString()} ${loadedSession} first draw asked ${lastRenderAt - loadedAt} ms after load`,
       )
@@ -5447,7 +5202,7 @@ Saved to ${out}.md and .json`,
         } catch {}
       }
       if (e.props.hasSurvey) {
-        lastRenderBranch = 'stepped aside: the app has a survey in this spot'
+        setLastRenderBranch('stepped aside: the app has a survey in this spot')
         return next(e)
       }
       const asked = await $.store.get('openSettingsAt')
@@ -5467,7 +5222,7 @@ Saved to ${out}.md and .json`,
           $.clock.after(0, () => void update($, settingsOpen, () => true))
         }
       }
-      lastRenderBranch = open ? 'drew the settings panel' : 'drew a band or nothing'
+      setLastRenderBranch(open ? 'drew the settings panel' : 'drew a band or nothing')
       const { Box, Text, Button, Svg, Link } = themedEls($.ui.resolve(e))
       // The settings panel: a branded header bar, then one compact row per setting, a dim hint at the end of each row.
       if (open) {
@@ -6995,7 +6750,7 @@ Saved to ${out}.md and .json`,
         </Box>
       )
     } catch (error) {
-      lastRenderError = (error instanceof Error ? error.message : String(error)).slice(0, 300)
+      setLastRenderError((error instanceof Error ? error.message : String(error)).slice(0, 300))
       return next(e)
     } finally {
       if (glowReadAt !== null) {
@@ -7004,7 +6759,7 @@ Saved to ${out}.md and .json`,
       }
       // How long the draws take, for the first few after a load: the render log says where a slow start goes.
       if (drawsTimed < 5) {
-        drawsTimed++
+        setDrawsTimed(drawsTimed + 1)
         renderLog.push(`${new Date().toISOString()} ${loadedSession} draw took ${Date.now() - lastRenderAt} ms`)
       }
     }
